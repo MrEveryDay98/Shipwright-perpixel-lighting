@@ -804,6 +804,17 @@ void SohMenu::AddMenuEnhancements() {
             " - Darunia\n"
             " - Gold Skulltulas"));
 
+    AddWidget(path, "Player Effects", WIDGET_SEPARATOR_TEXT);
+    AddWidget(path, "Blood Effect on Hit", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("PlayerHurtBloodEffect"))
+        .Options(CheckboxOptions().Tooltip(
+            "Shows a burst of blood on Link whenever he takes damage."));
+    AddWidget(path, "Blood During Game Over: %d frames", WIDGET_CVAR_SLIDER_INT)
+        .CVar(CVAR_ENHANCEMENT("PlayerHurtBloodGameOverInterval"))
+        .Options(IntSliderOptions().Min(0).Max(60).DefaultValue(0).Format("%d frames").Tooltip(
+            "While the Game Over death animation plays, spurts blood from Link at this interval "
+            "(in frames). 0 disables this."));
+
     path.sidebarName = "Items";
     AddSidebarEntry("Enhancements", path.sidebarName, 3);
     path.column = SECTION_COLUMN_1;

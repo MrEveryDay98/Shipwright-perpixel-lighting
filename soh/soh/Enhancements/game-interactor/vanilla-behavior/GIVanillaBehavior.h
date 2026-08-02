@@ -3657,6 +3657,19 @@ typedef enum {
     // - `*Actor` (attacker)
     // - `f32*` (damage, mutate in place)
     VB_MODIFY_ENEMY_DAMAGE_TO_PLAYER,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // Hook fired the moment Link visibly reacts to taking damage (the flinch/knockback response,
+    // func_80837C0C), for enhancements that want to react with their own effect (e.g. spawning a
+    // hit-impact particle at his position). Purely a notification -- nothing in vanilla branches
+    // on the result.
+    // #### `args`
+    // - `*PlayState`
+    // - `*Player`
+    VB_PLAYER_TAKE_DAMAGE_EFFECT,
 } GIVanillaBehavior;
 
 #endif
