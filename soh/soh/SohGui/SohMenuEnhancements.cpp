@@ -1351,6 +1351,11 @@ void SohMenu::AddMenuEnhancements() {
                               "16x: Can survive void damage with max health without double defense.\n"
                               "32x: Can survive void damage with max health and double defense.\n"
                               "64x: Cannot survive void damage."));
+    AddWidget(path, "Lethal Void Damage Triggers Game Over", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("VoidDamageGameOver"))
+        .Options(CheckboxOptions().Tooltip(
+            "If falling into a void would be lethal, skip respawning back at the room's entrance "
+            "and immediately trigger the game over sequence instead."));
     AddWidget(path, "Bonk Damage Multiplier", WIDGET_CVAR_COMBOBOX)
         .CVar(CVAR_ENHANCEMENT("BonkDamageMult"))
         .Options(ComboboxOptions()

@@ -3590,6 +3590,18 @@ typedef enum {
     // a textbox can be rendered instead. Pause screen only, Game Over version left
     // intact.
     VB_DRAW_SAVE_MENU,
+
+    // #### `result`
+    // ```c
+    // false
+    // ```
+    // Hook allowing the game-over sequence (func_80836448) to start even when the player isn't
+    // grounded or in water. Player_UpdateCommon's health==0 check normally requires one of those,
+    // so a lethal hit dealt while fully airborne (e.g. mid-fall into a void) would otherwise just
+    // leave health at 0 with nothing visibly happening until the player eventually lands.
+    // #### `args`
+    // - `*Actor`
+    VB_FORCE_GAME_OVER_AIRBORNE,
 } GIVanillaBehavior;
 
 #endif
