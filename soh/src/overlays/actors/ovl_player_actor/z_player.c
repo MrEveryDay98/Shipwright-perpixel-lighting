@@ -4537,6 +4537,7 @@ void func_80837C0C(PlayState* play, Player* this, s32 damageResponseType, f32 sp
     this->unk_890 = 0;
 
     Player_PlaySfx(this, NA_SE_PL_DAMAGE);
+    GameInteractor_Should(VB_PLAYER_TAKE_DAMAGE_EFFECT, true, play, this);
 
     if (!func_80837B18(play, this, 0 - this->actor.colChkInfo.damage)) {
         this->stateFlags2 &= ~PLAYER_STATE2_GRABBED_BY_ENEMY;
