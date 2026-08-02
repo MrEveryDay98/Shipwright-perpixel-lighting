@@ -823,7 +823,11 @@ void EnFloormas_GrabLink(EnFloormas* this, PlayState* play) {
             } else {
                 Player_PlaySfx(&player->actor, NA_SE_VO_LI_DAMAGE_S);
             }
-            play->damagePlayer(play, -8);
+            {
+                f32 damage = 8.0f;
+                GameInteractor_Should(VB_MODIFY_ENEMY_DAMAGE_TO_PLAYER, true, &player->actor, &this->actor, &damage);
+                play->damagePlayer(play, -(s32)damage);
+            }
         }
     }
 

@@ -401,7 +401,11 @@ s32 EnSt_CheckHitLink(EnSt* this, PlayState* play) {
     }
 
     this->gaveDamageSpinTimer = 30;
-    play->damagePlayer(play, -8);
+    {
+        f32 damage = 8.0f;
+        GameInteractor_Should(VB_MODIFY_ENEMY_DAMAGE_TO_PLAYER, true, &player->actor, &this->actor, &damage);
+        play->damagePlayer(play, -(s32)damage);
+    }
     Audio_PlayActorSound2(&player->actor, NA_SE_PL_BODY_HIT);
     Actor_SetPlayerKnockbackLargeNoDamage(play, &this->actor, 4.0f, this->actor.yawTowardsPlayer, 6.0f);
     return true;

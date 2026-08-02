@@ -7,6 +7,7 @@
 #include <soh/Enhancements/TimeDisplay/TimeDisplay.h>
 #include "soh/Enhancements/randomizer/randomizer.h"
 #include "soh/Enhancements/Restorations/GetItemManipulation.h"
+#include "soh/Enhancements/Difficulty/EnemyTuningTable.h"
 #include <ship/Context.h>
 
 extern "C" {
@@ -1425,8 +1426,8 @@ void SohMenu::AddMenuEnhancements() {
     AddWidget(path, "Skip Game Over Prompts and Reload Save", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_ENHANCEMENT("GameOverSkipPromptsReload"))
         .Options(CheckboxOptions().Tooltip(
-            "Skips the \"Save?\" prompt and \"Saved!\" confirmation on the game over screen "
-            "entirely, going straight to \"Continue?\" -- pressing it then loads your last save "
+            "Skips both the \"Save?\" and \"Continue?\" prompts on the game over screen -- shows "
+            "the Game Over text, then fades straight back into gameplay by loading your last save "
             "file from disk, instead of resuming with whatever's still in memory.\n\n" ICON_FA_EXCLAMATION_TRIANGLE
             " WARNING " ICON_FA_EXCLAMATION_TRIANGLE
             "\nAny progress since your last save is lost, exactly like reloading from the file "
@@ -1474,22 +1475,75 @@ void SohMenu::AddMenuEnhancements() {
                      .DefaultValue(0)
                      .Format("%d seconds")
                      .Tooltip("The time between groups of Leevers spawning."));
-    AddWidget(path, "Enemy Speed: %.2fx", WIDGET_CVAR_SLIDER_FLOAT)
-        .CVar(CVAR_ENHANCEMENT("EnemySpeedMult"))
-        .Options(FloatSliderOptions()
-                     .Min(1.0f)
-                     .Max(3.0f)
-                     .DefaultValue(1.0f)
-                     .Format("%.2fx")
-                     .Tooltip("Increases how fast Enemies and Mini-Bosses move."));
-    AddWidget(path, "Enemy Attack Frequency: %.2fx", WIDGET_CVAR_SLIDER_FLOAT)
-        .CVar(CVAR_ENHANCEMENT("EnemyAttackFrequencyMult"))
-        .Options(FloatSliderOptions()
-                     .Min(1.0f)
-                     .Max(3.0f)
-                     .DefaultValue(1.0f)
-                     .Format("%.2fx")
-                     .Tooltip("Increases how often Enemies and Mini-Bosses perform attacks."));
+    AddWidget(path, "See the \"Enemy Tuning\" page for per-enemy and fallback Speed/Attack "
+                    "Speed/Damage sliders.",
+              WIDGET_SEPARATOR_TEXT);
+
+    // Enemy Tuning
+    path.sidebarName = "Enemy Tuning";
+    AddSidebarEntry("Enhancements", path.sidebarName, 2);
+    path.column = SECTION_COLUMN_1;
+
+    AddWidget(path, "Reset All to Defaults", WIDGET_BUTTON)
+        .Callback([](WidgetInfo& info) { ResetEnemyTuningToDefaults(); })
+        .Options(ButtonOptions()
+                     .Tooltip("Resets every slider on this page (curated enemies and the Global "
+                              "Fallback column) back to its default value.")
+                     .Size(UIWidgets::Sizes::Inline));
+
+    AddWidget(path, "Curated Enemies", WIDGET_SEPARATOR_TEXT);
+    AddWidget(path,
+              "Each of these enemies uses its own multipliers below, instead of the Global "
+              "Fallback column.",
+              WIDGET_TEXT);
+    for (const auto& entry : GetEnemyTuningTable()) {
+        AddWidget(path, entry.displayName, WIDGET_SEPARATOR_TEXT);
+        // Each slider's label doubles as its ImGui ID -- append "##<key>" (invisible, doesn't
+        // affect the displayed "Speed: %.2fx" text) so the 6 enemies' otherwise-identical labels
+        // don't collide and alias each other's widget state.
+        AddWidget(path, (std::string("Speed: %.2fx##") + entry.key).c_str(), WIDGET_CVAR_SLIDER_FLOAT)
+            .CVar(entry.speedCvarName.c_str())
+            .Options(FloatSliderOptions().Min(1.0f).Max(3.0f).DefaultValue(1.0f).Format("%.2fx").Tooltip(
+                "Increases how fast this enemy moves."));
+        AddWidget(path, (std::string("Attack Speed: %.2fx##") + entry.key).c_str(), WIDGET_CVAR_SLIDER_FLOAT)
+            .CVar(entry.attackSpeedCvarName.c_str())
+            .Options(FloatSliderOptions().Min(1.0f).Max(3.0f).DefaultValue(1.0f).Format("%.2fx").Tooltip(
+                "Increases how fast this enemy's attacks (and other actions) play out once it's "
+                "already doing them -- doesn't affect how often it chooses to attack."));
+        AddWidget(path, (std::string("Base Damage: %d##") + entry.key).c_str(), WIDGET_CVAR_SLIDER_INT)
+            .CVar(entry.baseDamageCvarName.c_str())
+            .Options(IntSliderOptions()
+                         .Min(1)
+                         .Max(255)
+                         .DefaultValue((int32_t)entry.defaultDamage)
+                         .Format("%d")
+                         .Tooltip("Overrides the damage this enemy deals to you outright, before the "
+                                  "Damage multiplier below is applied. Default: " +
+                                  std::to_string((int32_t)entry.defaultDamage) + "."));
+        AddWidget(path, (std::string("Damage: %.2fx##") + entry.key).c_str(), WIDGET_CVAR_SLIDER_FLOAT)
+            .CVar(entry.damageCvarName.c_str())
+            .Options(FloatSliderOptions().Min(0.25f).Max(4.0f).DefaultValue(1.0f).Format("%.2fx").Tooltip(
+                "Multiplies the damage this enemy deals to you (applied on top of Base Damage above). "
+                "Stacks with the Damage Multiplier on the Difficulty page."));
+    }
+
+    path.column = SECTION_COLUMN_2;
+    AddWidget(path, "Global Fallback", WIDGET_SEPARATOR_TEXT);
+    AddWidget(path, "Applies to any Enemy or Mini-Boss not listed to the left.", WIDGET_TEXT);
+    AddWidget(path, "Speed: %.2fx", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar(CVAR_ENHANCEMENT("EnemyTuning.Fallback.Speed"))
+        .Options(FloatSliderOptions().Min(1.0f).Max(3.0f).DefaultValue(1.0f).Format("%.2fx").Tooltip(
+            "Increases how fast Enemies and Mini-Bosses move."));
+    AddWidget(path, "Attack Speed: %.2fx", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar(CVAR_ENHANCEMENT("EnemyTuning.Fallback.AttackSpeed"))
+        .Options(FloatSliderOptions().Min(1.0f).Max(3.0f).DefaultValue(1.0f).Format("%.2fx").Tooltip(
+            "Increases how fast Enemies and Mini-Bosses' attacks (and other actions) play out "
+            "once they're already doing them -- doesn't affect how often they choose to attack."));
+    AddWidget(path, "Damage: %.2fx", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar(CVAR_ENHANCEMENT("EnemyTuning.Fallback.Damage"))
+        .Options(FloatSliderOptions().Min(0.25f).Max(4.0f).DefaultValue(1.0f).Format("%.2fx").Tooltip(
+            "Multiplies the damage Enemies and Mini-Bosses deal to you. Stacks with the Damage "
+            "Multiplier on the Difficulty page."));
 
     // Minigames
     path.sidebarName = "Minigames";

@@ -3641,6 +3641,22 @@ typedef enum {
     // #### `args`
     // - `*PlayState`
     VB_CONTINUE_RESPAWNS_IN_PLACE,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // Hook allowing enemy-to-player melee damage to be rescaled based on which actor dealt it,
+    // right after the base damage/defense calculation and before it's applied. Fires for every
+    // AT-vs-AC hit resolved through CollisionCheck_ApplyDamage regardless of victim (hook
+    // implementations must check the victim's category themselves), plus a couple of enemies
+    // that apply damage directly rather than through a collider (e.g. Blade Trap's body/pillar
+    // touch) and call this same hook manually.
+    // #### `args`
+    // - `*Actor` (victim)
+    // - `*Actor` (attacker)
+    // - `f32*` (damage, mutate in place)
+    VB_MODIFY_ENEMY_DAMAGE_TO_PLAYER,
 } GIVanillaBehavior;
 
 #endif

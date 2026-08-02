@@ -3023,6 +3023,12 @@ void CollisionCheck_ApplyDamage(PlayState* play, CollisionCheckContext* colChkCt
         damage = tbl->table[i] & 0xF;
         collider->actor->colChkInfo.damageEffect = tbl->table[i] >> 4 & 0xF;
     }
+    GameInteractor_Should(VB_MODIFY_ENEMY_DAMAGE_TO_PLAYER, true, collider->actor, collider->ac, &damage);
+    // colChkInfo.damage is a u8 (see z64actor.h); a hook above pushing damage past 255 would
+    // otherwise silently wrap around (e.g. 256 wraps to 0) when added below.
+    if (damage > 255.0f) {
+        damage = 255.0f;
+    }
     if (!(collider->acFlags & AC_HARD)) {
         collider->actor->colChkInfo.damage += damage;
     }

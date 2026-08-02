@@ -7,6 +7,7 @@
 #include "z_en_bx.h"
 #include "objects/object_bxa/object_bxa.h"
 #include "soh/frame_interpolation.h"
+#include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
 
 #define FLAGS ACTOR_FLAG_UPDATE_CULLING_DISABLED
 
@@ -151,8 +152,11 @@ void EnBx_Update(Actor* thisx, PlayState* play) {
                 if (player->invincibilityTimer < -39) {
                     player->invincibilityTimer = 0;
                 } else {
+                    f32 damage = 4.0f;
                     player->invincibilityTimer = 0;
-                    play->damagePlayer(play, -4);
+                    GameInteractor_Should(VB_MODIFY_ENEMY_DAMAGE_TO_PLAYER, true, &player->actor, &this->actor,
+                                          &damage);
+                    play->damagePlayer(play, -(s32)damage);
                 }
             }
             Actor_SetPlayerKnockbackLargeNoDamage(play, &this->actor, 6.0f, tmp32, 6.0f);
