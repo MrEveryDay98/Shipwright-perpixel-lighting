@@ -6,6 +6,7 @@
 
 #include "z_en_trap.h"
 #include "objects/object_trap/object_trap.h"
+#include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
 
 #define FLAGS ACTOR_FLAG_UPDATE_CULLING_DISABLED
 
@@ -174,7 +175,12 @@ void EnTrap_Update(Actor* thisx, PlayState* play) {
             } else {
                 angleToKnockPlayer = thisx->yawTowardsPlayer;
             }
-            play->damagePlayer(play, -4);
+            {
+                f32 damage = 4.0f;
+                GameInteractor_Should(VB_MODIFY_ENEMY_DAMAGE_TO_PLAYER, true, &GET_PLAYER(play)->actor, thisx,
+                                      &damage);
+                play->damagePlayer(play, -(s32)damage);
+            }
             Actor_SetPlayerKnockbackSmallNoDamage(play, thisx, 6.0f, angleToKnockPlayer, 6.0f);
             this->playerDmgTimer = 15;
         }

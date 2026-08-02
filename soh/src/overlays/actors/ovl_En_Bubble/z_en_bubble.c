@@ -116,9 +116,10 @@ u32 func_809CBCEC(EnBubble* this) {
 }
 
 void EnBubble_DamagePlayer(EnBubble* this, PlayState* play) {
-    s32 damage = -this->colliderSphere.elements[0].info.toucher.damage;
+    f32 damage = (f32)this->colliderSphere.elements[0].info.toucher.damage;
 
-    play->damagePlayer(play, damage);
+    GameInteractor_Should(VB_MODIFY_ENEMY_DAMAGE_TO_PLAYER, true, &GET_PLAYER(play)->actor, &this->actor, &damage);
+    play->damagePlayer(play, -(s32)damage);
     Actor_SetPlayerKnockbackSmallNoDamage(play, &this->actor, 6.0f, this->actor.yawTowardsPlayer, 6.0f);
 }
 

@@ -863,7 +863,12 @@ void EnMb_ClubAttack(EnMb* this, PlayState* play) {
                     player->invincibilityTimer = 0;
                 } else {
                     player->invincibilityTimer = 0;
-                    play->damagePlayer(play, -8);
+                    {
+                        f32 damage = 8.0f;
+                        GameInteractor_Should(VB_MODIFY_ENEMY_DAMAGE_TO_PLAYER, true, &player->actor, &this->actor,
+                                              &damage);
+                        play->damagePlayer(play, -(s32)damage);
+                    }
                 }
             }
 
@@ -948,7 +953,12 @@ void EnMb_SpearPatrolPrepareAndCharge(EnMb* this, PlayState* play) {
                         player->invincibilityTimer = 0;
                     } else {
                         player->invincibilityTimer = 0;
-                        play->damagePlayer(play, -8);
+                        {
+                            f32 damage = 8.0f;
+                            GameInteractor_Should(VB_MODIFY_ENEMY_DAMAGE_TO_PLAYER, true, &player->actor,
+                                                  &this->actor, &damage);
+                            play->damagePlayer(play, -(s32)damage);
+                        }
                     }
                 }
                 if (!(this->attackCollider.base.atFlags & AT_BOUNCED)) {
@@ -1017,7 +1027,12 @@ void EnMb_SpearPatrolImmediateCharge(EnMb* this, PlayState* play) {
                         player->invincibilityTimer = 0;
                     } else {
                         player->invincibilityTimer = 0;
-                        play->damagePlayer(play, -8);
+                        {
+                            f32 damage = 8.0f;
+                            GameInteractor_Should(VB_MODIFY_ENEMY_DAMAGE_TO_PLAYER, true, &player->actor,
+                                                  &this->actor, &damage);
+                            play->damagePlayer(play, -(s32)damage);
+                        }
                     }
                 }
                 if (!(this->attackCollider.base.atFlags & AT_BOUNCED)) {

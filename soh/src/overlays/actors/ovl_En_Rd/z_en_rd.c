@@ -493,6 +493,7 @@ void EnRd_SetupGrab(EnRd* this) {
 void EnRd_Grab(EnRd* this, PlayState* play) {
     s32 pad;
     Player* player = GET_PLAYER(play);
+    f32 damage;
 
     if (SkelAnime_Update(&this->skelAnime)) {
         this->grabState++;
@@ -502,7 +503,9 @@ void EnRd_Grab(EnRd* this, PlayState* play) {
         case 1:
             Animation_PlayLoop(&this->skelAnime, &gGibdoRedeadGrabAttackAnim);
             this->grabState++;
-            play->damagePlayer(play, -8);
+            damage = 8.0f;
+            GameInteractor_Should(VB_MODIFY_ENEMY_DAMAGE_TO_PLAYER, true, &player->actor, &this->actor, &damage);
+            play->damagePlayer(play, -(s32)damage);
             Rumble_Request(this->actor.xzDistToPlayer, 0xFF, 1, 0xC);
             this->grabDamageTimer = 20;
         case 0:
@@ -536,7 +539,9 @@ void EnRd_Grab(EnRd* this, PlayState* play) {
             this->grabDamageTimer--;
 
             if (this->grabDamageTimer == 0) {
-                play->damagePlayer(play, -8);
+                damage = 8.0f;
+                GameInteractor_Should(VB_MODIFY_ENEMY_DAMAGE_TO_PLAYER, true, &player->actor, &this->actor, &damage);
+                play->damagePlayer(play, -(s32)damage);
                 Rumble_Request(this->actor.xzDistToPlayer, 0xF0, 1, 0xC);
                 this->grabDamageTimer = 20;
                 Player_PlaySfx(&player->actor, NA_SE_VO_LI_DAMAGE_S + player->ageProperties->unk_92);
