@@ -360,6 +360,14 @@ void SohMenu::AddMenuSettings() {
                 .IsPercentage()
                 .Min(0.5f)
                 .Max(2.0f));
+    AddWidget(path, "Nearest-Neighbor Upscaling (Needs Reload, OpenGL only)", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_NEAREST_FRAMEBUFFER_FILTER)
+        .RaceDisable(false)
+        .Options(CheckboxOptions().Tooltip(
+            "When Internal Resolution is below 1.0x, upscale the low-res image to your window with "
+            "nearest-neighbor (pixelated) filtering instead of the default blur.\n"
+            "Only takes effect on the OpenGL graphics backend; has no effect on DirectX11 or Metal.\n"
+            "Requires restarting the game."));
 #ifndef __WIIU__
     AddWidget(path, "Anti-aliasing (MSAA)", WIDGET_CVAR_SLIDER_INT)
         .CVar(CVAR_MSAA_VALUE)
