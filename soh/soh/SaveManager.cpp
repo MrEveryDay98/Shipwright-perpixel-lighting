@@ -1,6 +1,7 @@
 #include "SaveManager.h"
 #include "OTRGlobals.h"
 #include "Enhancements/game-interactor/GameInteractor.h"
+#include "Enhancements/game-interactor/GameInteractor_Hooks.h"
 #include "Enhancements/randomizer/SeedContext.h"
 #include "Enhancements/randomizer/entrance.h"
 #include "Enhancements/randomizer/dungeon.h"
@@ -2779,7 +2780,9 @@ extern "C" void Save_InitFile(int isDebug) {
 }
 
 extern "C" void Save_SaveFile(void) {
-    SaveManager::Instance->SaveFile(gSaveContext.fileNum);
+    if (GameInteractor_Should(VB_PERFORM_SAVE, true)) {
+        SaveManager::Instance->SaveFile(gSaveContext.fileNum);
+    }
 }
 
 extern "C" void Save_SaveSection(int sectionID) {

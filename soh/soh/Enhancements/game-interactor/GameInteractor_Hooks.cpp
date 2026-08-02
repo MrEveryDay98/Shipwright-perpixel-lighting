@@ -213,6 +213,10 @@ void GameInteractor_ExecuteOnPlayerBottleUpdate(int16_t contents) {
     GameInteractor::Instance->ExecuteHooks<GameInteractor::OnPlayerBottleUpdate>(contents);
 }
 
+void GameInteractor_ExecuteOnGossipStoneSwordHit(void* actor) {
+    GameInteractor::Instance->ExecuteHooks<GameInteractor::OnGossipStoneSwordHit>(actor);
+}
+
 void GameInteractor_ExecuteOnPlayerHoldUpShield() {
     GameInteractor::Instance->ExecuteHooks<GameInteractor::OnPlayerHoldUpShield>();
 }

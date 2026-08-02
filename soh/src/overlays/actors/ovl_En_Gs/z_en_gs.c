@@ -532,6 +532,7 @@ void EnGs_Update(Actor* thisx, PlayState* play2) {
                     this->unk_19E |= 1;
                     func_80A4F77C(this);
                     this->actionFunc = func_80A4E910;
+                    GameInteractor_ExecuteOnGossipStoneSwordHit(this);
                     break;
                 case 14:
                     this->unk_19E |= 1;
