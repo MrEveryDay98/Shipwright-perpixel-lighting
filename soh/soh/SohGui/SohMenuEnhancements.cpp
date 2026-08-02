@@ -1398,6 +1398,14 @@ void SohMenu::AddMenuEnhancements() {
         .Options(CheckboxOptions().Tooltip("Dying will delete your file.\n\n" ICON_FA_EXCLAMATION_TRIANGLE
                                            " WARNING " ICON_FA_EXCLAMATION_TRIANGLE
                                            "\nTHIS IS IRREVERSIBLE!\nUSE AT YOUR OWN RISK!"));
+    AddWidget(path, "Gossip Stones Are Save Points", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("GossipStoneManualSave"))
+        .Options(CheckboxOptions().Tooltip(
+            "Disables saving from the pause menu and the game over screen. The only way to save "
+            "is to hit a Gossip Stone with your sword.\n\n" ICON_FA_EXCLAMATION_TRIANGLE " WARNING " ICON_FA_EXCLAMATION_TRIANGLE
+            "\nAny progress made since your last Gossip Stone save is lost on game over.\n"
+            "The pause menu and game over screen will still show their normal \"Saved!\" "
+            "confirmation even though no save is actually written."));
     AddWidget(path, "Switch Timer Multiplier", WIDGET_CVAR_SLIDER_INT)
         .CVar(CVAR_ENHANCEMENT("SwitchTimerMultiplier"))
         .Options(IntSliderOptions().Min(-5).Max(5).DefaultValue(0).Format("%+d").Tooltip(

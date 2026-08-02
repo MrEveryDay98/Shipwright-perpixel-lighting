@@ -47,6 +47,7 @@ DEFINE_HOOK(OnPlayerSetModels, (Player * player, u8 modelGroup));
 DEFINE_HOOK(OnPlayerHealthChange, (int16_t amount));
 DEFINE_HOOK(OnPlayerBottleUpdate, (int16_t contents));
 DEFINE_HOOK(OnPlayerHoldUpShield, ());
+DEFINE_HOOK(OnGossipStoneSwordHit, (void* actor));
 DEFINE_HOOK(OnPlayerFirstPersonControl, (Player * player));
 DEFINE_HOOK(OnPlayerProcessStick, ());
 DEFINE_HOOK(OnPlayerShieldControl, (float* sp50, float* sp54));

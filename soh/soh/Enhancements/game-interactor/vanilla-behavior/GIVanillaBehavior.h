@@ -3590,6 +3590,19 @@ typedef enum {
     // a textbox can be rendered instead. Pause screen only, Game Over version left
     // intact.
     VB_DRAW_SAVE_MENU,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // Hook wrapping the actual save-file write inside Save_SaveFile, so it can be skipped
+    // regardless of which caller (pause menu, forced death save, periodic autosave, Play_PerformSave)
+    // triggered it, without touching any of the surrounding UI/state-machine flow.
+    // Deliberately appended at the end of this enum rather than inserted in the middle, so it
+    // can't shift the integer value of any pre-existing entry.
+    // #### `args`
+    // - None
+    VB_PERFORM_SAVE,
 } GIVanillaBehavior;
 
 #endif

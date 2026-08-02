@@ -47,6 +47,7 @@ void GameInteractor_ExecuteOnPlayerSetModels(Player* player, u8 modelGroup);
 void GameInteractor_ExecuteOnPlayerHealthChange(int16_t amount);
 void GameInteractor_ExecuteOnPlayerBottleUpdate(int16_t contents);
 void GameInteractor_ExecuteOnPlayerHoldUpShield();
+void GameInteractor_ExecuteOnGossipStoneSwordHit(void* actor);
 void GameInteractor_ExecuteOnPlayerFirstPersonControl(Player* player);
 void GameInteractor_ExecuteOnPlayerShieldControl(float* sp50, float* sp54);
 void GameInteractor_ExecuteOnPlayerProcessStick();
