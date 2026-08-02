@@ -4266,19 +4266,26 @@ void KaleidoScope_Update(PlayState* play) {
                         WREG(2) = -6240;
                         func_800F64E0(0);
                     } else if (CHECK_BTN_ALL(input->press.button, BTN_B)) {
-                        pauseCtx->mode = 0;
-                        pauseCtx->promptChoice = 0;
-                        Audio_PlaySoundGeneral(NA_SE_SY_DECIDE, &gSfxDefaultPos, 4, &gSfxDefaultFreqAndVolScale,
-                                               &gSfxDefaultFreqAndVolScale, &gSfxDefaultReverb);
-                        gSaveContext.buttonStatus[0] = gSaveContext.buttonStatus[1] = gSaveContext.buttonStatus[2] =
-                            gSaveContext.buttonStatus[3] = BTN_DISABLED;
-                        gSaveContext.buttonStatus[4] = BTN_ENABLED;
-                        gSaveContext.buttonStatus[5] = gSaveContext.buttonStatus[6] = gSaveContext.buttonStatus[7] =
-                            gSaveContext.buttonStatus[8] = BTN_DISABLED;
-                        gSaveContext.hudVisibilityMode = 0;
-                        Interface_ChangeHudVisibilityMode(50);
-                        pauseCtx->unk_1EC = 0;
-                        pauseCtx->state = 7;
+                        if (GameInteractor_Should(VB_OPEN_PAUSE_SAVE_PROMPT, true)) {
+                            pauseCtx->mode = 0;
+                            pauseCtx->promptChoice = 0;
+                            Audio_PlaySoundGeneral(NA_SE_SY_DECIDE, &gSfxDefaultPos, 4, &gSfxDefaultFreqAndVolScale,
+                                                   &gSfxDefaultFreqAndVolScale, &gSfxDefaultReverb);
+                            gSaveContext.buttonStatus[0] = gSaveContext.buttonStatus[1] =
+                                gSaveContext.buttonStatus[2] = gSaveContext.buttonStatus[3] = BTN_DISABLED;
+                            gSaveContext.buttonStatus[4] = BTN_ENABLED;
+                            gSaveContext.buttonStatus[5] = gSaveContext.buttonStatus[6] =
+                                gSaveContext.buttonStatus[7] = gSaveContext.buttonStatus[8] = BTN_DISABLED;
+                            gSaveContext.hudVisibilityMode = 0;
+                            Interface_ChangeHudVisibilityMode(50);
+                            pauseCtx->unk_1EC = 0;
+                            pauseCtx->state = 7;
+                        } else {
+                            Interface_SetDoAction(play, DO_ACTION_NONE);
+                            pauseCtx->state = 0x12;
+                            WREG(2) = -6240;
+                            func_800F64E0(0);
+                        }
                     } else if (IS_RANDO && CHECK_BTN_ALL(input->press.button, BTN_CUP) &&
                                pauseCtx->pageIndex == PAUSE_QUEST) {
                         Audio_PlaySoundGeneral(NA_SE_SY_DECIDE, &gSfxDefaultPos, 4, &gSfxDefaultFreqAndVolScale,
@@ -4319,20 +4326,28 @@ void KaleidoScope_Update(PlayState* play) {
                         break;
                     } else if (CHECK_BTN_ALL(input->press.button, BTN_B)) {
                         AudioOcarina_SetInstrument(OCARINA_INSTRUMENT_OFF);
-                        pauseCtx->unk_1E4 = 0;
-                        pauseCtx->mode = 0;
-                        pauseCtx->promptChoice = 0;
-                        Audio_PlaySoundGeneral(NA_SE_SY_DECIDE, &gSfxDefaultPos, 4, &gSfxDefaultFreqAndVolScale,
-                                               &gSfxDefaultFreqAndVolScale, &gSfxDefaultReverb);
-                        gSaveContext.buttonStatus[0] = gSaveContext.buttonStatus[1] = gSaveContext.buttonStatus[2] =
-                            gSaveContext.buttonStatus[3] = BTN_DISABLED;
-                        gSaveContext.buttonStatus[4] = BTN_ENABLED;
-                        gSaveContext.buttonStatus[5] = gSaveContext.buttonStatus[6] = gSaveContext.buttonStatus[7] =
-                            gSaveContext.buttonStatus[8] = BTN_DISABLED;
-                        gSaveContext.hudVisibilityMode = 0;
-                        Interface_ChangeHudVisibilityMode(50);
-                        pauseCtx->unk_1EC = 0;
-                        pauseCtx->state = 7;
+                        if (GameInteractor_Should(VB_OPEN_PAUSE_SAVE_PROMPT, true)) {
+                            pauseCtx->unk_1E4 = 0;
+                            pauseCtx->mode = 0;
+                            pauseCtx->promptChoice = 0;
+                            Audio_PlaySoundGeneral(NA_SE_SY_DECIDE, &gSfxDefaultPos, 4, &gSfxDefaultFreqAndVolScale,
+                                                   &gSfxDefaultFreqAndVolScale, &gSfxDefaultReverb);
+                            gSaveContext.buttonStatus[0] = gSaveContext.buttonStatus[1] =
+                                gSaveContext.buttonStatus[2] = gSaveContext.buttonStatus[3] = BTN_DISABLED;
+                            gSaveContext.buttonStatus[4] = BTN_ENABLED;
+                            gSaveContext.buttonStatus[5] = gSaveContext.buttonStatus[6] =
+                                gSaveContext.buttonStatus[7] = gSaveContext.buttonStatus[8] = BTN_DISABLED;
+                            gSaveContext.hudVisibilityMode = 0;
+                            Interface_ChangeHudVisibilityMode(50);
+                            pauseCtx->unk_1EC = 0;
+                            pauseCtx->state = 7;
+                        } else {
+                            Interface_SetDoAction(play, DO_ACTION_NONE);
+                            pauseCtx->state = 0x12;
+                            WREG(2) = -6240;
+                            func_800F64E0(0);
+                            pauseCtx->unk_1E4 = 0;
+                        }
                     } else if (pauseCtx->ocarinaStaff->state == pauseCtx->ocarinaSongIdx) {
                         Audio_PlaySoundGeneral(NA_SE_SY_TRE_BOX_APPEAR, &gSfxDefaultPos, 4, &gSfxDefaultFreqAndVolScale,
                                                &gSfxDefaultFreqAndVolScale, &gSfxDefaultReverb);
@@ -4371,20 +4386,28 @@ void KaleidoScope_Update(PlayState* play) {
                         pauseCtx->unk_1E4 = 0;
                     } else if (CHECK_BTN_ALL(input->press.button, BTN_B)) {
                         AudioOcarina_SetInstrument(OCARINA_INSTRUMENT_OFF);
-                        pauseCtx->unk_1E4 = 0;
-                        pauseCtx->mode = 0;
-                        pauseCtx->promptChoice = 0;
-                        Audio_PlaySoundGeneral(NA_SE_SY_DECIDE, &gSfxDefaultPos, 4, &gSfxDefaultFreqAndVolScale,
-                                               &gSfxDefaultFreqAndVolScale, &gSfxDefaultReverb);
-                        gSaveContext.buttonStatus[0] = gSaveContext.buttonStatus[1] = gSaveContext.buttonStatus[2] =
-                            gSaveContext.buttonStatus[3] = BTN_DISABLED;
-                        gSaveContext.buttonStatus[4] = BTN_ENABLED;
-                        gSaveContext.buttonStatus[5] = gSaveContext.buttonStatus[6] = gSaveContext.buttonStatus[7] =
-                            gSaveContext.buttonStatus[8] = BTN_DISABLED;
-                        gSaveContext.hudVisibilityMode = 0;
-                        Interface_ChangeHudVisibilityMode(50);
-                        pauseCtx->unk_1EC = 0;
-                        pauseCtx->state = 7;
+                        if (GameInteractor_Should(VB_OPEN_PAUSE_SAVE_PROMPT, true)) {
+                            pauseCtx->unk_1E4 = 0;
+                            pauseCtx->mode = 0;
+                            pauseCtx->promptChoice = 0;
+                            Audio_PlaySoundGeneral(NA_SE_SY_DECIDE, &gSfxDefaultPos, 4, &gSfxDefaultFreqAndVolScale,
+                                                   &gSfxDefaultFreqAndVolScale, &gSfxDefaultReverb);
+                            gSaveContext.buttonStatus[0] = gSaveContext.buttonStatus[1] =
+                                gSaveContext.buttonStatus[2] = gSaveContext.buttonStatus[3] = BTN_DISABLED;
+                            gSaveContext.buttonStatus[4] = BTN_ENABLED;
+                            gSaveContext.buttonStatus[5] = gSaveContext.buttonStatus[6] =
+                                gSaveContext.buttonStatus[7] = gSaveContext.buttonStatus[8] = BTN_DISABLED;
+                            gSaveContext.hudVisibilityMode = 0;
+                            Interface_ChangeHudVisibilityMode(50);
+                            pauseCtx->unk_1EC = 0;
+                            pauseCtx->state = 7;
+                        } else {
+                            Interface_SetDoAction(play, DO_ACTION_NONE);
+                            pauseCtx->state = 0x12;
+                            WREG(2) = -6240;
+                            func_800F64E0(0);
+                            pauseCtx->unk_1E4 = 0;
+                        }
                     }
                     break;
 
@@ -4775,27 +4798,29 @@ void KaleidoScope_Update(PlayState* play) {
                     func_800981B8(&play->objectCtx);
                     func_800418D0(&play->colCtx, play);
                     if (pauseCtx->promptChoice == 0 && GameInteractor_Should(VB_BE_ABLE_TO_SAVE, true)) {
-                        Play_TriggerRespawn(play);
-                        gSaveContext.respawnFlag = -2;
-                        // Reset frame counter to prevent autosave on respawn
-                        play->gameplayFrames = 0;
-                        gSaveContext.nextTransitionType = TRANS_TYPE_FADE_BLACK;
-                        gSaveContext.health = CVarGetInteger(CVAR_ENHANCEMENT("FullHealthSpawn"), 0)
-                                                  ? gSaveContext.healthCapacity
-                                                  : STARTING_HEALTH;
-                        Audio_QueueSeqCmd(0xF << 28 | SEQ_PLAYER_BGM_MAIN << 24 | 0xA);
-                        gSaveContext.healthAccumulator = 0;
-                        gSaveContext.magicState = MAGIC_STATE_IDLE;
-                        gSaveContext.prevMagicState = MAGIC_STATE_IDLE;
-                        osSyncPrintf(VT_FGCOL(YELLOW));
-                        osSyncPrintf("MAGIC_NOW=%d ", gSaveContext.magic);
-                        osSyncPrintf("Z_MAGIC_NOW_NOW=%d   →  ", gSaveContext.magicFillTarget);
-                        gSaveContext.magicCapacity = 0;
-                        gSaveContext.magicFillTarget = gSaveContext.magic;
-                        gSaveContext.magicLevel = gSaveContext.magic = 0;
-                        osSyncPrintf("MAGIC_NOW=%d ", gSaveContext.magic);
-                        osSyncPrintf("Z_MAGIC_NOW_NOW=%d\n", gSaveContext.magicFillTarget);
-                        osSyncPrintf(VT_RST);
+                        if (GameInteractor_Should(VB_CONTINUE_RESPAWNS_IN_PLACE, true, play)) {
+                            Play_TriggerRespawn(play);
+                            gSaveContext.respawnFlag = -2;
+                            // Reset frame counter to prevent autosave on respawn
+                            play->gameplayFrames = 0;
+                            gSaveContext.nextTransitionType = TRANS_TYPE_FADE_BLACK;
+                            gSaveContext.health = CVarGetInteger(CVAR_ENHANCEMENT("FullHealthSpawn"), 0)
+                                                      ? gSaveContext.healthCapacity
+                                                      : STARTING_HEALTH;
+                            Audio_QueueSeqCmd(0xF << 28 | SEQ_PLAYER_BGM_MAIN << 24 | 0xA);
+                            gSaveContext.healthAccumulator = 0;
+                            gSaveContext.magicState = MAGIC_STATE_IDLE;
+                            gSaveContext.prevMagicState = MAGIC_STATE_IDLE;
+                            osSyncPrintf(VT_FGCOL(YELLOW));
+                            osSyncPrintf("MAGIC_NOW=%d ", gSaveContext.magic);
+                            osSyncPrintf("Z_MAGIC_NOW_NOW=%d   →  ", gSaveContext.magicFillTarget);
+                            gSaveContext.magicCapacity = 0;
+                            gSaveContext.magicFillTarget = gSaveContext.magic;
+                            gSaveContext.magicLevel = gSaveContext.magic = 0;
+                            osSyncPrintf("MAGIC_NOW=%d ", gSaveContext.magic);
+                            osSyncPrintf("Z_MAGIC_NOW_NOW=%d\n", gSaveContext.magicFillTarget);
+                            osSyncPrintf(VT_RST);
+                        }
                     } else {
                         play->state.running = 0;
                         SET_NEXT_GAMESTATE(&play->state, Opening_Init, OpeningContext);

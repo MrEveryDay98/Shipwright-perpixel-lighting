@@ -3603,6 +3603,32 @@ typedef enum {
     // #### `args`
     // - None
     VB_PERFORM_SAVE,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // Hook wrapping the pause menu's B-button handler that opens the "Save?" prompt. Blocking
+    // this closes the pause menu the same way Start already does (no prompt at all), for players
+    // who don't want that prompt to be reachable at all (e.g. because a different enhancement has
+    // made the normal pause-menu save meaningless).
+    // #### `args`
+    // - None
+    VB_OPEN_PAUSE_SAVE_PROMPT,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // Hook wrapping the "Continue" choice on the death screen's in-place respawn
+    // (Play_TriggerRespawn + in-memory gSaveContext fixups). Blocking this skips that entirely,
+    // on the expectation that whatever blocked it has already fully handled getting the player
+    // back into a playable state itself (e.g. loading the last save file from disk and
+    // transitioning into a fresh PlayState via Play_Init, the same way the file-select screen
+    // does), rather than resuming with the in-memory state the death screen would otherwise reuse.
+    // #### `args`
+    // - `*PlayState`
+    VB_CONTINUE_RESPAWNS_IN_PLACE,
 } GIVanillaBehavior;
 
 #endif

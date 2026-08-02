@@ -1404,8 +1404,20 @@ void SohMenu::AddMenuEnhancements() {
             "Disables saving from the pause menu and the game over screen. The only way to save "
             "is to hit a Gossip Stone with your sword.\n\n" ICON_FA_EXCLAMATION_TRIANGLE " WARNING " ICON_FA_EXCLAMATION_TRIANGLE
             "\nAny progress made since your last Gossip Stone save is lost on game over.\n"
-            "The pause menu and game over screen will still show their normal \"Saved!\" "
-            "confirmation even though no save is actually written."));
+            "The pause menu's save prompt is skipped entirely (same as pressing Start); the game "
+            "over screen will still show its normal prompts and \"Saved!\" confirmation (even "
+            "though no save is actually written) unless \"Skip Game Over Prompts and Reload Save\" "
+            "is also enabled."));
+    AddWidget(path, "Skip Game Over Prompts and Reload Save", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("GameOverSkipPromptsReload"))
+        .Options(CheckboxOptions().Tooltip(
+            "Skips the \"Save?\" prompt and \"Saved!\" confirmation on the game over screen "
+            "entirely, going straight to \"Continue?\" -- pressing it then loads your last save "
+            "file from disk, instead of resuming with whatever's still in memory.\n\n" ICON_FA_EXCLAMATION_TRIANGLE
+            " WARNING " ICON_FA_EXCLAMATION_TRIANGLE
+            "\nAny progress since your last save is lost, exactly like reloading from the file "
+            "select screen. Intended to pair with \"Gossip Stones Are Save Points\", but works "
+            "with normal saves too."));
     AddWidget(path, "Switch Timer Multiplier", WIDGET_CVAR_SLIDER_INT)
         .CVar(CVAR_ENHANCEMENT("SwitchTimerMultiplier"))
         .Options(IntSliderOptions().Min(-5).Max(5).DefaultValue(0).Format("%+d").Tooltip(
