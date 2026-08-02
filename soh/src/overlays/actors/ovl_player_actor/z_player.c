@@ -4721,6 +4721,7 @@ s32 func_808382DC(Player* this, PlayState* play) {
     s32 pad;
     s32 sp68 = false;
     s32 sp64;
+    s32 shouldTriggerVoidOut;
 
     if (this->unk_A86 != 0) {
         if (!Player_InBlockingCsMode(play, this)) {
@@ -4736,8 +4737,11 @@ s32 func_808382DC(Player* this, PlayState* play) {
             Player_PlayVoiceSfx(this, NA_SE_VO_LI_DAMAGE_S);
 
             if (sp68) {
-                Play_TriggerRespawn(play);
-                Scene_SetTransitionForNextEntrance(play);
+                shouldTriggerVoidOut = GameInteractor_Should(VB_TRIGGER_VOIDOUT, true, this);
+                if (shouldTriggerVoidOut) {
+                    Play_TriggerRespawn(play);
+                    Scene_SetTransitionForNextEntrance(play);
+                }
             } else {
                 // Special case for getting crushed in Forest Temple's Checkboard Ceiling Hall or Shadow Temple's
                 // Falling Spike Trap Room, to respawn the player in a specific place
@@ -4758,14 +4762,17 @@ s32 func_808382DC(Player* this, PlayState* play) {
                     gSaveContext.respawn[RESPAWN_MODE_DOWN].yaw = respawnInfo->yaw;
                 }
 
-                if (GameInteractor_Should(VB_TRIGGER_VOIDOUT, true, this)) {
+                shouldTriggerVoidOut = GameInteractor_Should(VB_TRIGGER_VOIDOUT, true, this);
+                if (shouldTriggerVoidOut) {
                     Play_TriggerVoidOut(play);
                 }
             }
 
-            Player_PlayVoiceSfx(this, NA_SE_VO_LI_TAKEN_AWAY);
-            play->haltAllActors = true;
-            Sfx_PlaySfxCentered(NA_SE_OC_ABYSS);
+            if (shouldTriggerVoidOut) {
+                Player_PlayVoiceSfx(this, NA_SE_VO_LI_TAKEN_AWAY);
+                play->haltAllActors = true;
+                Sfx_PlaySfxCentered(NA_SE_OC_ABYSS);
+            }
         } else if ((this->knockbackType != PLAYER_KNOCKBACK_NONE) &&
                    ((this->knockbackType >= PLAYER_KNOCKBACK_LARGE) || (this->invincibilityTimer == 0))) {
             u8 knockbackResponse[] = {
@@ -5110,6 +5117,7 @@ s32 Player_HandleExitsAndVoids(PlayState* play, Player* this, CollisionPoly* pol
     s32 sp34;
     f32 speedXZ;
     s32 yaw;
+    s32 shouldTriggerExit;
 
     if (this->actor.category == ACTORCAT_PLAYER) {
         exitIndex = 0;
@@ -5130,8 +5138,8 @@ s32 Player_HandleExitsAndVoids(PlayState* play, Player* this, CollisionPoly* pol
             if (exitIndex == 0) {
                 if (GameInteractor_Should(VB_TRIGGER_VOIDOUT, true, this)) {
                     Play_TriggerVoidOut(play);
+                    Scene_SetTransitionForNextEntrance(play);
                 }
-                Scene_SetTransitionForNextEntrance(play);
             } else {
                 play->nextEntranceIndex = play->setupExitList[exitIndex - 1];
 
@@ -5139,6 +5147,10 @@ s32 Player_HandleExitsAndVoids(PlayState* play, Player* this, CollisionPoly* pol
                 if (IS_RANDO) {
                     play->nextEntranceIndex = Entrance_OverrideNextIndex(play->nextEntranceIndex);
                 }
+
+                // Regular (non-void) exits always proceed; only the void-floor sub-case below
+                // (VB_SET_VOIDOUT_FROM_SURFACE true) can turn this off.
+                shouldTriggerExit = true;
 
                 if (play->nextEntranceIndex == ENTR_RETURN_GROTTO) {
                     gSaveContext.respawnFlag = 2;
@@ -5163,16 +5175,25 @@ s32 Player_HandleExitsAndVoids(PlayState* play, Player* this, CollisionPoly* pol
                     if (GameInteractor_Should(VB_SET_VOIDOUT_FROM_SURFACE,
                                               SurfaceType_GetFloorEffect(&play->colCtx, poly, bgId) == FLOOR_EFFECT_2,
                                               play->setupExitList[exitIndex - 1])) {
-                        gSaveContext.respawn[RESPAWN_MODE_DOWN].entranceIndex = play->nextEntranceIndex;
-                        if (GameInteractor_Should(VB_TRIGGER_VOIDOUT, true, this)) {
+                        shouldTriggerExit = GameInteractor_Should(VB_TRIGGER_VOIDOUT, true, this);
+                        if (shouldTriggerExit) {
+                            // RESPAWN_MODE_DOWN is also what "Continue" (after any death, void or
+                            // not) reloads from via Play_TriggerRespawn -- leave it completely
+                            // untouched when blocking, so a lethal void doesn't corrupt where the
+                            // player's next life actually starts.
+                            gSaveContext.respawn[RESPAWN_MODE_DOWN].entranceIndex = play->nextEntranceIndex;
                             Play_TriggerVoidOut(play);
+                            gSaveContext.respawnFlag = -2;
                         }
-                        gSaveContext.respawnFlag = -2;
                     }
-                    gSaveContext.retainWeatherMode = 1;
-                    Scene_SetTransitionForNextEntrance(play);
+                    if (shouldTriggerExit) {
+                        gSaveContext.retainWeatherMode = 1;
+                        Scene_SetTransitionForNextEntrance(play);
+                    }
                 }
-                play->transitionTrigger = TRANS_TRIGGER_START;
+                if (shouldTriggerExit) {
+                    play->transitionTrigger = TRANS_TRIGGER_START;
+                }
             }
 
             if (!(this->stateFlags1 & (PLAYER_STATE1_ON_HORSE | PLAYER_STATE1_IN_CUTSCENE)) &&
@@ -5228,12 +5249,20 @@ s32 Player_HandleExitsAndVoids(PlayState* play, Player* this, CollisionPoly* pol
 
                     if (this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) {
                         if (this->floorProperty == FLOOR_PROPERTY_5) {
-                            Play_TriggerRespawn(play);
-                        } else if (GameInteractor_Should(VB_TRIGGER_VOIDOUT, true, this)) {
-                            Play_TriggerVoidOut(play);
+                            shouldTriggerExit = GameInteractor_Should(VB_TRIGGER_VOIDOUT, true, this);
+                            if (shouldTriggerExit) {
+                                Play_TriggerRespawn(play);
+                            }
+                        } else {
+                            shouldTriggerExit = GameInteractor_Should(VB_TRIGGER_VOIDOUT, true, this);
+                            if (shouldTriggerExit) {
+                                Play_TriggerVoidOut(play);
+                            }
                         }
-                        play->transitionType = TRANS_TYPE_FADE_BLACK_FAST;
-                        Sfx_PlaySfxCentered(NA_SE_OC_ABYSS);
+                        if (shouldTriggerExit) {
+                            play->transitionType = TRANS_TYPE_FADE_BLACK_FAST;
+                            Sfx_PlaySfxCentered(NA_SE_OC_ABYSS);
+                        }
                     } else {
                         func_80838F5C(play, this);
                         this->av2.actionVar2 = 9999;
@@ -12010,7 +12039,8 @@ void Player_UpdateCommon(Player* this, PlayState* play, Input* input) {
                     func_80832440(play, this);
                     func_80837B9C(this, play);
                 } else if ((this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) ||
-                           (this->stateFlags1 & PLAYER_STATE1_IN_WATER)) {
+                           (this->stateFlags1 & PLAYER_STATE1_IN_WATER) ||
+                           GameInteractor_Should(VB_FORCE_GAME_OVER_AIRBORNE, false, this)) {
                     func_80836448(play, this,
                                   func_808332B8(this)           ? &gPlayerAnim_link_swimer_swim_down
                                   : (this->bodyShockTimer != 0) ? &gPlayerAnim_link_normal_electric_shock_end
@@ -14792,26 +14822,42 @@ void Player_Action_8084F710(Player* this, PlayState* play) {
 }
 
 void Player_Action_8084F88C(Player* this, PlayState* play) {
+    s32 shouldTriggerExit;
+
     LinkAnimation_Update(play, &this->skelAnime);
 
     if ((this->av2.actionVar2++ > 8) && (play->transitionTrigger == TRANS_TRIGGER_OFF)) {
+        // Only the void-out branches below (actionVar1 != 0) can turn this off; the regular
+        // (actionVar1 == 0) case is unrelated to void-out and always proceeds.
+        shouldTriggerExit = true;
 
         if (this->av1.actionVar1 != 0) {
             if (play->sceneNum == SCENE_ICE_CAVERN) {
-                Play_TriggerRespawn(play);
-                play->nextEntranceIndex = ENTR_ICE_CAVERN_ENTRANCE;
-            } else if (this->av1.actionVar1 < 0) {
-                Play_TriggerRespawn(play);
-                // In ER, handle DMT and other special void outs to respawn from last entrance from grotto
-                if (IS_RANDO && Randomizer_GetSettingValue(RSK_SHUFFLE_ENTRANCES)) {
-                    Grotto_ForceRegularVoidOut();
+                shouldTriggerExit = GameInteractor_Should(VB_TRIGGER_VOIDOUT, true, this);
+                if (shouldTriggerExit) {
+                    Play_TriggerRespawn(play);
+                    play->nextEntranceIndex = ENTR_ICE_CAVERN_ENTRANCE;
                 }
-            } else if (GameInteractor_Should(VB_TRIGGER_VOIDOUT, true, this)) {
-                Play_TriggerVoidOut(play);
+            } else if (this->av1.actionVar1 < 0) {
+                shouldTriggerExit = GameInteractor_Should(VB_TRIGGER_VOIDOUT, true, this);
+                if (shouldTriggerExit) {
+                    Play_TriggerRespawn(play);
+                    // In ER, handle DMT and other special void outs to respawn from last entrance from grotto
+                    if (IS_RANDO && Randomizer_GetSettingValue(RSK_SHUFFLE_ENTRANCES)) {
+                        Grotto_ForceRegularVoidOut();
+                    }
+                }
+            } else {
+                shouldTriggerExit = GameInteractor_Should(VB_TRIGGER_VOIDOUT, true, this);
+                if (shouldTriggerExit) {
+                    Play_TriggerVoidOut(play);
+                }
             }
 
-            play->transitionType = TRANS_TYPE_FADE_BLACK_FAST;
-            Sfx_PlaySfxCentered(NA_SE_OC_ABYSS);
+            if (shouldTriggerExit) {
+                play->transitionType = TRANS_TYPE_FADE_BLACK_FAST;
+                Sfx_PlaySfxCentered(NA_SE_OC_ABYSS);
+            }
         } else {
             play->transitionType = TRANS_TYPE_FADE_BLACK;
             gSaveContext.nextTransitionType = TRANS_TYPE_FADE_WHITE;
@@ -14819,7 +14865,9 @@ void Player_Action_8084F88C(Player* this, PlayState* play) {
             gSaveContext.natureAmbienceId = 0xFF;
         }
 
-        play->transitionTrigger = TRANS_TRIGGER_START;
+        if (shouldTriggerExit) {
+            play->transitionTrigger = TRANS_TRIGGER_START;
+        }
     }
 }
 

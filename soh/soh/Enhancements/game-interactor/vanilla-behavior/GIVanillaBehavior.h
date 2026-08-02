@@ -3593,6 +3593,18 @@ typedef enum {
 
     // #### `result`
     // ```c
+    // false
+    // ```
+    // Hook allowing the game-over sequence (func_80836448) to start even when the player isn't
+    // grounded or in water. Player_UpdateCommon's health==0 check normally requires one of those,
+    // so a lethal hit dealt while fully airborne (e.g. mid-fall into a void) would otherwise just
+    // leave health at 0 with nothing visibly happening until the player eventually lands.
+    // #### `args`
+    // - `*Actor`
+    VB_FORCE_GAME_OVER_AIRBORNE,
+
+    // #### `result`
+    // ```c
     // true
     // ```
     // Hook wrapping the actual save-file write inside Save_SaveFile, so it can be skipped
