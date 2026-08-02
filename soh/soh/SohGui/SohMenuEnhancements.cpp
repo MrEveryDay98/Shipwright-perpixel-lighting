@@ -1365,6 +1365,15 @@ void SohMenu::AddMenuEnhancements() {
         .Options(CheckboxOptions().Tooltip(
             "Disables Heart Drops, but not Heart Placements, like from a Deku Scrub running off.\n"
             "This simulates Hero Mode from other games in the series."));
+    AddWidget(path, "Player Damage Frequency: %.2fx", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar(CVAR_ENHANCEMENT("PlayerDamageFrequencyMult"))
+        .Options(FloatSliderOptions()
+                     .Min(1.0f)
+                     .Max(5.0f)
+                     .DefaultValue(1.0f)
+                     .Format("%.2fx")
+                     .Tooltip("Shortens Link's invincibility frames after taking damage, so he can be hit "
+                              "more often. 1x is normal; 5x cuts invincibility time down to a fifth."));
 
     path.column = SECTION_COLUMN_2;
     AddWidget(path, "Drops", WIDGET_SEPARATOR_TEXT);
@@ -1440,6 +1449,22 @@ void SohMenu::AddMenuEnhancements() {
                      .DefaultValue(0)
                      .Format("%d seconds")
                      .Tooltip("The time between groups of Leevers spawning."));
+    AddWidget(path, "Enemy Speed: %.2fx", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar(CVAR_ENHANCEMENT("EnemySpeedMult"))
+        .Options(FloatSliderOptions()
+                     .Min(1.0f)
+                     .Max(3.0f)
+                     .DefaultValue(1.0f)
+                     .Format("%.2fx")
+                     .Tooltip("Increases how fast Enemies and Mini-Bosses move."));
+    AddWidget(path, "Enemy Attack Frequency: %.2fx", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar(CVAR_ENHANCEMENT("EnemyAttackFrequencyMult"))
+        .Options(FloatSliderOptions()
+                     .Min(1.0f)
+                     .Max(3.0f)
+                     .DefaultValue(1.0f)
+                     .Format("%.2fx")
+                     .Tooltip("Increases how often Enemies and Mini-Bosses perform attacks."));
 
     // Minigames
     path.sidebarName = "Minigames";
