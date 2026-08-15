@@ -4,6 +4,7 @@ set(CMAKE_SYSTEM_VERSION 10.0 CACHE STRING "" FORCE)
 
 project(soh LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20 CACHE STRING "The C++ standard to use")
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 23 CACHE STRING "The C standard to use")
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
@@ -116,7 +117,7 @@ set(Header_Files "resource.h")
 source_group("headers" FILES ${Header_Files})
 
 # include {{{
-file(GLOB Header_Files__include "include/*.h" "include/*.inc")
+file(GLOB Header_Files__include CONFIGURE_DEPENDS "include/*.h" "include/*.inc")
 list(APPEND Header_Files__include ${CMAKE_CURRENT_SOURCE_DIR}/include/libc/stdarg.h)
 list(REMOVE_ITEM Header_Files__include ${CMAKE_CURRENT_SOURCE_DIR}/include/bgm.h)
 list(REMOVE_ITEM Header_Files__include ${CMAKE_CURRENT_SOURCE_DIR}/include/math_n64.h)
@@ -128,7 +129,7 @@ source_group("include" FILES ${Header_Files__include})
 # }}}
 
 # soh (root)
-file(GLOB_RECURSE soh__ RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "soh/*.c" "soh/*.cpp" "soh/*.h" "soh/*.hpp")
+file(GLOB_RECURSE soh__ CONFIGURE_DEPENDS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "soh/*.c" "soh/*.cpp" "soh/*.h" "soh/*.hpp")
 
 # Add specific files that don't match the pattern
 list(APPEND soh__ ${CMAKE_CURRENT_SOURCE_DIR}/soh/Enhancements/speechsynthesizer/DarwinSpeechSynthesizer.mm)
@@ -166,14 +167,14 @@ endif()
 list(FILTER ship__ EXCLUDE REGEX "soh/Extractor/*")
 
 if(NOT CMAKE_SYSTEM_NAME MATCHES "NintendoSwitch|CafeOS")
-    file(GLOB_RECURSE soh__Extractor RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+    file(GLOB_RECURSE soh__Extractor CONFIGURE_DEPENDS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
         "soh/Extractor/*.c"
         "soh/Extractor/*.cpp"
         "soh/Extractor/*.h"
         "soh/Extractor/*.hpp"
     )
 else()
-    file(GLOB_RECURSE soh__Extractor RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+    file(GLOB_RECURSE soh__Extractor CONFIGURE_DEPENDS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
         "soh/Extractor/*.h"
         "soh/Extractor/*.hpp"
     )
@@ -181,7 +182,7 @@ endif()
 # }}}
 
 # src (decomp) {{{
-file(GLOB_RECURSE src__ RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "src/*.c" "src/*.h")
+file(GLOB_RECURSE src__ CONFIGURE_DEPENDS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "src/*.c" "src/*.h")
 set_source_files_properties(${src__} PROPERTIES COMPILE_OPTIONS "${WARNING_OVERRIDE}")
 
 list(APPEND src__ ${CMAKE_CURRENT_SOURCE_DIR}/Resource.rc)
@@ -225,12 +226,6 @@ set(ALL_FILES
 # Target
 ################################################################################
 add_executable(${PROJECT_NAME} ${ALL_FILES})
-
-if(MSVC)
-    # yaml-cpp, reached through torch's headers, trips the dll-interface warnings, and soh
-    # builds with /WX.
-    set_source_files_properties(soh/Extractor/TorchExtract.cpp PROPERTIES COMPILE_OPTIONS "/wd4251;/wd4275")
-endif()
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
 use_props(${PROJECT_NAME} "${CMAKE_CONFIGURATION_TYPES}" "${DEFAULT_CXX_PROPS}")
@@ -495,6 +490,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
             -Wno-parentheses
             -Wno-narrowing
             -Wno-missing-braces
+            -Wno-unknown-pragmas # #pragma region is an editor folding marker, GCC doesn't know it
             $<$<COMPILE_LANGUAGE:C>:
                 -Werror-implicit-function-declaration
                 -Wno-incompatible-pointer-types
@@ -523,6 +519,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
             -Wno-parentheses
             -Wno-narrowing
             -Wno-missing-braces
+            -Wno-unknown-pragmas # #pragma region is an editor folding marker, GCC doesn't know it
             $<$<COMPILE_LANGUAGE:C>:
                 -Werror-implicit-function-declaration
                 -Wno-incompatible-pointer-types
@@ -547,6 +544,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
             -Wno-return-type
             -Wno-narrowing
             -Wno-switch-outside-range
+            -Wno-unknown-pragmas # #pragma region is an editor folding marker, GCC doesn't know it
             $<$<COMPILE_LANGUAGE:C>:
                 -Werror-implicit-function-declaration
                 -Wno-incompatible-pointer-types
@@ -573,6 +571,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
             -Wno-parentheses
             -Wno-narrowing
             -Wno-missing-braces
+            -Wno-unknown-pragmas # #pragma region is an editor folding marker, GCC doesn't know it
             $<$<COMPILE_LANGUAGE:C>:
                 -Werror-implicit-function-declaration
                 -Wno-implicit-int
@@ -690,7 +689,9 @@ else()
     find_package(Vorbis REQUIRED)
     find_package(Opus REQUIRED)
     find_package(OpusFile REQUIRED)
-     set(ADDITIONAL_LIBRARY_DEPENDENCIES
+    # clang doesn't pull libm in transitively the way gcc does, link it explicitly
+    find_library(MATH_LIBRARY m)
+    set(ADDITIONAL_LIBRARY_DEPENDENCIES
     "libultraship;"
         "torch;"
         SDL2::SDL2
@@ -704,7 +705,13 @@ else()
         ${CMAKE_DL_LIBS}
         Threads::Threads
     )
+    if(MATH_LIBRARY)
+        list(APPEND ADDITIONAL_LIBRARY_DEPENDENCIES ${MATH_LIBRARY})
+    endif()
 endif()
+
+find_package(libzip REQUIRED)
+list(APPEND ADDITIONAL_LIBRARY_DEPENDENCIES libzip::zip)
 
 if(USE_ASAN)
     target_compile_options(libultraship PRIVATE -fsanitize=address)
@@ -738,7 +745,7 @@ INSTALL(TARGETS soh DESTINATION . COMPONENT ship)
 endif()
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
-INSTALL(FILES $<TARGET_PDB_FILE:soh> DESTINATION ./debug COMPONENT ship)
+INSTALL(FILES $<TARGET_PDB_FILE:soh> DESTINATION debug COMPONENT ship)
 INSTALL(FILES ${CMAKE_BINARY_DIR}/soh/soh.o2r DESTINATION . COMPONENT ship)
 endif()
 

@@ -198,10 +198,27 @@ find_package(ZLIB REQUIRED)
 
 include(FetchContent)
 
+# spdlog runs fmt's consteval format check in every log macro, and clang >= 21 rejects it as
+# not constant with fmt < 11.1: FMT_STRING's compile string converts to two distinct literal
+# objects, so the pointer subtraction fmt does while parsing crosses objects (#7017). Ignore a
+# system spdlog built against such an fmt; the fetched one bundles fmt 12.
+set(_use_system_spdlog ON)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
+   AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "21.0")
+    find_package(fmt QUIET)
+    if(fmt_FOUND AND fmt_VERSION VERSION_LESS "11.1")
+        message(STATUS "clang ${CMAKE_CXX_COMPILER_VERSION} can't build against fmt ${fmt_VERSION}, fetching spdlog")
+        set(_use_system_spdlog OFF)
+    endif()
+endif()
+
 # Workaround: torch declares spdlog without OVERRIDE_FIND_PACKAGE and the first declaration
 # wins, which leaves libultraship's find_package(spdlog REQUIRED) with no config to find.
 # Declaring it here first keeps that working. See HarbourMasters/Torch#233.
-find_package(spdlog QUIET)
+if(_use_system_spdlog)
+    # 1.10 is minimum for spdlog::fmt_lib
+    find_package(spdlog 1.10 QUIET)
+endif()
 if(NOT spdlog_FOUND)
     FetchContent_Declare(
         spdlog
@@ -224,6 +241,8 @@ foreach(_torch_game SM64 MK64 SF64 PM64 FZERO BK64 MARIO_ARTIST)
     set(BUILD_${_torch_game} OFF CACHE BOOL "" FORCE)
 endforeach()
 
+add_compile_definitions(YAML_CPP_STATIC_DEFINE)
+
 add_subdirectory(torch)
 
 # Build-time ROM extraction. soh links torch as a static library, which compiles out torch's
@@ -240,6 +259,11 @@ add_executable(soh-o2r-packer EXCLUDE_FROM_ALL
     ${CMAKE_CURRENT_SOURCE_DIR}/soh/assets/tools/soh-o2r-packer/PngTexture.cpp
 )
 target_link_libraries(soh-o2r-packer PRIVATE torch)
+
+if(MSVC)
+    set_target_properties(soh-torch soh-o2r-packer PROPERTIES
+        MSVC_RUNTIME_LIBRARY "$<IF:$<CONFIG:Debug>,MultiThreadedDebug,MultiThreaded>")
+endif()
 
 # Target to generate OTRs. SOH_ROM_PATH takes roms and/or directories of roms; torch names each
 # archive (oot.o2r or oot-mq.o2r) from its hash, so a vanilla and a master quest rom produce both
@@ -312,11 +336,11 @@ set_property(TARGET soh PROPERTY APPIMAGE_ICON_FILE "${CMAKE_BINARY_DIR}/sohIcon
 
 if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
 install(FILES "${CMAKE_BINARY_DIR}/soh/soh.o2r" DESTINATION . COMPONENT ship)
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/soh/assets/yml/" DESTINATION ./assets COMPONENT ship)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/soh/assets/yml/" DESTINATION assets COMPONENT ship)
 endif()
 
 if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Windows")
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/soh/assets/yml/" DESTINATION ./assets COMPONENT ship)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/soh/assets/yml/" DESTINATION assets COMPONENT ship)
 endif()
 
 if(CMAKE_SYSTEM_NAME MATCHES "Linux")
@@ -350,7 +374,7 @@ add_dependencies(soh CreateOSXIcons)
 
 set(PROGRAM_PERMISSIONS_EXECUTE OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ)
 
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/soh/assets/yml/" DESTINATION ./assets)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/soh/assets/yml/" DESTINATION assets)
 
 # Rename the installed soh binary to drop the macos suffix
 INSTALL(CODE "FILE(RENAME \${CMAKE_INSTALL_PREFIX}/../MacOS/soh-macos \${CMAKE_INSTALL_PREFIX}/../MacOS/soh)")

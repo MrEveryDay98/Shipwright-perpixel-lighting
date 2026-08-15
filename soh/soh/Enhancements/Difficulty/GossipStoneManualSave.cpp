@@ -35,8 +35,8 @@ static void OnGossipStoneSwordHit(void* refActor) {
 
     // Same jingle vanilla plays on a successful pause-menu/death-screen save, so hitting a
     // stone gives the same audible "saved" confirmation those normally would.
-    Audio_PlaySoundGeneral(NA_SE_SY_PIECE_OF_HEART, &gSfxDefaultPos, 4, &gSfxDefaultFreqAndVolScale,
-                           &gSfxDefaultFreqAndVolScale, &gSfxDefaultReverb);
+    Audio_PlaySfxGeneral(NA_SE_SY_PIECE_OF_HEART, &gSfxDefaultPos, 4, &gSfxDefaultFreqAndVolScale,
+                         &gSfxDefaultFreqAndVolScale, &gSfxDefaultReverb);
 }
 
 // Mirrors the transient-state reset FileChoose_LoadGame (z_file_choose.c) performs right after
