@@ -11,6 +11,11 @@
 // static-initialization-order issues between this translation unit and the ones that consume it.
 struct EnemyTuningEntry {
     int16_t actorId;
+    // When >= 0, this entry only matches an actor whose own `params` equals this value -- for
+    // actor types that multiplex several unrelated behaviors off of spawn params (e.g.
+    // Bg_Haka_Trap: spiked wall / spiked crusher / fan blade / guillotine all share one actor
+    // ID). Leave at -1 (the default) to match any params, i.e. the whole actor ID as before.
+    int32_t requiredParams = -1;
     const char* key;          // Stable slug used in CVar names, e.g. "EnIk" -- never rename once shipped.
     const char* displayName;  // Player-facing name shown in the menu, e.g. "Dark Nut / Iron Knuckle".
     // This enemy's vanilla damage value -- also baseDamageCvarName's CVar default, so leaving
@@ -28,9 +33,11 @@ struct EnemyTuningEntry {
 
 const std::vector<EnemyTuningEntry>& GetEnemyTuningTable();
 
-// Returns nullptr if actorId isn't in the curated list, meaning the caller should fall back to
-// the global multipliers instead.
-const EnemyTuningEntry* FindEnemyTuningEntry(int16_t actorId);
+// Returns nullptr if actorId (with the given params, for entries that require a specific one --
+// see EnemyTuningEntry::requiredParams) isn't in the curated list, meaning the caller should fall
+// back to the global multipliers instead. `params` defaults to -1 (i.e. "unknown/don't care"),
+// which only matches entries that don't themselves require a specific params value.
+const EnemyTuningEntry* FindEnemyTuningEntry(int16_t actorId, int32_t params = -1);
 
 // Defined in EnemyTuning.cpp. Clears every Enemy Tuning CVar (curated and Global Fallback) back
 // to its default and re-registers hooks to match.

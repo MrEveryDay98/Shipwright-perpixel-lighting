@@ -6,10 +6,11 @@
 
 namespace {
 void AddEntry(std::vector<EnemyTuningEntry>& table, int16_t actorId, const char* key, const char* displayName,
-              int32_t defaultDamage) {
+              int32_t defaultDamage, int32_t requiredParams = -1) {
     std::string base = std::string(CVAR_PREFIX_ENHANCEMENT) + ".EnemyTuning." + key;
     table.push_back({
         actorId,
+        requiredParams,
         key,
         displayName,
         defaultDamage,
@@ -69,6 +70,17 @@ const std::vector<EnemyTuningEntry>& GetEnemyTuningTable() {
         AddEntry(t, ACTOR_EN_GOMA, "EnGoma", "Gohma Larva", 8);
         AddEntry(t, ACTOR_EN_SHOPNUTS, "EnShopnuts", "Grounded Sales Scrub", 8); // NONE_FOUND
         AddEntry(t, ACTOR_EN_CROW, "EnCrow", "Guay", 8);
+        // Bg_Haka_Trap is a shared "Shadow Temple hazard" actor whose `params` selects between
+        // several unrelated mechanics -- spiked wall, spiked crusher, fan blade, and the
+        // guillotine (see BgHakaTrap_Init in z_bg_haka_trap.c). requiredParams scopes this entry
+        // to just the guillotine (HAKA_TRAP_GUILLOTINE_SLOW == 0 in that file's own header;
+        // BgHakaTrap_Init rewrites HAKA_TRAP_GUILLOTINE_FAST to that same value on spawn, so this
+        // covers both variants). Speed/Attack Speed are no-ops here regardless -- see
+        // FindEnemyTuningEntry's params handling -- since only the damage hook looks entries up
+        // with real params; treat this entry as damage-only, the same as the NONE_FOUND ones
+        // above are speed/attack-speed-only.
+        AddEntry(t, ACTOR_BG_HAKA_TRAP, "BgHakaTrapGuillotine", "Guillotine (Shadow Temple)", 4,
+                 /*requiredParams=*/0);
         AddEntry(t, ACTOR_EN_HINTNUTS, "EnHintnuts", "Hint Deku Scrubs (Deku Tree)", 8); // NONE_FOUND
         AddEntry(t, ACTOR_EN_FIREFLY, "EnFirefly", "Keese", 8);
         AddEntry(t, ACTOR_EN_BDFIRE, "EnBdfire", "King Dodongo's Fire Breath", 8); // NONE_FOUND
@@ -108,9 +120,9 @@ const std::vector<EnemyTuningEntry>& GetEnemyTuningTable() {
     return table;
 }
 
-const EnemyTuningEntry* FindEnemyTuningEntry(int16_t actorId) {
+const EnemyTuningEntry* FindEnemyTuningEntry(int16_t actorId, int32_t params) {
     for (const auto& entry : GetEnemyTuningTable()) {
-        if (entry.actorId == actorId) {
+        if (entry.actorId == actorId && (entry.requiredParams == -1 || entry.requiredParams == params)) {
             return &entry;
         }
     }

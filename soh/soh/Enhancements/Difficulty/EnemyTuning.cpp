@@ -164,7 +164,7 @@ static void RegisterEnemyDamageMult() {
             return;
         }
 
-        if (const EnemyTuningEntry* entry = FindEnemyTuningEntry(attacker->id)) {
+        if (const EnemyTuningEntry* entry = FindEnemyTuningEntry(attacker->id, attacker->params)) {
             // Base Damage's CVar default is this enemy's own vanilla value, so leaving it
             // untouched reproduces vanilla exactly; changing it overrides the damage this enemy
             // deals outright (note: for enemies that go through the standard collision system,

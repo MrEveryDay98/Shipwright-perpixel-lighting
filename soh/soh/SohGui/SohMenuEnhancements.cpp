@@ -836,6 +836,12 @@ void SohMenu::AddMenuEnhancements() {
         .Options(IntSliderOptions().Min(0).Max(60).DefaultValue(0).Format("%d frames").Tooltip(
             "While the Game Over death animation plays, spurts blood from Link at this interval "
             "(in frames). 0 disables this."));
+    AddWidget(path, "Decapitation on Blade Trap Death", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("DeathByBladeTrapEffect"))
+        .Options(CheckboxOptions().Tooltip(
+            "If a spinning scythe trap (Shadow Temple/Ice Cavern) or a guillotine (Shadow Temple) "
+            "deals the killing blow, Link's entire upper half disappears and a blood burst spawns "
+            "at his neck."));
 
     path.sidebarName = "Items";
     AddSidebarEntry("Enhancements", path.sidebarName, 3);
