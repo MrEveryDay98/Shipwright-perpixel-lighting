@@ -54,6 +54,14 @@ lockstep "Metroid (USA).nes" --script 120:08,125:00,200:08,205:00 --sync 650 --f
   `20` down, `40` left, `80` right) from each frame on.
 - `--sync n`: the original runs alone until frame `n`, then the port takes over its state.
 - `--random seed`: random buttons after the script (Start excluded).
+- `--poke addr=val,...`: written into both sides' memory before every frame, to reach parts of the game
+  quickly (all items and full energy, an item placed on Samus, a later area).
+- `--dump addr[-addr],...`: prints the original's bytes at the end, to check a test reached what it was
+  meant to (an item collected, a room entered).
+- `--check-lag`: also compares after the original's lag frames and prints the differences without failing.
+  Some are expected there (joypad, sound and sprite bytes, from the extra NMIs the original ran); anything
+  else is a bug the normal run can't see. Heavy frames (loading a room, checking a password) are often lag
+  frames, so run with this after translating one.
 - It compares RAM (except the scratch bytes `$00-$0F`, `TempX`/`TempY` and the stack), cartridge RAM, name
   tables, palette, pattern tables, sprites, PPU control and the mapped bank after every frame, and prints
   the first differences with variable names.

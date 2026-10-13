@@ -9,6 +9,10 @@
 //     --ram-h <path>             Ram.h, for naming differing addresses
 //     --poke <addr=val,...>      written into both games' memory before every frame (e.g. items,
 //                                health), so random play can reach more of the game
+//     --dump <addr[-addr],...>   prints these RAM/WRAM bytes of the original at the end (or failure)
+//     --check-lag                also compares at the frames where the original lagged and prints the
+//                                differences without failing (a few are expected: the original ran extra
+//                                NMIs, so joypad, sound and sprite bytes differ)
 
 #include "game/Game.h"
 #include "game/Hw.h"
@@ -224,9 +228,34 @@ int Compare(const Nes::Machine& emu, const std::map<uint16_t, std::string>& name
 
 } // namespace
 
+// Prints the original's bytes in the ranges of a --dump list ("1F,6870-6877").
+void Dump(const char* tag, Nes::Machine& emu, const std::string& spec) {
+    if (spec.empty()) {
+        return;
+    }
+    printf("%s:", tag);
+    for (size_t p = 0; p < spec.size();) {
+        size_t q = spec.find(',', p);
+        if (q == std::string::npos) {
+            q = spec.size();
+        }
+        std::string item = spec.substr(p, q - p);
+        p = q + 1;
+        size_t dash = item.find('-');
+        unsigned first = strtoul(item.c_str(), nullptr, 16);
+        unsigned last = dash == std::string::npos ? first : strtoul(item.c_str() + dash + 1, nullptr, 16);
+        printf(" %04X:", first);
+        for (unsigned a = first; a <= last; a++) {
+            printf("%02X", a >= 0x6000 ? emu.Wram()[a - 0x6000] : emu.Ram()[a & 0x7FF]);
+        }
+    }
+    printf("\n");
+}
+
 int main(int argc, char** argv) {
     if (argc < 2) {
-        fprintf(stderr, "usage: lockstep <rom> [--script s] [--sync n] [--frames n] [--random seed] [--ram-h path]\n");
+        fprintf(stderr, "usage: lockstep <rom> [--script s] [--sync n] [--frames n] [--random seed] [--ram-h path] "
+                        "[--poke a=v,...] [--dump ranges] [--check-lag]\n");
         return 2;
     }
     Script script;
@@ -234,9 +263,21 @@ int main(int argc, char** argv) {
     long seed = -1;
     std::vector<std::pair<uint16_t, uint8_t>> pokes;
     const char* ramH = "metroid64/src/game/Ram.h";
-    for (int i = 2; i + 1 < argc; i += 2) {
+    std::string dump;
+    bool checkLag = false;
+    for (int i = 2; i < argc; i += 2) {
         std::string opt = argv[i];
-        if (opt == "--script") {
+        if (opt == "--check-lag") {
+            checkLag = true;
+            i--;
+            continue;
+        }
+        if (i + 1 >= argc) {
+            break;
+        }
+        if (opt == "--dump") {
+            dump = argv[i + 1];
+        } else if (opt == "--script") {
             script = ParseScript(argv[i + 1]);
         } else if (opt == "--sync") {
             sync = atoi(argv[i + 1]);
@@ -341,13 +382,18 @@ int main(int argc, char** argv) {
                 emu.RunFrame();
                 frame++;
             }
+            if (checkLag) {
+                printf("lag frames up to %d (the port ran %d NMIs):\n", frame, nmis);
+                Compare(emu, names, frame);
+            }
             CopyState(emu);
             resyncs++;
             continue;
         }
         if (Compare(emu, names, frame) > 0 || !CompareApu(frame)) {
-            printf("FAILED after %d compared frames (%d resyncs). GameMode %02X MainRoutine %02X\n", compared,
-                   resyncs, emu.Ram()[0x1D], emu.Ram()[0x1E]);
+            printf("FAILED after %d compared frames (%d resyncs). GameMode %02X MainRoutine %02X\n", compared, resyncs,
+                   emu.Ram()[0x1D], emu.Ram()[0x1E]);
+            Dump("original", emu, dump);
             return 1;
         }
         compared++;
@@ -355,5 +401,6 @@ int main(int argc, char** argv) {
     printf("OK: %d frames matched (%d resyncs after lag frames), ended at frame %d (GameMode %02X MainRoutine "
            "%02X)\n",
            compared, resyncs, frame, emu.Ram()[0x1D], emu.Ram()[0x1E]);
+    Dump("original", emu, dump);
     return 0;
 }
