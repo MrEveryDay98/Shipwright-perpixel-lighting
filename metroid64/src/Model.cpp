@@ -80,14 +80,37 @@ std::shared_ptr<Model> Model::Load(const std::string& manifestPath) {
     model->mYawLeft = json.value("yaw_left", 180.0f);
     model->mFallback = json.value("fallback", std::string("Stand"));
 
+    if (json.contains("skeleton") && json["skeleton"].is_string()) {
+        std::string path = json["skeleton"].get<std::string>();
+        auto res = ctx->GetResourceManager()->LoadResource(path);
+        model->mSkeleton = std::dynamic_pointer_cast<Skeleton>(res);
+        if (model->mSkeleton == nullptr) {
+            SPDLOG_ERROR("Model {}: {} is not a Skeleton resource", manifestPath, path);
+            return nullptr;
+        }
+    }
+
     const nlohmann::json animations = json.value("animations", nlohmann::json::object());
     for (auto& [name, anim] : animations.items()) {
         if (!anim.is_object()) {
             continue;
         }
         Anim a;
-        a.fps = anim.value("fps", 10.0f);
         a.loop = anim.value("loop", true);
+        if (model->mSkeleton != nullptr) {
+            // Skeletal: one Animation resource, played at 20 frames per second by default (the rate
+            // Shipwright's animations are made for).
+            a.fps = anim.value("fps", 20.0f);
+            std::string path = anim.value("animation", std::string());
+            a.skelAnim = std::dynamic_pointer_cast<Animation>(ctx->GetResourceManager()->LoadResource(path));
+            if (a.skelAnim == nullptr || !a.skelAnim->supported) {
+                SPDLOG_ERROR("Model {}: {} is not a supported Animation resource", manifestPath, path);
+                continue;
+            }
+            model->mAnims[name] = std::move(a);
+            continue;
+        }
+        a.fps = anim.value("fps", 10.0f);
         const nlohmann::json frames = anim.value("frames", nlohmann::json::array());
         for (auto& path : frames) {
             if (!path.is_string()) {
@@ -114,6 +137,23 @@ std::shared_ptr<Model> Model::Load(const std::string& manifestPath) {
     return model;
 }
 
+const Gfx* Model::LimbDisplayList(const std::string& path) const {
+    auto it = mLimbLists.find(path);
+    if (it != mLimbLists.end()) {
+        return it->second;
+    }
+    auto res = Ship::Context::GetRawInstance()->GetResourceManager()->LoadResource(path);
+    auto dl = std::dynamic_pointer_cast<Fast::DisplayList>(res);
+    if (dl == nullptr) {
+        SPDLOG_ERROR("Limb display list {} is missing", path);
+    } else {
+        mResources.push_back(res);
+    }
+    const Gfx* list = dl ? (const Gfx*)dl->GetRawPointer() : nullptr;
+    mLimbLists[path] = list;
+    return list;
+}
+
 const Model::Anim* Model::Find(const std::string& name) const {
     auto it = mAnims.find(name);
     if (it == mAnims.end()) {
@@ -127,15 +167,27 @@ const Model::Anim* Model::Find(const std::string& name) const {
 
 void Model::Draw(Renderer& r, Gfx*& g, const ModelInstance& v) const {
     const Anim* a = Find(v.anim);
-    if (a == nullptr || a->frames.empty()) {
+    if (a == nullptr) {
         return;
     }
-    int frame = (int)(v.ticks * a->fps / 60.0f);
-    frame = a->loop ? frame % (int)a->frames.size() : std::min(frame, (int)a->frames.size() - 1);
-
     Mat4 m = Scale(mScale, mScale, mScale);
     m = Mul(m, RotateY(v.facingLeft ? mYawLeft : mYawRight));
     m = Mul(m, Translate(v.x + mOffset.x, -v.y + mOffset.y, mOffset.z));
+
+    if (mSkeleton != nullptr) {
+        if (a->skelAnim == nullptr) {
+            return;
+        }
+        SkeletonPose pose;
+        pose.Sample(*mSkeleton, *a->skelAnim, v.time * a->fps, a->loop);
+        r.DrawSkeleton(g, *mSkeleton, pose, m, [this](const std::string& path) { return LimbDisplayList(path); });
+        return;
+    }
+    if (a->frames.empty()) {
+        return;
+    }
+    int frame = (int)(v.time * a->fps);
+    frame = a->loop ? frame % (int)a->frames.size() : std::min(frame, (int)a->frames.size() - 1);
     r.DrawModel(g, a->frames[frame], m);
 }
 

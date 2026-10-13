@@ -8,6 +8,7 @@
 #include "Hud.h"
 #include "Menu.h"
 #include "Renderer.h"
+#include "Skeleton.h"
 
 #include <fast/Fast3dWindow.h>
 #include <fast/resource/ResourceType.h>
@@ -232,6 +233,7 @@ int main(int argc, char** argv) {
     context->InitControlDeck(std::make_shared<LUS::ControlDeck>());
     context->InitResourceManager(CollectArchives(), {}, 1, false);
     RegisterResourceFactories();
+    Metroid::RegisterSkeletonResourceFactories();
     context->InitConsole();
 
     sHud = std::make_shared<Metroid::Hud>();
@@ -333,6 +335,8 @@ int main(int argc, char** argv) {
                     SPDLOG_INFO("tick {} 1D={:02X} 1E={:02X} gameplay={} ctrl={:02X} mirror={} scroll={},{}", ticks,
                                 sEmu->Peek(0x1D), sEmu->Peek(0x1E), sEmu->InGameplay(), sEmu->PpuCtrl(),
                                 sEmu->Mirroring(), sEmu->PlaneScrollX(), sEmu->PlaneScrollY());
+                    SPDLOG_INFO("  samus screen {},{} hi={:02X} x={:02X} y={:02X}", sEmu->SamusScreenX(),
+                                sEmu->SamusScreenY(), sEmu->Peek(0x30C), sEmu->Peek(0x30E), sEmu->Peek(0x30D));
                 }
             };
             bool interpolate = CVarGetInteger(Metroid::kCVarInterpolation, 1) != 0;

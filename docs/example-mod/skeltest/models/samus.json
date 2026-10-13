@@ -1,0 +1,24 @@
+{
+ "scale": 1.0,
+ "offset": [
+  0,
+  0,
+  0
+ ],
+ "yaw_right": 0,
+ "yaw_left": 180,
+ "skeleton": "models/skeltest/skel",
+ "fallback": "Stand",
+ "animations": {
+  "Stand": {
+   "animation": "models/skeltest/anim_stand",
+   "fps": 20,
+   "loop": true
+  },
+  "Run": {
+   "animation": "models/skeltest/anim_run",
+   "fps": 40,
+   "loop": true
+  }
+ }
+}

@@ -210,6 +210,18 @@ void Renderer::DrawModel(Gfx*& g, const Gfx* dl, const Mat4& model) {
     SetTexturedState(g, true);
 }
 
+void Renderer::DrawSkeleton(Gfx*& g, const Skeleton& skel, SkeletonPose& pose, const Mat4& model,
+                            const std::function<const Gfx*(const std::string&)>& limbList) {
+    if (g + 16 + skel.limbCount * 4 >= mFrameEnd) {
+        return;
+    }
+    gDPPipeSync(g++);
+    gSPSetLights1(g++, sModelLights);
+    pose.Draw(g, skel, model, mViewMat, [this](const Mat4& m) { return AllocMtx(m); }, limbList);
+    gSPMatrix(g++, &mView, G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH);
+    SetTexturedState(g, true);
+}
+
 // --- Play field -------------------------------------------------------------------------------
 
 void Renderer::BuildChunk(const Emulator& emu, Chunk& chunk, uint16_t ntBase, int cx, int cy) {
@@ -431,7 +443,7 @@ void Renderer::DrawSprites(Gfx*& g, const Emulator& emu, bool hudPass, bool hide
     }
 }
 
-void Renderer::DrawSamusModel(Gfx*& g, const Emulator& emu, const Model& model) {
+void Renderer::DrawSamusModel(Gfx*& g, const Emulator& emu, const Model& model, float alpha) {
     uint8_t anim = emu.Peek(Ram::kSamusAnimReset);
     if (anim != mSamusAnim) {
         mSamusAnim = anim;
@@ -439,7 +451,7 @@ void Renderer::DrawSamusModel(Gfx*& g, const Emulator& emu, const Model& model) 
     }
     ModelInstance m;
     m.anim = SamusAnimName(anim);
-    m.ticks = (int)(emu.FrameCount() - mSamusAnimStart);
+    m.time = ((float)(emu.FrameCount() - mSamusAnimStart) + alpha) / 60.0f;
     m.x = emu.SamusScreenX();
     m.y = emu.SamusScreenY() + emu.Peek(Ram::kSamusRadY) + 1; // models stand on their origin
     m.facingLeft = emu.SamusFacingLeft();
@@ -520,7 +532,8 @@ Gfx* Renderer::BuildFrame(const Emulator& emu, float alpha) {
         float height = CVarGetFloat("gMetroid64.Camera.Height", 30.0f);
         float cx = kScreenW / 2.0f + offX, cy = -(kScreenH / 2.0f + offY);
         ToMtx(Perspective(fov, (float)kNativeW / kNativeH, 16.0f, 4000.0f), &mProjection);
-        ToMtx(LookAt({ cx, cy + height, dist }, { cx, cy, 0.0f }, { 0, 1, 0 }), &mView);
+        mViewMat = LookAt({ cx, cy + height, dist }, { cx, cy, 0.0f }, { 0, 1, 0 });
+        ToMtx(mViewMat, &mView);
         gSPMatrix(g++, &mProjection, G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
         gSPMatrix(g++, &mView, G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH);
         SetTexturedState(g, true);
@@ -535,7 +548,7 @@ Gfx* Renderer::BuildFrame(const Emulator& emu, float alpha) {
         SetTexturedState(g, true);
         DrawSprites(g, emu, false, samus != nullptr);
         if (samus != nullptr && samusVisible) {
-            DrawSamusModel(g, emu, *samus);
+            DrawSamusModel(g, emu, *samus, alpha);
         }
 
         BeginOverlay(g);

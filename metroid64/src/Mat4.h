@@ -55,6 +55,16 @@ inline Mat4 Scale(float x, float y, float z) {
     return r;
 }
 
+inline Mat4 RotateX(float deg) {
+    float c = cosf(deg * (float)M_PI / 180.0f), s = sinf(deg * (float)M_PI / 180.0f);
+    Mat4 r = Identity();
+    r.m[1][1] = c;
+    r.m[1][2] = s;
+    r.m[2][1] = -s;
+    r.m[2][2] = c;
+    return r;
+}
+
 inline Mat4 RotateY(float deg) {
     float c = cosf(deg * (float)M_PI / 180.0f), s = sinf(deg * (float)M_PI / 180.0f);
     Mat4 r = Identity();

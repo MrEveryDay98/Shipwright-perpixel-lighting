@@ -1,0 +1,4 @@
+<Skeleton Version="0" Type="Normal" LimbType="Standard" LimbCount="2" DisplayListCount="2">
+  <SkeletonLimb Path="models/skeltest/limb_body"/>
+  <SkeletonLimb Path="models/skeltest/limb_arm"/>
+</Skeleton>

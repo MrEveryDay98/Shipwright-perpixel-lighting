@@ -50,9 +50,37 @@ same way.
 
 Exporting display lists from Blender with [Fast64](https://github.com/Fast-64/fast64) (its Ship of Harkinian/O2R output) produces resources in this format. Textures, vertices and lights referenced by the display lists load the same way they do in Shipwright.
 
+## Skeletal models
+
+A model can instead be a skeleton with animations, in Ship of Harkinian's resource formats, so skeletons and
+animations exported for Shipwright (for example with Fast64) load unchanged:
+
+```json
+{
+  "scale": 0.1,
+  "yaw_right": 90,
+  "yaw_left": -90,
+  "skeleton": "models/samus/skel",
+  "fallback": "Stand",
+  "animations": {
+    "Stand": { "animation": "models/samus/anim_stand" },
+    "Run":   { "animation": "models/samus/anim_run", "fps": 30 }
+  }
+}
+```
+
+- **`skeleton`** is a `Skeleton` resource (`OSKL`). Normal and Flex skeletons with Standard or LOD limbs (`OSLB`) work. Flex skeletons get their limb matrices through segment `0x0D`, as in Shipwright.
+- **`animation`** is an `Animation` resource (`OANM`) of the Normal kind. It plays at `fps` animation frames per second (default 20, the rate Shipwright's animations are made for), interpolated between frames.
+- Curve and Skin limbs, and Link's own animation format, are not supported.
+- Animation resources can also be written as XML (`<Animation FrameCount StaticIndexMax>` with `<Values>` and `<JointIndices>` lists), which is handy for hand-made tests.
+
+`docs/example-mod/skeltest` is a hand-written two-limb skeleton (a body and a swinging arm) with `Stand` and `Run` animations, all in XML.
+
+## Examples
+
 `docs/example-mod/testmodel` is a small hand-written example: a blocky stand-in for Samus with a two-frame run cycle, in XML. To try it, copy the `testmodel` folder into `mods/`.
 
 ## Current limits
 
-- Animation is per-animation frame sequences (flipbook). Skeletal animation (Shipwright-style skeleton and animation resources) is not wired up yet.
+- Only Samus can be replaced so far.
 - Models are lit with one fixed light. They inherit the render state their display lists set.

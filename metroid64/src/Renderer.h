@@ -25,6 +25,8 @@ class Renderer {
     Gfx* BuildFrame(const Emulator& emu, float alpha);
 
     void DrawModel(Gfx*& g, const Gfx* dl, const Mat4& model);
+    void DrawSkeleton(Gfx*& g, const Skeleton& skel, SkeletonPose& pose, const Mat4& model,
+                      const std::function<const Gfx*(const std::string&)>& limbList);
     ModelLibrary& Models() {
         return mModels;
     }
@@ -51,7 +53,7 @@ class Renderer {
 
     void DrawPlayField(Gfx*& g, const Emulator& emu);
     void DrawSprites(Gfx*& g, const Emulator& emu, bool hudPass, bool hideSamus);
-    void DrawSamusModel(Gfx*& g, const Emulator& emu, const Model& model);
+    void DrawSamusModel(Gfx*& g, const Emulator& emu, const Model& model, float alpha);
     void Draw2DFrame(Gfx*& g, const Emulator& emu);
     void BeginOverlay(Gfx*& g);
 
@@ -75,6 +77,7 @@ class Renderer {
     Gfx* mFrameEnd = nullptr;
     Mtx mProjection;
     Mtx mView;
+    Mat4 mViewMat;
     Mtx mOrtho;
     Mtx mIdentity;
     Vp mViewport;

@@ -48,6 +48,12 @@ int WrapDelta(int d, int size) {
     return d;
 }
 
+// Wraps a plane coordinate difference into the period's copy nearest the screen centre.
+int WrapAround(int d, int centre, int period) {
+    int lo = centre - period / 2;
+    return lo + (((d - lo) % period) + period) % period;
+}
+
 } // namespace
 
 bool Emulator::LoadRomFile(const std::string& path, std::string& error) {
@@ -144,13 +150,13 @@ uint8_t Emulator::AreaBank() const {
 float Emulator::SamusScreenX() const {
     bool horizontalRoom = Mirroring() == 2;
     int px = (horizontalRoom ? (Peek(Ram::kSamusHi) & 1) * 256 : 0) + Peek(Ram::kSamusX);
-    return (float)WrapDelta(px - mPlaneX, horizontalRoom ? 512 : 256);
+    return (float)WrapAround(px - mPlaneX, 128, horizontalRoom ? 512 : 256);
 }
 
 float Emulator::SamusScreenY() const {
     bool horizontalRoom = Mirroring() == 2;
     int py = (horizontalRoom ? 0 : (Peek(Ram::kSamusHi) & 1) * 240) + Peek(Ram::kSamusY);
-    return (float)WrapDelta(py - mPlaneY, horizontalRoom ? 240 : 480);
+    return (float)WrapAround(py - mPlaneY, 120, horizontalRoom ? 240 : 480);
 }
 
 } // namespace Metroid

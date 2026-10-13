@@ -1,0 +1,4 @@
+<Animation Version="0" FrameCount="20" StaticIndexMax="1">
+  <Values>0 -16384 -15147 -14032 -13147 -12579 -12384 -12579 -13147 -14032 -15147 -16384 -17620 -18735 -19620 -20188 -20384 -20188 -19620 -18735 -17620</Values>
+  <JointIndices>0 0 0 0 0 0 0 0 1</JointIndices>
+</Animation>

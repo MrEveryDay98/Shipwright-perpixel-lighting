@@ -78,12 +78,12 @@ box. Press **F1** for the menu, then **Controls → Controller configuration** t
 - The play field in 3D from the live nametables, including scrolling, doors, destroyed blocks and palette effects.
 - Sprites as flat cards, with door bubbles placed on the walls and the status display as an overlay.
 - Sound and music from an emulated APU (volume and mute in the Audio menu).
-- Model support: Samus can be replaced by a 3D model animated from the game's own animation state. See [docs/MODELS.md](docs/MODELS.md).
+- Model support: Samus can be replaced by a 3D model, either a flipbook of display lists or a skeleton with animations in Shipwright's formats, animated from the game's own animation state. See [docs/MODELS.md](docs/MODELS.md).
 
 ## Not done yet
 
 - Saving the emulator state (the game's own passwords are the only way to save).
-- Models for enemies and items, and skeletal animation for models.
+- Models for enemies and items.
 - In vertical shafts the view doesn't extend past the NES screen's left and right edges, because the game only keeps one screen's width there.
 
 ## Developer notes
@@ -100,6 +100,7 @@ Source layout:
 | `metroid64/src/Emulator.*` | Metroid on the NES: ROM check, sprite ownership, scroll tracking, RAM addresses |
 | `metroid64/src/Renderer.*` | 3D presentation of the emulated picture; 2D screens |
 | `metroid64/src/Model.*` | Model manifests and drawing |
+| `metroid64/src/Skeleton.*` | Skeleton, limb and animation resources (Shipwright's formats), posing and limb drawing |
 | `metroid64/src/Menu.*` | F1 menu: graphics, frame rate, controls, developer |
 | `metroid64/src/Hud.*` | ImGui overlay: ROM prompt, notices |
 | `metroid64/src/main.cpp` | libultraship bootstrap, input and main loop |
