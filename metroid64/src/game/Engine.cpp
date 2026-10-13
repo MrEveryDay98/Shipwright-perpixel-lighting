@@ -9,6 +9,7 @@
 #include "game/Area.h"
 #include "game/Constants.h"
 #include "game/Hw.h"
+#include "game/Items.h"
 #include "game/Original.h"
 #include "game/Ram.h"
 #include "game/Objects.h"
@@ -1305,14 +1306,8 @@ void CheckMissileToggle() {
 
 // --- Not translated yet ---------------------------------------------------------------------------
 
-void UpdateStatues() {
-    Original(0xD9D4);
-}
 void DisplayBar() {
     Original(0xE0C1);
-}
-void UpdateItems() {
-    Original(0xDB37);
 }
 
 void GetRoomNum() {
