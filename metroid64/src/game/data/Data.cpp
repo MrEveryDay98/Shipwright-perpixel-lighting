@@ -168,7 +168,7 @@ bool Assets::Read(const tinyxml2::XMLElement* root, std::string& error) {
         blocks.push_back(std::move(b));
         return true;
     }
-    if (root != nullptr && strcmp(root->Name(), "Palettes") == 0) {
+    if (root != nullptr && (strcmp(root->Name(), "Palettes") == 0 || strcmp(root->Name(), "Screen") == 0)) {
         return ReadPpuResource(root, ppu, error);
     }
     return ReadLevelResource(root, level, error);
@@ -198,6 +198,9 @@ void Assets::Merge(const Assets& other) {
     }
     for (const auto& [bank, t] : other.ppu.palettes) {
         ppu.palettes[bank] = t;
+    }
+    for (const auto& [name, set] : other.ppu.screens) {
+        ppu.screens[name] = set;
     }
 }
 

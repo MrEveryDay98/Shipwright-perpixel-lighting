@@ -9,6 +9,8 @@
 //     --ram-h <path>             Ram.h, for naming differing addresses
 //     --poke <addr=val,...>      written into both games' memory before every frame (e.g. items,
 //                                health), so random play can reach more of the game
+//     --set <addr=val,...>       written into the original's memory once, just before the port takes over
+//                                (to start in a given state, e.g. the ending)
 //     --dump <addr[-addr],...>   prints these RAM/WRAM bytes of the original at the end (or failure)
 //     --password <area,gear,missiles[,suitless]>   (hex) starts the game from a password made with the
 //                                port's own password code: area $10-$14, all items collected none.
@@ -339,6 +341,7 @@ int main(int argc, char** argv) {
     int sync = 300, frames = 600;
     long seed = -1;
     std::vector<std::pair<uint16_t, uint8_t>> pokes;
+    std::vector<std::pair<uint16_t, uint8_t>> sets;
     const char* ramH = "metroid64/src/game/Ram.h";
     std::string dump;
     const char* password = nullptr;
@@ -385,6 +388,17 @@ int main(int argc, char** argv) {
             seed = atol(argv[i + 1]);
         } else if (opt == "--ram-h") {
             ramH = argv[i + 1];
+        } else if (opt == "--set") {
+            for (const char* p = argv[i + 1]; *p;) {
+                uint16_t a = (uint16_t)strtol(p, nullptr, 16);
+                const char* eq = strchr(p, '=');
+                if (!eq) {
+                    break;
+                }
+                sets.emplace_back(a, (uint8_t)strtol(eq + 1, nullptr, 16));
+                const char* comma = strchr(eq, ',');
+                p = comma ? comma + 1 : eq + strlen(eq);
+            }
         } else if (opt == "--poke") {
             for (const char* p = argv[i + 1]; *p;) {
                 uint16_t a = (uint16_t)strtol(p, nullptr, 16);
@@ -468,6 +482,9 @@ int main(int argc, char** argv) {
     for (; frame < sync || !InWaitLoop(emu); frame++) {
         emu.SetButtons(buttonsAt(frame));
         emu.RunFrame();
+    }
+    for (const auto& [a, v] : sets) {
+        emu.Write(a, v);
     }
     CopyState(emu);
     Game::Hw::SetApuSink([](uint16_t reg, uint8_t v) { gPortApu.emplace_back(reg, v); }, nullptr);

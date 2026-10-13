@@ -102,6 +102,28 @@ numbers each. `<Fill Address Count Value/>` writes one value Count times; `Verti
 of the name table instead of across. A write holds at most 3F bytes. Palettes that are the same are stored
 once.
 
+Area `title` (bank 0) holds the palettes of the title, password and ending screens.
+
+## Screens: `metroid/screens/<name>`
+
+The title, password and ending screens' text and layouts, as writes to video memory (values are tile
+numbers; the tiles are in the graphics):
+
+- `intro` (the title screen), `password_title`, `game_over`, `start_continue`, `password_please`,
+  `end_screen`: one string the game uses at its address, so it can't grow past its `Size`.
+- `ending_palettes`, `end_messages_0`, `end_messages_1`, `credits`: tables of strings, as `<String Number>`
+  elements; these can grow (they move to free space).
+- `error_message`, `error_blank`: a row of 15 tiles the game copies itself (`<Row>`); they keep their length.
+
+```xml
+<Screen Version="0" Name="credits" Bank="0" Table="A291" Count="44">
+    <String Number="00" Address="A2E9" Size="18">
+        <Write Address="202C">11 0A 12 FF 22 1E 14 0A 16 12</Write>
+        <Write Address="23C0">00</Write>
+    </String>
+</Screen>
+```
+
 ## Everything else: `metroid/data/<bank>/<name>`
 
 Data without a type of its own yet is kept as the bytes of a table, named after the disassembly's label:
