@@ -30,6 +30,15 @@ size_t AssetBlockLength(int bank, uint16_t address) {
     return 0;
 }
 
+const char* AssetBlockName(int bank, uint16_t address) {
+    for (const AssetEntry& a : kAssets) {
+        if (a.bank == bank && a.address == address) {
+            return a.name;
+        }
+    }
+    return nullptr;
+}
+
 Image::Image() : mPrg(8 * 0x4000, 0), mUsed(8 * 0x4000, 0) {
     // Everything the original used as data stays reserved, typed or not: free space is what was code.
     for (const AssetEntry& a : kAssets) {

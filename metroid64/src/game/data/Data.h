@@ -7,6 +7,7 @@
 //
 // Independent of libultraship: the app wraps these in resources, the lockstep tool uses them directly.
 
+#include "game/data/Graphics.h"
 #include "game/data/Level.h"
 #include "game/data/Ppu.h"
 
@@ -22,7 +23,7 @@ class XMLElement;
 namespace Game::Data {
 
 // Version of the extracted data. Bump it when the extraction changes, so old archives are redone.
-constexpr int kDataVersion = 6;
+constexpr int kDataVersion = 7;
 
 // A run of bytes at its original place in the ROM. Untyped data is kept this way until it gets a
 // resource type of its own.
@@ -38,8 +39,12 @@ struct Block {
 const char* BankFolder(int bank);
 
 // Checks the ROM (Metroid (USA) by PRG CRC32) and extracts every piece of data as a resource file:
-// path inside the archive -> file contents. False, with a reason, if it isn't the right ROM.
+// path inside the archive -> file contents (XML resources, and the PNG images the Graphics refer to). False, with a
+// reason, if it isn't the right ROM.
 bool Extract(const std::vector<uint8_t>& ines, std::map<std::string, std::string>& files, std::string& error);
+
+// Files of the game's data that aren't resources themselves but are referred to by one (the ".png" images).
+bool IsImageFile(const std::string& path);
 
 // Reads a DataBlock resource (the XML root element).
 bool ReadBlock(const tinyxml2::XMLElement* root, Block& out, std::string& error);
@@ -51,13 +56,16 @@ struct Assets {
     std::vector<Block> blocks;
     Level level;
     PpuAssets ppu;
+    std::map<std::pair<int, int>, Graphics> graphics; // [(bank, address)]
 
-    // Reads any data resource (by its root element). False if it isn't one, or is malformed.
-    bool Read(const tinyxml2::XMLElement* root, std::string& error);
+    // Reads any data resource (by its root element). False if it isn't one, or is malformed. `load` gives
+    // the files resources refer to (the graphics' images).
+    bool Read(const tinyxml2::XMLElement* root, const FileLoader& load, std::string& error);
     void Merge(const Assets& other);
 };
 
-// Resource type names (XML root elements) of the game's data.
+// Resource type names (XML root elements) of the game's data. Files that aren't resources (the images)
+// end in ".png".
 extern const char* const kResourceTypes[];
 
 // Builds the data the game reads from the resources. False, with a reason, if it can't be built (a mod

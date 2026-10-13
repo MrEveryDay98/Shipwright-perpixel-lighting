@@ -33,5 +33,7 @@ class Image {
 uint16_t BankBase(int bank);
 // Length of the asset map block starting at this address (0 if none starts there).
 size_t AssetBlockLength(int bank, uint16_t address);
+// Name (the disassembly's label) of the asset map block starting at this address (nullptr if none).
+const char* AssetBlockName(int bank, uint16_t address);
 
 } // namespace Game::Data

@@ -2,6 +2,7 @@
 file(GLOB LOCKSTEP_GAME_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/../../src/game/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/game/data/*.cpp)
 find_package(tinyxml2 REQUIRED)
+find_package(ZLIB REQUIRED)
 add_executable(lockstep
     main.cpp
     OriginalCpu.cpp
@@ -13,4 +14,4 @@ add_executable(lockstep
 )
 target_include_directories(lockstep PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../../src)
 target_compile_features(lockstep PRIVATE cxx_std_20)
-target_link_libraries(lockstep PRIVATE tinyxml2::tinyxml2)
+target_link_libraries(lockstep PRIVATE tinyxml2::tinyxml2 ZLIB::ZLIB)
