@@ -11,9 +11,9 @@ enemy behaviour, items, doors, passwords, and timing are all the original game's
 | CPU (`Cpu6502`) | The 2A03's 6502 core: every official opcode with its cycle count and page-crossing penalties, dummy writes of read-modify-write instructions, the `JMP ($xxFF)` page bug, NMI/IRQ/BRK. No decimal mode (the 2A03 has none). |
 | Cartridge (`Nes::Machine`) | MMC1 (SNROM, like Metroid): serial shift register, PRG modes 0-3, mirroring control, 8 KiB of PRG RAM at `$6000`, 8 KiB of CHR RAM. |
 | PPU | Registers `$2000`-`$2007` with the internal `v`/`t`/`x`/`w` scroll registers, buffered `$2007` reads, palette mirrors, nametable mirroring from MMC1, OAM and `$4014` DMA (513/514 cycles), vblank flag and NMI, sprite 0 hit at scanline granularity. |
-| Timing | 262 scanlines of 341/3 CPU cycles each (NTSC). The scroll used by every visible line is recorded. |
+| Timing | 262 scanlines of 341/3 CPU cycles each (NTSC). The scroll used by every visible line is recorded. Frames run at 60 Hz, so audio is produced at 735 samples per frame (pitch is 0.16% off the 60.1 Hz NES, which isn't audible). |
 | Controller | Standard pad at `$4016` (strobe and serial read). |
-| APU | Not emulated yet: writes are ignored, so there is no sound. |
+| APU (`Apu`) | Both pulse channels (envelopes, sweeps, one's-complement negate on pulse 1), triangle with its linear counter, noise, DMC with sample fetches and IRQ, the 4/5-step frame counter and frame IRQ, `$4015` status. Mixed with the hardware's non-linear mixer, averaged down to 44.1 kHz, then run through the console's 90 Hz and 440 Hz high-pass and 14 kHz low-pass filters. |
 
 `Nes::Machine::RenderFrame` draws the classic 2D picture (background, sprites, priorities, 8 sprites per
 line). Metroid64 uses it for the title, password and ending screens, and when the 3D play field is turned off.

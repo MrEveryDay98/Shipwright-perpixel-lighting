@@ -62,6 +62,7 @@ box. Press **F1** for the menu, then **Controls → Controller configuration** t
 ## Menu (F1)
 
 - **Game**: Open ROM, Reset (power cycle), Freeze emulation, Quit.
+- **Audio**: volume, mute.
 - **Graphics**:
   - Fullscreen and VSync.
   - Frame interpolation: the NES runs at 60 Hz and the camera is interpolated up to the monitor's refresh rate or a target FPS.
@@ -76,11 +77,11 @@ box. Press **F1** for the menu, then **Controls → Controller configuration** t
 - The game runs from its original code. Tested so far: the title screen, starting a game, and Brinstar's first corridor, doors and vertical shaft. Other areas, passwords and the ending have not been played through yet.
 - The play field in 3D from the live nametables, including scrolling, doors, destroyed blocks and palette effects.
 - Sprites as flat cards, with door bubbles placed on the walls and the status display as an overlay.
+- Sound and music from an emulated APU (volume and mute in the Audio menu).
 - Model support: Samus can be replaced by a 3D model animated from the game's own animation state. See [docs/MODELS.md](docs/MODELS.md).
 
 ## Not done yet
 
-- Sound: the APU isn't emulated yet.
 - Saving the emulator state (the game's own passwords are the only way to save).
 - Models for enemies and items, and skeletal animation for models.
 - In vertical shafts the view doesn't extend past the NES screen's left and right edges, because the game only keeps one screen's width there.
@@ -95,6 +96,7 @@ Source layout:
 | --- | --- |
 | `metroid64/src/nes/Cpu6502.*` | 6502 CPU |
 | `metroid64/src/nes/Nes.*` | NES: memory map, MMC1, PPU, controller, frame timing, 2D reference renderer |
+| `metroid64/src/nes/Apu.*` | NES audio |
 | `metroid64/src/Emulator.*` | Metroid on the NES: ROM check, sprite ownership, scroll tracking, RAM addresses |
 | `metroid64/src/Renderer.*` | 3D presentation of the emulated picture; 2D screens |
 | `metroid64/src/Model.*` | Model manifests and drawing |

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "nes/Apu.h"
 #include "nes/Cpu6502.h"
 
 #include <array>
@@ -89,6 +90,11 @@ class Machine : public Bus {
     // NES palette index to 0xRRGGBBAA.
     static uint32_t Color(uint8_t index);
 
+    // Audio produced so far (signed 16-bit mono at Apu::kSampleRate). The caller drains it.
+    std::vector<int16_t>& AudioSamples() {
+        return mApu.Samples();
+    }
+
     const Cpu6502& Cpu() const {
         return mCpu;
     }
@@ -106,6 +112,7 @@ class Machine : public Bus {
     void RenderLine(int line, uint32_t* out) const;
 
     Cpu6502 mCpu;
+    Apu mApu;
     std::array<uint8_t, 0x800> mRam{};
     std::array<uint8_t, 0x2000> mWram{};
     std::vector<uint8_t> mPrg;

@@ -21,7 +21,7 @@ constexpr double kCyclesPerLine = 341.0 / 3.0;
 
 } // namespace
 
-Machine::Machine() : mCpu(*this) {
+Machine::Machine() : mCpu(*this), mApu([this](uint16_t addr) { return Read(addr); }) {
 }
 
 uint32_t Machine::Color(uint8_t index) {
@@ -58,6 +58,7 @@ void Machine::Reset() {
     mNmiPending = false;
     mCycleDebt = 0;
     mFrame = 0;
+    mApu.Reset();
     mCpu.Reset();
 }
 
@@ -131,6 +132,9 @@ uint8_t Machine::Read(uint16_t addr) {
     if (addr == 0x4017) {
         return 0x40;
     }
+    if (addr == 0x4015) {
+        return mApu.ReadStatus();
+    }
     return 0;
 }
 
@@ -202,8 +206,12 @@ void Machine::Write(uint16_t addr, uint8_t value) {
         }
         return;
     }
+    if (addr <= 0x4013 || addr == 0x4015 || addr == 0x4017) {
+        mApu.Write(addr, value);
+        return;
+    }
     if (addr < 0x6000) {
-        return; // APU (not emulated yet)
+        return;
     }
     if (addr < 0x8000) {
         mWram[addr - 0x6000] = value;
@@ -305,16 +313,17 @@ void Machine::PpuWrite(uint16_t addr, uint8_t value) {
 void Machine::RunCycles(double cycles) {
     mCycleDebt += cycles;
     while (mCycleDebt > 0) {
+        uint64_t before = mCpu.Cycles();
         if (mNmiPending) {
             mNmiPending = false;
-            uint64_t before = mCpu.Cycles();
             mCpu.Nmi();
-            mCycleDebt -= (double)(mCpu.Cycles() - before);
-            continue;
+        } else if (mApu.Irq()) {
+            mCpu.Irq(); // ignored while the I flag is set
         }
-        uint64_t before = mCpu.Cycles();
         mCpu.Step();
-        mCycleDebt -= (double)(mCpu.Cycles() - before);
+        int cycles = (int)(mCpu.Cycles() - before);
+        mApu.Clock(cycles);
+        mCycleDebt -= cycles;
     }
 }
 

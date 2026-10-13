@@ -21,6 +21,7 @@
 #include <libultraship/libultraship.h>
 #include <libultraship/window/gui/InputEditorWindow.h>
 #include <ship/Context.h>
+#include <ship/audio/Audio.h>
 #include <ship/resource/ResourceManager.h>
 #include <ship/window/FileDropMgr.h>
 #include <ship/window/gui/FileBrowserWindow.h>
@@ -181,6 +182,26 @@ struct InputState {
     }
 };
 
+// Sends the NES's audio to the output device. Audio is dropped while the device already holds plenty,
+// which keeps latency bounded if the emulation ever runs ahead.
+void PlayAudio(std::vector<int16_t>& samples) {
+    auto audio = Ship::Context::GetRawInstance()->GetAudio();
+    auto player = audio ? audio->GetAudioPlayer() : nullptr;
+    if (player == nullptr || !player->IsInitialized() || samples.empty()) {
+        samples.clear();
+        return;
+    }
+    float volume = CVarGetInteger(Metroid::kCVarMute, 0) ? 0.0f : CVarGetFloat(Metroid::kCVarVolume, 0.8f);
+    if (player->Buffered() < Nes::Apu::kSampleRate / 8) {
+        std::vector<int16_t> stereo(samples.size() * 2);
+        for (size_t i = 0; i < samples.size(); i++) {
+            stereo[i * 2] = stereo[i * 2 + 1] = (int16_t)(samples[i] * volume);
+        }
+        player->Play((const uint8_t*)stereo.data(), stereo.size() * sizeof(int16_t));
+    }
+    samples.clear();
+}
+
 Gfx* BuildIdleFrame() {
     // Nothing to draw while waiting for a ROM; Fast3D clears the frame to black.
     static Gfx dl[2];
@@ -219,6 +240,9 @@ int main(int argc, char** argv) {
     auto window =
         std::make_shared<Fast::Fast3dWindow>(std::vector<std::shared_ptr<Ship::GuiWindow>>({ sHud, inputEditor }));
     context->InitWindow(window);
+    Ship::AudioSettings audio;
+    audio.SampleRate = Nes::Apu::kSampleRate;
+    context->InitAudio(audio);
     context->InitFileDropMgr();
     context->GetFileDropMgr()->RegisterDropHandler(OnFileDropped);
     sHud->Show();
@@ -327,6 +351,7 @@ int main(int argc, char** argv) {
                 // One tick per frame (also used for deterministic headless runs).
                 tick();
             }
+            PlayAudio(sEmu->AudioSamples());
             dl = sRenderer.BuildFrame(*sEmu, alpha);
         } else {
             dl = BuildIdleFrame();

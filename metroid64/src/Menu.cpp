@@ -77,6 +77,7 @@ void Menu::DrawElement() {
     }
     DrawGameMenu();
     DrawGraphicsMenu();
+    DrawAudioMenu();
     DrawControlsMenu();
     DrawDeveloperMenu();
     ImGui::TextDisabled("  F1: hide menu");
@@ -187,6 +188,15 @@ void Menu::DrawGraphicsMenu() {
         ImGui::EndCombo();
     }
     ImGui::TextDisabled("Backend changes apply after a restart.");
+    ImGui::EndMenu();
+}
+
+void Menu::DrawAudioMenu() {
+    if (!ImGui::BeginMenu("Audio")) {
+        return;
+    }
+    CVarCheckbox("Mute", kCVarMute, false);
+    CVarSliderFloat("Volume", kCVarVolume, 0.0f, 1.0f, 0.8f, "%.2f");
     ImGui::EndMenu();
 }
 
