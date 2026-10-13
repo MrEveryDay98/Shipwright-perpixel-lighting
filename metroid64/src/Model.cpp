@@ -79,6 +79,7 @@ std::shared_ptr<Model> Model::Load(const std::string& manifestPath) {
     model->mYawRight = json.value("yaw_right", 0.0f);
     model->mYawLeft = json.value("yaw_left", 180.0f);
     model->mFallback = json.value("fallback", std::string("Stand"));
+    model->mKeepTiles = json.value("keep_tiles", false);
 
     if (json.contains("skeleton") && json["skeleton"].is_string()) {
         std::string path = json["skeleton"].get<std::string>();
@@ -162,7 +163,7 @@ const Model::Anim* Model::Find(const std::string& name) const {
     if (it == mAnims.end()) {
         it = mAnims.begin();
     }
-    return &it->second;
+    return it == mAnims.end() ? nullptr : &it->second;
 }
 
 void Model::Draw(Renderer& r, Gfx*& g, const ModelInstance& v) const {
@@ -194,6 +195,27 @@ void Model::Draw(Renderer& r, Gfx*& g, const ModelInstance& v) const {
 void ModelLibrary::Reset() {
     mSamusLooked = false;
     mSamus.reset();
+    mRooms.clear();
+}
+
+const Model* ModelLibrary::Room(uint8_t bank, uint8_t mapX, uint8_t mapY, uint8_t room) {
+    static const char* const kAreas[] = { "", "brinstar", "norfair", "tourian", "kraid", "ridley" };
+    if (bank < 1 || bank > 5) {
+        return nullptr;
+    }
+    uint32_t key = (bank << 24) | (mapX << 16) | (mapY << 8) | room;
+    auto it = mRooms.find(key);
+    if (it == mRooms.end()) {
+        char path[64];
+        snprintf(path, sizeof(path), "rooms/%s/%02X_%02X.json", kAreas[bank], mapX, mapY);
+        auto model = Model::Load(path);
+        if (model == nullptr) {
+            snprintf(path, sizeof(path), "rooms/%s/room_%02X.json", kAreas[bank], room);
+            model = Model::Load(path);
+        }
+        it = mRooms.emplace(key, model).first;
+    }
+    return it->second.get();
 }
 
 const Model* ModelLibrary::Samus() {

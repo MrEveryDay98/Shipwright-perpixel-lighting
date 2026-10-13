@@ -614,7 +614,7 @@ void SamusOnElevatorOrEnemy() {
             GetEnemy0CoordData(x);
             r = Original(0xF1BF, { 0, x, r.y });
             r = Original(0xF1FA, r);
-            if (!r.c && SamusOnTop()) {
+            if (!r.c && SamusOnTop(r.y)) {
                 OnFrozenEnemy++;
                 next = false;
             }
@@ -635,15 +635,17 @@ void SamusOnElevatorOrEnemy() {
     if (r.c) {
         return;
     }
-    if (SamusOnTop()) {
+    if (SamusOnTop(r.y)) {
         SamusOnElevator++;
     }
 }
 
-// $D9BA: true (the original's zero flag) when Samus stands on the object just measured.
-bool SamusOnTop() {
+// $D9BA: true (the original's zero flag) when Samus stands on the object just measured. Leaves Y as the
+// original does ($11 + 1 when the object isn't above or below): the next object is measured with it.
+bool SamusOnTop(uint8_t& y) {
     if (!(Mem(0x10) & 0x02)) {
-        if ((uint8_t)(Mem(0x11) + 1) == Mem(0x04)) {
+        y = (uint8_t)(Mem(0x11) + 1);
+        if (y == Mem(0x04)) {
             return true;
         }
     }

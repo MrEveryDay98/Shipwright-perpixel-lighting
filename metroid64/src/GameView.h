@@ -44,6 +44,14 @@ constexpr uint16_t kSamusX = 0x030E;
 constexpr uint16_t kEnergy = 0x0106; // BCD: low byte, high byte
 } // namespace Ram
 
+// The world-map room drawn in one physical name table page (256x240), for per-room custom geometry.
+struct RoomInfo {
+    bool valid = false;
+    uint8_t bank = 0; // area bank: 1 Brinstar, 2 Norfair, 3 Tourian, 4 Kraid, 5 Ridley
+    uint8_t mapX = 0, mapY = 0;
+    uint8_t room = 0;
+};
+
 class GameView {
   public:
     virtual ~GameView() = default;
@@ -71,6 +79,11 @@ class GameView {
     virtual void RenderFrame(uint32_t* out) const = 0;
     // Audio produced so far (signed 16-bit mono at 44100 Hz). The caller drains it.
     virtual std::vector<int16_t>& AudioSamples() = 0;
+    // The room drawn in name table page 0 or 1 (unknown on the emulator).
+    virtual RoomInfo RoomOnPage(int page) const {
+        (void)page;
+        return {};
+    }
 
     // OAM ownership, for the frame on screen.
     const std::array<SpriteTag, 64>& SpriteTags() const {

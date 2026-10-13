@@ -11,6 +11,7 @@
 #include "game/Items.h"
 #include "game/Memory.h"
 #include "game/Original.h"
+#include "game/Present.h"
 #include "game/Ram.h"
 #include "game/Samus.h"
 
@@ -81,6 +82,7 @@ void SetupRoom() {
     RoomPal = Read(RoomPtr.Word()); // palette the attribute table starts filled with
     AddToRoomPtr(0x01);
     SelectRoomRAM();
+    Present::OnRoomDrawn();
     InitTables();
     DrawRoom();
 }

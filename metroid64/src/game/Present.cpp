@@ -1,5 +1,6 @@
 #include "game/Present.h"
 
+#include "game/Hw.h"
 #include "game/Ram.h"
 
 namespace Game::Present {
@@ -28,6 +29,17 @@ void OnSpriteDma() {
     for (int i = 0; i < 64; i++) {
         gOamTags[i] = gBufferTags[i];
     }
+}
+
+RoomTag gRooms[2];
+
+void OnRoomDrawn() {
+    RoomTag& t = gRooms[(Vars::CartRAMPtrUB >> 2) & 0x01];
+    t.valid = true;
+    t.bank = Hw::gPrgBank;
+    t.mapX = Vars::MapPosX;
+    t.mapY = Vars::MapPosY;
+    t.room = Vars::RoomNumber;
 }
 
 } // namespace Game::Present

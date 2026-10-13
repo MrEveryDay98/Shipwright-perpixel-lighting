@@ -47,11 +47,15 @@ class Model {
   public:
     static std::shared_ptr<Model> Load(const std::string& manifestPath);
     void Draw(Renderer& r, Gfx*& g, const ModelInstance& m) const;
+    // Room geometry only: also draw the game's own tiles (the model adds to them instead of replacing).
+    bool KeepTiles() const {
+        return mKeepTiles;
+    }
 
   private:
     struct Anim {
-        std::vector<Gfx*> frames;             // flipbook
-        std::shared_ptr<Animation> skelAnim;  // skeletal
+        std::vector<Gfx*> frames;            // flipbook
+        std::shared_ptr<Animation> skelAnim; // skeletal
         float fps = 10;
         bool loop = true;
     };
@@ -63,6 +67,7 @@ class Model {
     float mScale = 1.0f;
     Vec3 mOffset{};
     float mYawRight = 0, mYawLeft = 180;
+    bool mKeepTiles = false;
     std::shared_ptr<Skeleton> mSkeleton;
     mutable std::map<std::string, const Gfx*> mLimbLists;
     mutable std::vector<std::shared_ptr<Ship::IResource>> mResources; // keep the display lists alive
@@ -74,8 +79,13 @@ class ModelLibrary {
   public:
     void Reset();
     const Model* Samus();
+    // Custom geometry for a room of the world map: rooms/<area>/<XX>_<YY>.json for that map position
+    // (hex), else rooms/<area>/room_<NN>.json for every place the room is used. Areas: brinstar,
+    // norfair, tourian, kraid, ridley.
+    const Model* Room(uint8_t bank, uint8_t mapX, uint8_t mapY, uint8_t room);
 
   private:
+    std::map<uint32_t, std::shared_ptr<Model>> mRooms; // looked up (null: none)
     bool mSamusLooked = false;
     std::shared_ptr<Model> mSamus;
 };

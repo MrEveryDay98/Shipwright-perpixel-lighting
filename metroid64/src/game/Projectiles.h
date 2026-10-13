@@ -44,7 +44,7 @@ void StartMusic();
 void ElevatorStop();
 uint8_t ToggleScroll();
 void SamusOnElevatorOrEnemy();
-bool SamusOnTop();
+bool SamusOnTop(uint8_t& y);
 void WaitNMIPass_();
 
 } // namespace Game

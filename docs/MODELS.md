@@ -76,11 +76,40 @@ animations exported for Shipwright (for example with Fast64) load unchanged:
 
 `docs/example-mod/skeltest` is a hand-written two-limb skeleton (a body and a swinging arm) with `Stand` and `Run` animations, all in XML.
 
+## Room geometry
+
+A mod can replace what a room looks like with its own model. Rooms are found by area and position on the
+world map, so one screen can be remodelled without touching the others:
+
+| Manifest path | Replaces |
+| --- | --- |
+| `rooms/<area>/<XX>_<YY>.json` | the room at map position X, Y (two hex digits each) |
+| `rooms/<area>/room_<NN>.json` | room number NN of that area, everywhere it is used |
+
+Areas are `brinstar`, `norfair`, `tourian`, `kraid` and `ridley`. The map position wins over the room
+number. Samus starts in Brinstar at map position 03, 0E.
+
+The manifest is an ordinary model manifest. The room plays its `Idle` animation (or the first one it
+has), so the scenery can be animated. Model space for a room has its origin at the top-left corner of
+the room's screen: x runs right over 256 pixels and y runs up, so the room is y 0 to -240. z points out
+of the screen, and the play plane is z 0.
+
+The model only changes what you see. Samus, enemies and shots still collide with the game's own tiles,
+so keep solid surfaces where the original has them. By default the model replaces the game's tiles in
+that room. With `"keep_tiles": true` it is drawn in addition to them, which is useful for decoration,
+or when blocks that can be destroyed should stay visible.
+
+Room geometry needs the native port, which knows which room is drawn where. While the emulator is the
+default, turn on Developer > Run the native port.
+
 ## Examples
+
+`docs/example-mod/roomtest` replaces Brinstar's first room (03_0E) with a floor slab, a step and a back
+wall.
 
 `docs/example-mod/testmodel` is a small hand-written example: a blocky stand-in for Samus with a two-frame run cycle, in XML. To try it, copy the `testmodel` folder into `mods/`.
 
 ## Current limits
 
-- Only Samus can be replaced so far.
+- Samus and rooms can be replaced so far.
 - Models are lit with one fixed light. They inherit the render state their display lists set.

@@ -99,6 +99,11 @@ uint8_t Port::Mirroring() const {
 uint8_t Port::PpuPeek(uint16_t addr) const {
     return Game::Hw::gVideo.Nametable(addr);
 }
+RoomInfo Port::RoomOnPage(int page) const {
+    const auto& t = Game::Present::gRooms[page & 1];
+    return { t.valid, t.bank, t.mapX, t.mapY, t.room };
+}
+
 uint8_t Port::Peek(uint16_t addr) const {
     return Game::Read(addr);
 }
