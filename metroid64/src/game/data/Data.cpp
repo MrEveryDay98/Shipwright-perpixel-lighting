@@ -73,6 +73,8 @@ bool Extract(const std::vector<uint8_t>& ines, std::map<std::string, std::string
     std::vector<uint8_t> covered(kPrgSize, 0);
     ExtractLevel(prg, files, covered);
     ExtractPpu(prg, files, covered);
+    ExtractEnemies(prg, files, covered);
+    ExtractSprites(prg, files, covered);
     for (const AssetEntry& a : kAssets) {
         size_t base = (size_t)a.bank * 0x4000 + (a.address - BankBase(a.bank));
         size_t i = 0;
@@ -156,7 +158,7 @@ bool ReadBlock(const tinyxml2::XMLElement* root, Block& out, std::string& error)
 }
 
 const char* const kResourceTypes[] = {
-    "DataBlock", "WorldMap", "Room", "Structure", "Macros", "SpecialItems", nullptr
+    "DataBlock", "WorldMap", "Room", "Structure", "Macros", "SpecialItems", "Palettes", "Enemies", "Sprites", nullptr,
 };
 
 bool Assets::Read(const tinyxml2::XMLElement* root, std::string& error) {
@@ -170,6 +172,12 @@ bool Assets::Read(const tinyxml2::XMLElement* root, std::string& error) {
     }
     if (root != nullptr && strcmp(root->Name(), "Palettes") == 0) {
         return ReadPpuResource(root, ppu, error);
+    }
+    if (root != nullptr && strcmp(root->Name(), "Enemies") == 0) {
+        return ReadEnemiesResource(root, enemies, error);
+    }
+    if (root != nullptr && strcmp(root->Name(), "Sprites") == 0) {
+        return ReadSpritesResource(root, sprites, error);
     }
     return ReadLevelResource(root, level, error);
 }
@@ -199,6 +207,12 @@ void Assets::Merge(const Assets& other) {
     for (const auto& [bank, t] : other.ppu.palettes) {
         ppu.palettes[bank] = t;
     }
+    for (const auto& [bank, e] : other.enemies.areas) {
+        enemies.areas[bank] = e;
+    }
+    for (const auto& [key, s] : other.sprites.sets) {
+        sprites.sets[key] = s;
+    }
 }
 
 bool Install(const Assets& assets, std::string& error) {
@@ -214,7 +228,8 @@ bool Install(const Assets& assets, std::string& error) {
     for (const Block* b : blocks) {
         image.Put(b->bank, b->address, b->bytes);
     }
-    if (!AssembleLevel(assets.level, image, error) || !AssemblePpu(assets.ppu, image, error)) {
+    if (!AssembleLevel(assets.level, image, error) || !AssemblePpu(assets.ppu, image, error) ||
+        !AssembleEnemies(assets.enemies, image, error) || !AssembleSprites(assets.sprites, image, error)) {
         return false;
     }
     SetRomImage(std::move(image.Prg()));
