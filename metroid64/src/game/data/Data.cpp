@@ -154,7 +154,9 @@ bool ReadBlock(const tinyxml2::XMLElement* root, Block& out, std::string& error)
     return true;
 }
 
-const char* const kResourceTypes[] = { "DataBlock", "WorldMap", "Room", "Structure", "Macros", nullptr };
+const char* const kResourceTypes[] = {
+    "DataBlock", "WorldMap", "Room", "Structure", "Macros", "SpecialItems", nullptr
+};
 
 bool Assets::Read(const tinyxml2::XMLElement* root, std::string& error) {
     if (root != nullptr && strcmp(root->Name(), "DataBlock") == 0) {
@@ -186,6 +188,9 @@ void Assets::Merge(const Assets& other) {
     }
     for (const auto& [bank, m] : other.level.macros) {
         level.macros[bank] = m;
+    }
+    for (const auto& [bank, t] : other.level.specialItems) {
+        level.specialItems[bank] = t;
     }
 }
 

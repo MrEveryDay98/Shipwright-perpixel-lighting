@@ -66,6 +66,25 @@ Rows of macros, top to bottom; `X` shifts a row right (in macros). A row has 1 t
 
 2x2 blocks of background tiles: top left, top right, bottom left, bottom right. A tile below `A0` is solid.
 
+### Special items: `metroid/items/<area>`
+
+```xml
+<SpecialItems Version="0" Area="brinstar" Address="A3D6" Size="107">
+    <Screen X="0F" Y="02">
+        <PowerUp Type="05" X="7" Y="3"/>
+    </Screen>
+    ...
+</SpecialItems>
+```
+
+What a map screen holds besides its room: the game checks the screen's entry whenever the room there is
+loaded. Items:
+
+- `PowerUp Type X Y`: types 0 bombs, 1 high jump, 2 long beam, 3 screw attack, 4 Maru Mari, 5 varia,
+  6 wave beam, 7 ice beam, 8 energy tank, 9 missiles. Unique ones are remembered once taken (item history).
+- `Enemy Index Type X Y` (`Index`: the enemy slot), `Memus`, `Elevator Info`, `Door Info`, `Palette`.
+- Tourian: `Cannon Index Info`, `MotherBrain`, `Zebetite Index`, `Rinka Index`.
+
 ## Everything else: `metroid/data/<bank>/<name>`
 
 Data without a type of its own yet is kept as the bytes of a table, named after the disassembly's label:

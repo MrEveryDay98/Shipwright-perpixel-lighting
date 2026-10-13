@@ -190,6 +190,74 @@ std::string Num2(uint8_t n) {
     return Hex2(n);
 }
 
+// Record sizes of the special item kinds (what each ScanForItems handler returns).
+int SpecialItemSize(SpecialItem::Kind k) {
+    switch (k) {
+        case SpecialItem::Kind::Enemy:
+        case SpecialItem::Kind::PowerUp:
+            return 3;
+        case SpecialItem::Kind::Elevator:
+        case SpecialItem::Kind::Cannon:
+        case SpecialItem::Kind::Door:
+            return 2;
+        default:
+            return 1;
+    }
+}
+
+const char* const kSpecialItemNames[] = { "",         "Enemy", "PowerUp", "Memus",  "Elevator", "Cannon", "MotherBrain",
+                                          "Zebetite", "Rinka", "Door",    "Palette" };
+
+SpecialItems DecodeSpecialItems(const Prg& prg, int bank, uint16_t address) {
+    SpecialItems t;
+    t.bank = bank;
+    t.address = address;
+    uint16_t a = address;
+    uint16_t end = address;
+    for (;;) {
+        uint8_t mapY = prg.Get(bank, a);
+        uint16_t next = prg.Get16(bank, (uint16_t)(a + 1));
+        uint16_t e = (uint16_t)(a + 3);
+        for (;;) {
+            uint8_t mapX = prg.Get(bank, e);
+            uint8_t delta = prg.Get(bank, (uint16_t)(e + 1));
+            auto& list = t.screens[{ mapY, mapX }];
+            uint16_t p = (uint16_t)(e + 2);
+            for (;;) {
+                uint8_t k = prg.Get(bank, p);
+                if (k == 0) {
+                    p++;
+                    break;
+                }
+                SpecialItem it;
+                it.kind = (SpecialItem::Kind)(k & 0x0F);
+                it.index = k >> 4;
+                if (it.kind == SpecialItem::Kind::Enemy || it.kind == SpecialItem::Kind::PowerUp) {
+                    it.type = prg.Get(bank, (uint16_t)(p + 1));
+                    uint8_t pos = prg.Get(bank, (uint16_t)(p + 2));
+                    it.x = pos & 0x0F;
+                    it.y = pos >> 4;
+                } else if (SpecialItemSize(it.kind) == 2) {
+                    it.info = prg.Get(bank, (uint16_t)(p + 1));
+                }
+                list.push_back(it);
+                p = (uint16_t)(p + SpecialItemSize(it.kind));
+            }
+            end = std::max(end, p);
+            if (delta == 0xFF) {
+                break;
+            }
+            e = (uint16_t)(e + delta);
+        }
+        if (next == 0xFFFF) {
+            break;
+        }
+        a = next;
+    }
+    t.size = (uint16_t)(end - address);
+    return t;
+}
+
 } // namespace
 
 // --- Encoding ------------------------------------------------------------------------------------
@@ -225,6 +293,49 @@ std::vector<uint8_t> Room::Encode() const {
         }
     }
     out.push_back(0xFF);
+    return out;
+}
+
+std::vector<uint8_t> SpecialItems::Encode(uint16_t base) const {
+    std::vector<uint8_t> out;
+    // Screens grouped in rows of the same map y; both in increasing order (the scan stops early).
+    std::vector<std::pair<uint8_t, std::vector<std::pair<uint8_t, const std::vector<SpecialItem>*>>>> rows;
+    for (const auto& [pos, list] : screens) {
+        if (rows.empty() || rows.back().first != pos.first) {
+            rows.push_back({ pos.first, {} });
+        }
+        rows.back().second.push_back({ pos.second, &list });
+    }
+    for (size_t r = 0; r < rows.size(); r++) {
+        out.push_back(rows[r].first);
+        size_t nextAt = out.size();
+        out.push_back(0xFF);
+        out.push_back(0xFF);
+        const auto& entries = rows[r].second;
+        for (size_t i = 0; i < entries.size(); i++) {
+            size_t start = out.size();
+            out.push_back(entries[i].first);
+            out.push_back(0xFF); // offset to the next screen of the row, filled below
+            for (const SpecialItem& it : *entries[i].second) {
+                out.push_back((uint8_t)((it.index << 4) | ((uint8_t)it.kind & 0x0F)));
+                if (it.kind == SpecialItem::Kind::Enemy || it.kind == SpecialItem::Kind::PowerUp) {
+                    out.push_back(it.type);
+                    out.push_back((uint8_t)((it.y << 4) | (it.x & 0x0F)));
+                } else if (SpecialItemSize(it.kind) == 2) {
+                    out.push_back(it.info);
+                }
+            }
+            out.push_back(0x00);
+            if (i + 1 < entries.size()) {
+                out[start + 1] = (uint8_t)(out.size() - start);
+            }
+        }
+        if (r + 1 < rows.size()) {
+            uint16_t next = (uint16_t)(base + out.size());
+            out[nextAt] = (uint8_t)next;
+            out[nextAt + 1] = (uint8_t)(next >> 8);
+        }
+    }
     return out;
 }
 
@@ -283,6 +394,10 @@ void ExtractLevel(const uint8_t* prgBytes, std::map<std::string, std::string>& f
         m.size = (uint16_t)(count * 4);
         Cover(covered, bank, m.address, m.size);
         files["metroid/macros/" + area] = WriteMacros(m);
+
+        SpecialItems items = DecodeSpecialItems(prg, bank, prg.Get16(bank, kAreaPointers));
+        Cover(covered, bank, items.address, items.size);
+        files["metroid/items/" + area] = WriteSpecialItems(items);
     }
 }
 
@@ -390,6 +505,32 @@ std::string WriteMacros(const MacroSet& m) {
     return s + "</Macros>\n";
 }
 
+std::string WriteSpecialItems(const SpecialItems& t) {
+    std::string s = "<SpecialItems Version=\"0\" Area=\"" + std::string(AreaName(t.bank)) + "\" Address=\"" +
+                    Hex4(t.address) + "\" Size=\"" + std::to_string(t.size) + "\">\n";
+    for (const auto& [pos, list] : t.screens) {
+        s += "    <Screen X=\"" + Hex2(pos.second) + "\" Y=\"" + Hex2(pos.first) + "\">\n";
+        for (const SpecialItem& it : list) {
+            unsigned k = (unsigned)it.kind;
+            s += std::string("        <") + (k >= 1 && k <= 10 ? kSpecialItemNames[k] : "Unknown");
+            if (k < 1 || k > 10) {
+                s += " Kind=\"" + Hex1(k) + "\"";
+            }
+            if (it.index) {
+                s += " Index=\"" + Hex1(it.index) + "\"";
+            }
+            if (it.kind == SpecialItem::Kind::Enemy || it.kind == SpecialItem::Kind::PowerUp) {
+                s += " Type=\"" + Hex2(it.type) + "\" X=\"" + Hex1(it.x) + "\" Y=\"" + Hex1(it.y) + "\"";
+            } else if (SpecialItemSize(it.kind) == 2) {
+                s += " Info=\"" + Hex2(it.info) + "\"";
+            }
+            s += "/>\n";
+        }
+        s += "    </Screen>\n";
+    }
+    return s + "</SpecialItems>\n";
+}
+
 bool ReadLevelResource(const tinyxml2::XMLElement* root, Level& level, std::string& error) {
     if (root == nullptr) {
         error = "empty";
@@ -492,6 +633,41 @@ bool ReadLevelResource(const tinyxml2::XMLElement* root, Level& level, std::stri
             s.rows.push_back(row);
         }
         level.structures[bank][s.number] = s;
+        return true;
+    }
+    if (kind == "SpecialItems") {
+        SpecialItems t;
+        t.bank = bank;
+        t.address = (uint16_t)HexAttr(root, "Address");
+        t.size = (uint16_t)root->IntAttribute("Size");
+        for (auto sc = root->FirstChildElement("Screen"); sc; sc = sc->NextSiblingElement("Screen")) {
+            auto& list = t.screens[{ (uint8_t)HexAttr(sc, "Y"), (uint8_t)HexAttr(sc, "X") }];
+            for (auto e = sc->FirstChildElement(); e; e = e->NextSiblingElement()) {
+                SpecialItem it;
+                std::string n = e->Name();
+                unsigned k = 0;
+                for (unsigned i = 1; i <= 10; i++) {
+                    if (n == kSpecialItemNames[i]) {
+                        k = i;
+                    }
+                }
+                if (n == "Unknown") {
+                    k = HexAttr(e, "Kind");
+                }
+                if (k == 0) {
+                    error = "SpecialItems: unknown item " + n;
+                    return false;
+                }
+                it.kind = (SpecialItem::Kind)k;
+                it.index = (uint8_t)HexAttr(e, "Index");
+                it.type = (uint8_t)HexAttr(e, "Type");
+                it.x = (uint8_t)HexAttr(e, "X");
+                it.y = (uint8_t)HexAttr(e, "Y");
+                it.info = (uint8_t)HexAttr(e, "Info");
+                list.push_back(it);
+            }
+        }
+        level.specialItems[bank] = t;
         return true;
     }
     if (kind == "Macros") {
@@ -598,6 +774,19 @@ bool AssembleLevel(const Level& level, Image& image, std::string& error) {
             image.Put16(bank, kMacroDefsPtr, at);
         }
         image.Put(bank, at, bytes);
+    }
+    for (const auto& [bank, t] : level.specialItems) {
+        uint16_t at = t.address;
+        size_t size = t.Encode(at ? at : 0x8000).size();
+        if (at == 0 || size > t.size) {
+            at = image.Allocate(bank, size);
+            if (at == 0) {
+                error = "no room left in the bank for the special items";
+                return false;
+            }
+            image.Put16(bank, kAreaPointers, at);
+        }
+        image.Put(bank, at, t.Encode(at));
     }
     for (const auto& [bank, structs] : level.structures) {
         if (!PlaceAll(structs, bank, kStructPtrTblPtr, image, "structure", error)) {

@@ -6,6 +6,7 @@
 //   metroid/rooms/<area>/room_<NN>       <Room>       one room: objects (structures), enemies, doors...
 //   metroid/structures/<area>/struct_<NN> <Structure> rows of macros
 //   metroid/macros/<area>                <Macros>     2x2 tile blocks the structures are made of
+//   metroid/items/<area>                 <SpecialItems> power-ups, elevators, bosses... by map screen
 //
 // <area> is brinstar, norfair, tourian, kraid or ridley (area banks 1-5). Numbers are hex.
 
@@ -80,6 +81,38 @@ struct MacroSet {
     std::vector<std::array<uint8_t, 4>> macros; // tiles: top left, top right, bottom left, bottom right
 };
 
+// What the special items table places on a map screen: power-ups, elevators, Mother Brain, Zebetites...
+// (bank 7's ScanForItems handlers).
+struct SpecialItem {
+    enum class Kind : uint8_t {
+        Enemy = 1,
+        PowerUp = 2,
+        Memus = 3,
+        Elevator = 4,
+        Cannon = 5,
+        MotherBrain = 6,
+        Zebetite = 7,
+        Rinka = 8,
+        Door = 9,
+        Palette = 10
+    };
+    Kind kind = Kind::PowerUp;
+    uint8_t index = 0; // high nibble of the first byte (enemy slot, cannon/Zebetite/Rinka number)
+    uint8_t type = 0;  // enemy or power-up type
+    uint8_t x = 0, y = 0;
+    uint8_t info = 0; // elevator destination, cannon data, door
+};
+
+struct SpecialItems {
+    int bank = 1;
+    uint16_t address = 0;
+    uint16_t size = 0;
+    std::map<std::pair<uint8_t, uint8_t>, std::vector<SpecialItem>> screens; // [(map y, map x)]
+
+    // The table as the game reads it, placed at `base` (rows are linked by address).
+    std::vector<uint8_t> Encode(uint16_t base) const;
+};
+
 // Every level resource of the game.
 struct Level {
     WorldMap world;
@@ -87,6 +120,7 @@ struct Level {
     std::map<int, std::map<uint8_t, Room>> rooms;           // [bank][number]
     std::map<int, std::map<uint8_t, Structure>> structures; // [bank][number]
     std::map<int, MacroSet> macros;                         // [bank]
+    std::map<int, SpecialItems> specialItems;               // [bank]
 };
 
 // Reads the level out of the PRG ROM into resource files; marks the bytes it covers in `covered` (one
@@ -99,6 +133,7 @@ std::string WriteWorldMap(const WorldMap& map);
 std::string WriteRoom(const Room& room);
 std::string WriteStructure(const Structure& s);
 std::string WriteMacros(const MacroSet& m);
+std::string WriteSpecialItems(const SpecialItems& s);
 bool ReadLevelResource(const tinyxml2::XMLElement* root, Level& level, std::string& error);
 
 // Puts the level into the image (pointer tables included).
