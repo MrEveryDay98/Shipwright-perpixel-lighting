@@ -28,7 +28,9 @@ run() {
 }
 run --sync 30 --frames 400 --script "120:08,125:00,200:08,205:00"
 run --script "120:08,125:00,200:08,205:00,600:80,1100:40,1148:81,1188:80,1208:81,1248:80,1600:10" --sync 640 --frames 1300
-for seed in "${@:-1 2 3}"; do
-    run --script "120:08,125:00,200:08,205:00" --sync 650 --frames 3000 --random $seed
+seeds=("$@")
+[ ${#seeds[@]} -eq 0 ] && seeds=(1 2 3)
+for seed in "${seeds[@]}"; do
+    run --script "120:08,125:00,200:08,205:00" --sync 650 --frames 3000 --random "$seed"
 done
 exit $status
