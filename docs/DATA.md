@@ -39,7 +39,8 @@ at x 03, y 0E: room 09.
   Objects are drawn in order. `<Pause/>` makes the game finish the room on the next frame.
 - `Items` (optional): what the room loads besides its background:
   - `Enemy Slot Type X Y [Tough="1"] [MiniBoss="1"]`: an enemy in slot 0-5. Types are per area.
-  - `Door Side="Left|Right" Palette`: palette 1 blue, 2 red (missiles), 3 ten-missile door.
+  - `Door Side="Left|Right" Palette`: with palette 1 or 3 the door is always there; with 0 or 2 it is a
+    one-time door, remembered in the item history once opened (the loader is `LoadDoorData` in `Room.cpp`).
   - `Elevator Info`, `Statues`, `ZebHole Slot Type X Y`.
 - `Address`, `Size`: where the room was in the ROM. Leave them: a room that still fits goes back there,
   a bigger or new room is placed in free space automatically.
