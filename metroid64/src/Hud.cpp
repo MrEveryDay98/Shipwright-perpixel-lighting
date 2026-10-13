@@ -1,8 +1,6 @@
 #include "Hud.h"
 
-#include <algorithm>
 #include <cfloat>
-#include <cstdio>
 #include <imgui.h>
 
 namespace Metroid {
@@ -32,7 +30,7 @@ void Hud::Draw() {
     float big = 22.0f * scale, small = 16.0f * scale;
     const ImU32 white = IM_COL32(255, 255, 255, 255);
 
-    if (mGame == nullptr) {
+    if (!mRunning) {
         float y = vp->Pos.y + vp->Size.y * 0.3f;
         CenteredText(dl, big * 1.4f, y, IM_COL32(255, 160, 40, 255), "METROID64");
         CenteredText(dl, small, y + big * 2.5f, white, "Drop your Metroid (USA) .nes ROM onto this window,");
@@ -42,38 +40,13 @@ void Hud::Draw() {
         }
         return;
     }
-
-    const Samus& s = mGame->GetSamus();
-    char buf[128];
-    float x = vp->Pos.x + 24 * scale, y = vp->Pos.y + 20 * scale;
-
-    int tanks = (s.maxEnergy - 99) / 100;
-    int full = s.energy / 100;
-    std::string tankStr;
-    for (int i = 0; i < tanks; i++) {
-        tankStr += i < full ? "[#]" : "[ ]";
-    }
-    if (!tankStr.empty()) {
-        ShadowText(dl, small, ImVec2(x, y), IM_COL32(120, 200, 255, 255), tankStr.c_str());
-        y += small * 1.1f;
-    }
-    snprintf(buf, sizeof(buf), "EN..%02d", std::max(0, s.energy) % 100);
-    ShadowText(dl, big, ImVec2(x, y), white, buf);
-    if (s.maxMissiles > 0) {
-        snprintf(buf, sizeof(buf), "%sMISSILES %03d", s.missileMode ? "> " : "  ", s.missiles);
-        ShadowText(dl, small, ImVec2(x, y + big * 1.2f), s.missileMode ? IM_COL32(255, 220, 80, 255) : white, buf);
-    }
-
-    if (mGame->MessageTimer() > 0) {
-        CenteredText(dl, big, vp->Pos.y + vp->Size.y * 0.18f, IM_COL32(255, 230, 120, 255), mGame->Message().c_str());
-    }
-    if (mGame->FrameCount() < 360) {
+    if (mRunFrames < 600) {
+        mRunFrames++;
         CenteredText(dl, small, vp->Pos.y + vp->Size.y - small * 2.5f, IM_COL32(200, 200, 200, 255),
                      "Press F1 for the menu (graphics, controls, frame rate)");
     }
-    if (mGame->Paused()) {
-        CenteredText(dl, big * 1.5f, vp->Pos.y + vp->Size.y * 0.42f, white, "PAUSE");
-        CenteredText(dl, small, vp->Pos.y + vp->Size.y * 0.42f + big * 2.0f, white, mGame->AreaName());
+    if (mFrozen) {
+        CenteredText(dl, big, vp->Pos.y + vp->Size.y * 0.1f, white, "EMULATION FROZEN (F1 > Game)");
     }
 }
 

@@ -1,8 +1,8 @@
 # Models and animations
 
-Every character in Metroid64 is drawn through a *visual*. By default that is the original sprite,
-decoded from your ROM and drawn as a flat card. Drop a model into `mods/` and it replaces the sprite.
-Gameplay does not change, because the game only ever tells a visual which **pose** to show.
+By default Metroid64 draws characters with the game's own sprites, as flat cards. Drop a model into
+`mods/` and it replaces those sprites. The game itself is unchanged: the model is placed and animated from
+the running game's memory (see [EMULATION.md](EMULATION.md)).
 
 ## Where mods go
 
@@ -21,8 +21,9 @@ Files in mods override files of the same path in earlier archives.
 | Character | Manifest path |
 | --- | --- |
 | Samus | `models/samus.json` |
-| Enemy | `models/enemies/<area>_<type>.json`. Area is `brinstar`, `norfair`, `tourian`, `kraid` or `ridley`; type is the enemy type nibble in hex, e.g. `models/enemies/brinstar_5.json` for the Zoomer. |
-| Power-up | `models/items/<id>.json`. IDs: 0 bombs, 1 high jump, 2 long beam, 3 screw attack, 4 maru mari, 5 varia, 6 wave beam, 7 ice beam, 8 energy tank, 9 missiles. |
+
+Enemies and items still use their sprites. Their positions and types are in RAM, so they can get models the
+same way.
 
 ## Manifest format
 
@@ -40,13 +41,11 @@ Files in mods override files of the same path in earlier archives.
 }
 ```
 
-- **Units** are NES pixels: Samus is about 32 tall and a block is 8. The model origin sits at Samus' feet, or at the centre of enemies and items. +Y is up and +X is screen-right.
+- **Units** are NES pixels: Samus is about 32 tall and a block is 8. The model origin sits at Samus's feet. +Y is up and +X is screen-right.
 - **`yaw_right` / `yaw_left`** rotate the model (in degrees, around the vertical axis) for each facing direction.
-- **`animations`** are keyed by pose name:
-  - Samus: `Stand`, `Run`, `Jump`, `Spin`, `Morph`, `RunShoot`, `JumpShoot`, `StandUp`, `RunUp`, `JumpUp`, `Front`.
-  - Enemies: `Move`.
-  - Items: `Stand`.
-- **Missing poses** use `fallback`.
+- **`animations`** are keyed by the name of the game's current animation: `Stand`, `Run`, `Jump`, `Spin`, `Morph`, `RunShoot`, `JumpShoot`, `StandUp`, `RunUp`, `JumpUp`, `Front`. An animation restarts whenever the game switches animation.
+- **Missing animations** use `fallback`.
+- The model is hidden whenever the game doesn't draw Samus (while she blinks after taking damage, during the intro and so on).
 - **Each frame** is a libultraship `DisplayList` resource: binary (`ODLT`) or XML. Frames are played at `fps`.
 
 Exporting display lists from Blender with [Fast64](https://github.com/Fast-64/fast64) (its Ship of Harkinian/O2R output) produces resources in this format. Textures, vertices and lights referenced by the display lists load the same way they do in Shipwright.
@@ -55,5 +54,5 @@ Exporting display lists from Blender with [Fast64](https://github.com/Fast-64/fa
 
 ## Current limits
 
-- Animation is per-pose frame sequences (flipbook). Skeletal animation (Shipwright-style skeleton and animation resources) is not wired up yet. The pose interface above is where it would plug in.
+- Animation is per-animation frame sequences (flipbook). Skeletal animation (Shipwright-style skeleton and animation resources) is not wired up yet.
 - Models are lit with one fixed light. They inherit the render state their display lists set.

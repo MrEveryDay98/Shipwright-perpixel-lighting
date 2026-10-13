@@ -1,5 +1,4 @@
 #include "Menu.h"
-#include "Game.h"
 
 #include <fast/Fast3dWindow.h>
 #include <imgui.h>
@@ -91,16 +90,12 @@ void Menu::DrawGameMenu() {
     if (ImGui::MenuItem("Open ROM...")) {
         mActions.openRom();
     }
-    Game* game = mActions.game();
-    if (ImGui::MenuItem("Reset", nullptr, false, game != nullptr)) {
+    bool loaded = mActions.loaded();
+    if (ImGui::MenuItem("Reset", nullptr, false, loaded)) {
         mActions.reset();
     }
-    if (game != nullptr) {
-        bool paused = game->Paused();
-        if (ImGui::MenuItem("Pause", nullptr, &paused)) {
-            game->SetPaused(paused);
-        }
-    }
+    ImGui::MenuItem("Freeze emulation", nullptr, mActions.frozen, loaded);
+    ImGui::SetItemTooltip("Stops the NES entirely (the game's own pause is Start).");
     ImGui::Separator();
     if (ImGui::MenuItem("Quit")) {
         Ship::Context::GetRawInstance()->GetWindow()->Close();
@@ -163,10 +158,12 @@ void Menu::DrawGraphicsMenu() {
         Save();
     }
 
-    ImGui::SeparatorText("Camera");
+    ImGui::SeparatorText("View");
+    CVarCheckbox("3D play field", kCVarDisplay3D, true);
+    ImGui::SetItemTooltip("Off shows the original 2D picture. Title, password and ending screens are always 2D.");
     CVarSliderFloat("Field of view", M64_CVAR("Camera.Fov"), 30.0f, 90.0f, 52.0f, "%.0f deg");
-    CVarSliderFloat("Distance", M64_CVAR("Camera.Distance"), 150.0f, 600.0f, 300.0f, "%.0f");
-    CVarSliderFloat("Height", M64_CVAR("Camera.Height"), -60.0f, 160.0f, 36.0f, "%.0f");
+    CVarSliderFloat("Distance", M64_CVAR("Camera.Distance"), 150.0f, 600.0f, 270.0f, "%.0f");
+    CVarSliderFloat("Height", M64_CVAR("Camera.Height"), -60.0f, 160.0f, 30.0f, "%.0f");
     if (ImGui::Button("Reset camera")) {
         CVarClear(M64_CVAR("Camera.Fov"));
         CVarClear(M64_CVAR("Camera.Distance"));
@@ -202,9 +199,9 @@ void Menu::DrawControlsMenu() {
     }
     CVarCheckbox("Navigate menus with controller", LusCVar::kControllerNav, false);
     ImGui::SeparatorText("Defaults");
-    ImGui::TextUnformatted("Move / aim up / morph: stick, D-pad or WASD\n"
-                           "Jump: A (X key)    Shoot / bomb: B (C key)\n"
-                           "Toggle missiles: R or Z    Pause: Start (Space)");
+    ImGui::TextUnformatted("NES D-pad: stick, D-pad or WASD\n"
+                           "NES A (jump): A (X key)    NES B (shoot / bomb): B (C key)\n"
+                           "NES Select (missiles): Z or R    NES Start (pause): Start (Space)");
     ImGui::EndMenu();
 }
 
@@ -217,16 +214,6 @@ void Menu::DrawDeveloperMenu() {
     }
     if (ImGui::MenuItem("Console")) {
         ToggleWindow("Console");
-    }
-    Game* game = mActions.game();
-    if (game != nullptr) {
-        ImGui::SeparatorText("Cheats");
-        Cheats& cheats = game->GetCheats();
-        ImGui::Checkbox("Infinite energy", &cheats.infiniteEnergy);
-        ImGui::Checkbox("Infinite missiles", &cheats.infiniteMissiles);
-        if (ImGui::MenuItem("Give all items")) {
-            game->GiveAllItems();
-        }
     }
     ImGui::EndMenu();
 }

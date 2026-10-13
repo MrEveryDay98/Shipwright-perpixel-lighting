@@ -1,13 +1,13 @@
-// Metroid64: a 2.5D remake of NES Metroid running on libultraship (Shipwright's engine).
+// Metroid64: NES Metroid in 2.5D on libultraship (Shipwright's engine). The original game code runs
+// on an emulated NES; Metroid64 presents what it draws in 3D.
 
 // We provide our own main(); stop SDL from renaming it to SDL_main on Windows.
 #define SDL_MAIN_HANDLED
 
-#include "Game.h"
+#include "Emulator.h"
 #include "Hud.h"
 #include "Menu.h"
 #include "Renderer.h"
-#include "Rom.h"
 
 #include <fast/Fast3dWindow.h>
 #include <fast/resource/ResourceType.h>
@@ -29,7 +29,9 @@
 #include <cctype>
 #include <chrono>
 #include <filesystem>
+#include <cstring>
 #include <memory>
+#include <vector>
 
 namespace {
 
@@ -38,24 +40,24 @@ constexpr const char* kAppShortName = "metroid64";
 constexpr const char* kRomPathConfigKey = "Metroid64.RomPath";
 constexpr double kTickSeconds = 1.0 / 60.0;
 
-Metroid::Rom sRom;
-Metroid::Game sGame;
+std::unique_ptr<Metroid::Emulator> sEmu;
 Metroid::Renderer sRenderer;
 std::shared_ptr<Metroid::Hud> sHud;
 bool sPlaying = false;
+bool sFrozen = false;
 
 bool TryLoadRom(const std::string& path) {
     std::string error;
-    Metroid::Rom rom;
-    if (!rom.Load(path, error)) {
+    auto emu = std::make_unique<Metroid::Emulator>();
+    if (!emu->LoadRomFile(path, error)) {
         SPDLOG_WARN("ROM {} rejected: {}", path, error);
         sHud->SetRomError(error);
         return false;
     }
-    sRom = std::move(rom);
-    sGame.Init(&sRom);
-    sRenderer.Init(&sRom);
-    sHud->SetGame(&sGame);
+    sEmu = std::move(emu);
+    sEmu->PowerOn();
+    sRenderer.Init();
+    sHud->SetRunning(true);
     sPlaying = true;
     auto config = Ship::Context::GetRawInstance()->GetConfig();
     config->SetString(kRomPathConfigKey, std::filesystem::absolute(path).string());
@@ -149,34 +151,33 @@ void RegisterResourceFactories() {
                                     "Light", static_cast<uint32_t>(Fast::ResourceType::Light), 0);
 }
 
-// Reads the pad and keeps button presses until a game tick consumes them, so presses aren't lost
-// on frames where no tick runs (high refresh rates).
+// Reads the pad as NES buttons. Presses are kept until an emulated frame consumes them, so short
+// taps aren't lost on frames where no tick runs (high refresh rates).
 struct InputState {
-    CONTROLLERBUTTONS_T prevButtons = 0;
-    Metroid::Input pending;
+    uint8_t held = 0;
+    uint8_t pressed = 0;
 
     void Poll() {
         OSContPad pads[4];
         osContGetReadData(pads);
         const OSContPad& p = pads[0];
-        CONTROLLERBUTTONS_T pressed = p.button & ~prevButtons;
-        prevButtons = p.button;
-
-        pending.left = p.stick_x < -30 || (p.button & BTN_DLEFT);
-        pending.right = p.stick_x > 30 || (p.button & BTN_DRIGHT);
-        pending.up = p.stick_y > 40 || (p.button & BTN_DUP);
-        pending.down = p.stick_y < -40 || (p.button & BTN_DDOWN);
-        pending.jump = p.button & BTN_A;
-        pending.jumpPressed |= (pressed & BTN_A) != 0;
-        pending.shootPressed |= (pressed & BTN_B) != 0;
-        pending.toggleMissilePressed |= (pressed & (BTN_R | BTN_Z)) != 0;
-        pending.startPressed |= (pressed & BTN_START) != 0;
+        uint8_t b = 0;
+        b |= (p.stick_x < -30 || (p.button & BTN_DLEFT)) ? Nes::BtnLeft : 0;
+        b |= (p.stick_x > 30 || (p.button & BTN_DRIGHT)) ? Nes::BtnRight : 0;
+        b |= (p.stick_y > 40 || (p.button & BTN_DUP)) ? Nes::BtnUp : 0;
+        b |= (p.stick_y < -40 || (p.button & BTN_DDOWN)) ? Nes::BtnDown : 0;
+        b |= (p.button & BTN_A) ? Nes::BtnA : 0;
+        b |= (p.button & BTN_B) ? Nes::BtnB : 0;
+        b |= (p.button & (BTN_Z | BTN_R)) ? Nes::BtnSelect : 0;
+        b |= (p.button & BTN_START) ? Nes::BtnStart : 0;
+        pressed |= b & ~held;
+        held = b;
     }
 
-    Metroid::Input Take() {
-        Metroid::Input in = pending;
-        pending.jumpPressed = pending.shootPressed = pending.toggleMissilePressed = pending.startPressed = false;
-        return in;
+    uint8_t Take() {
+        uint8_t b = held | pressed;
+        pressed = 0;
+        return b;
     }
 };
 
@@ -226,10 +227,11 @@ int main(int argc, char** argv) {
     actions.openRom = OpenRomDialog;
     actions.reset = []() {
         if (sPlaying) {
-            sGame.Init(&sRom);
+            sEmu->PowerOn();
         }
     };
-    actions.game = []() -> Metroid::Game* { return sPlaying ? &sGame : nullptr; };
+    actions.loaded = []() { return sPlaying; };
+    actions.frozen = &sFrozen;
     window->GetGui()->SetMenuBar(std::make_shared<Metroid::Menu>(actions));
     window->SetTextureFilter((Fast::FilteringMode)CVarGetInteger(Metroid::LusCVar::kTextureFilter, Fast::FILTER_NONE));
 
@@ -248,7 +250,27 @@ int main(int argc, char** argv) {
     // Optional automation for headless smoke tests: quit after N rendered frames.
     int frameLimit = getenv("METROID64_FRAMES") ? atoi(getenv("METROID64_FRAMES")) : -1;
 
-    // Game logic runs at a fixed 60 Hz like the original; frames in between are interpolated.
+    // Optional automation for headless tests: NES buttons (hex) to hold from a given frame, e.g.
+    // "120:08,125:00" presses Start at frame 120 and releases it at 125.
+    std::vector<std::pair<int, uint8_t>> script;
+    if (const char* s = getenv("METROID64_INPUT")) {
+        for (const char* p = s; *p;) {
+            int f = atoi(p);
+            const char* colon = strchr(p, ':');
+            if (colon == nullptr) {
+                break;
+            }
+            script.emplace_back(f, (uint8_t)strtol(colon + 1, nullptr, 16));
+            const char* comma = strchr(colon, ',');
+            p = comma ? comma + 1 : colon + strlen(colon);
+        }
+    }
+    uint8_t scripted = 0;
+    int ticks = 0;
+    // Stops the emulation at this tick (for comparing screenshots).
+    int freezeAt = getenv("METROID64_FREEZE_AT") ? atoi(getenv("METROID64_FREEZE_AT")) : -1;
+
+    // The NES runs at a fixed 60 Hz; frames in between are interpolated.
     using Clock = std::chrono::steady_clock;
     auto last = Clock::now();
     double accumulator = 0.0;
@@ -269,22 +291,43 @@ int main(int argc, char** argv) {
         input.Poll();
 
         Gfx* dl;
+        sHud->SetFrozen(sFrozen);
         if (sPlaying) {
+            auto tick = [&]() {
+                for (const auto& [f, b] : script) {
+                    if (f == ticks) {
+                        scripted = b;
+                    }
+                }
+                if (ticks == freezeAt) {
+                    sFrozen = true;
+                    return;
+                }
+                sEmu->Tick(input.Take() | scripted);
+                ticks++;
+                if (frameLimit >= 0 && ticks % 60 == 0) {
+                    SPDLOG_INFO("tick {} 1D={:02X} 1E={:02X} gameplay={} ctrl={:02X} mirror={} scroll={},{}", ticks,
+                                sEmu->Peek(0x1D), sEmu->Peek(0x1E), sEmu->InGameplay(), sEmu->PpuCtrl(),
+                                sEmu->Mirroring(), sEmu->PlaneScrollX(), sEmu->PlaneScrollY());
+                }
+            };
             bool interpolate = CVarGetInteger(Metroid::kCVarInterpolation, 1) != 0;
             float alpha = 1.0f;
-            if (interpolate && frameLimit < 0) {
+            if (sFrozen) {
+                accumulator = 0;
+            } else if (interpolate && frameLimit < 0) {
                 accumulator += std::min(dt, 0.25);
-                for (int ticks = 0; accumulator >= kTickSeconds && ticks < 5; ticks++) {
-                    sGame.Update(input.Take());
+                for (int n = 0; accumulator >= kTickSeconds && n < 5; n++) {
+                    tick();
                     accumulator -= kTickSeconds;
                 }
                 accumulator = std::min(accumulator, kTickSeconds);
                 alpha = (float)(accumulator / kTickSeconds);
-            } else {
+            } else if (!sFrozen) {
                 // One tick per frame (also used for deterministic headless runs).
-                sGame.Update(input.Take());
+                tick();
             }
-            dl = sRenderer.BuildFrame(sGame, alpha);
+            dl = sRenderer.BuildFrame(*sEmu, alpha);
         } else {
             dl = BuildIdleFrame();
         }
