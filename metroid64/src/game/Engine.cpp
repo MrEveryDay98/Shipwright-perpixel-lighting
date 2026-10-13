@@ -4,6 +4,7 @@
 #include "game/Engine.h"
 
 #include "game/Game.h"
+#include "game/Area.h"
 #include "game/Constants.h"
 #include "game/Hw.h"
 #include "game/Original.h"
@@ -1305,9 +1306,6 @@ void CheckMissileToggle() {
 void UpdateEnemies() {
     Original(0xF345);
 }
-void AreaRoutine() {
-    Original(0x95C3);
-}
 void UpdateStatues() {
     Original(0xD9D4);
 }
@@ -1322,12 +1320,6 @@ void UpdateObjectsF93B() {
 }
 void UpdateSpinners() {
     Original(0xFBDD);
-}
-void SamusEnterDoor() {
-    Original(0x8B13);
-}
-void DrawDoors() {
-    Original(0x8B79);
 }
 void UpdateTiles() {
     Original(0xFE1B);
@@ -1348,9 +1340,6 @@ void UpdateObjectsFDE3() {
     Original(0xFDE3);
 }
 
-Regs AreaHook(uint16_t addr, Regs in) {
-    return Original(addr, in);
-}
 void GetRoomNum() {
     Original(0xE720);
 }

@@ -2,6 +2,7 @@
 
 // Routines of bank 7 (the game engine), named as in the community disassembly.
 
+#include "game/Area.h"
 #include "game/Original.h"
 #include "game/Projectiles.h"
 #include "game/Sound.h"
@@ -72,7 +73,6 @@ void IsEngineRunning(uint8_t area);
 void SwitchBank(uint8_t area);
 void ChooseEnding();
 void ClearScreenData();
-Regs AreaHook(uint16_t addr, Regs in);
 void GetRoomNum();
 void SetupRoom();
 void ScrollDoor();
@@ -109,14 +109,11 @@ uint8_t IntroMusic();
 uint8_t MotherBrainMusic();
 uint8_t TourianMusic();
 void UpdateEnemies();
-void AreaRoutine();
 void UpdateStatues();
 void DestroyEnemyObjects();
 void UpdateMellows();
 void UpdateObjectsF93B();
 void UpdateSpinners();
-void SamusEnterDoor();
-void DrawDoors();
 void UpdateTiles();
 void SamusEnemyCollisions();
 void DisplayBar();
