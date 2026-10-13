@@ -18,4 +18,13 @@ void AreaRoutine();    // $95C3
 void SamusEnterDoor(); // $8B13
 void DrawDoors();      // $8B79
 
+// Per-area dispatchers: return true (and the registers in out) when addr is handled natively.
+bool BrinstarHook(uint16_t addr, const Regs& in, Regs& out); // bank 1
+bool NorfairHook(uint16_t addr, const Regs& in, Regs& out);  // bank 2
+bool TourianHook(uint16_t addr, const Regs& in, Regs& out);  // bank 3
+bool KraidHook(uint16_t addr, const Regs& in, Regs& out);    // bank 4
+bool RidleyHook(uint16_t addr, const Regs& in, Regs& out);   // bank 5
+// The $95A8-$95C0 hooks of banks 1, 2, 4 and 5 (all RTS).
+bool NoAreaHook(uint16_t addr, const Regs& in, Regs& out);
+
 } // namespace Game
