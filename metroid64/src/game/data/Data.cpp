@@ -155,9 +155,8 @@ bool ReadBlock(const tinyxml2::XMLElement* root, Block& out, std::string& error)
     return true;
 }
 
-const char* const kResourceTypes[] = {
-    "DataBlock", "WorldMap", "Room", "Structure", "Macros", "SpecialItems", nullptr
-};
+const char* const kResourceTypes[] = { "DataBlock",    "WorldMap", "Room",   "Structure", "Macros",
+                                       "SpecialItems", "Palettes", "Screen", "AreaInfo",  nullptr };
 
 bool Assets::Read(const tinyxml2::XMLElement* root, std::string& error) {
     if (root != nullptr && strcmp(root->Name(), "DataBlock") == 0) {
@@ -240,6 +239,15 @@ bool InstallFromRom(const std::vector<uint8_t>& ines, std::string& error) {
         tinyxml2::XMLDocument doc;
         if (doc.Parse(text.c_str(), text.size()) != tinyxml2::XML_SUCCESS) {
             error = "XML error in " + path;
+            return false;
+        }
+        // The app only loads resources whose type it registered (kResourceTypes).
+        bool known = false;
+        for (int i = 0; kResourceTypes[i] != nullptr && doc.FirstChildElement() != nullptr; i++) {
+            known |= strcmp(doc.FirstChildElement()->Name(), kResourceTypes[i]) == 0;
+        }
+        if (!known) {
+            error = path + ": resource type not in kResourceTypes";
             return false;
         }
         if (!assets.Read(doc.FirstChildElement(), error)) {
