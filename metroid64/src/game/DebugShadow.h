@@ -48,4 +48,42 @@ template <class F> inline bool Shadow(uint16_t addr, F native, Regs in = {}) {
     return true;
 }
 
+// DEBUG: runs the original routine and the native one (returning its registers) from the current state,
+// compares RAM and registers, then puts the state back as it was (no side effects). Returns the number
+// of differences.
+template <class F> inline int Probe(uint16_t addr, F native, Regs in, const char* tag) {
+    static uint8_t ram0[0x800], wram0[0x2000], ram1[0x800], wram1[0x2000];
+    sShadowDepth++;
+    memcpy(ram0, gRam, sizeof ram0);
+    memcpy(wram0, gWram, sizeof wram0);
+    Hw::Video v = Hw::gVideo;
+    Regs ro = Original(addr, in);
+    memcpy(ram1, gRam, sizeof ram1);
+    memcpy(wram1, gWram, sizeof wram1);
+    Hw::Video vo = Hw::gVideo;
+    memcpy(gRam, ram0, sizeof ram0);
+    memcpy(gWram, wram0, sizeof wram0);
+    Hw::gVideo = v;
+    Regs rn = native();
+    int n = 0;
+    for (int i = 0x10; i < 0x800; i++) {
+        if (i >= 0x100 && i < 0x200) continue;
+        if (i == 0x69 || i == 0x6A) continue;
+        if (gRam[i] != ram1[i] && n++ < 8) printf("  probe %04X %s: $%04X orig %02X native %02X\n", addr, tag, i, ram1[i], gRam[i]);
+    }
+    for (int i = 0; i < 0x2000; i++) {
+        if (gWram[i] != wram1[i] && n++ < 8) printf("  probe %04X %s: $%04X orig %02X native %02X\n", addr, tag, i + 0x6000, wram1[i], gWram[i]);
+    }
+    if (memcmp(&vo, &Hw::gVideo, sizeof vo) && n++ < 8) printf("  probe %04X %s: video differs\n", addr, tag);
+    if (ro.a != rn.a || ro.x != rn.x || ro.y != rn.y || ro.c != rn.c) {
+        n++;
+        printf("  probe %04X %s: regs orig A%02X X%02X Y%02X C%d native A%02X X%02X Y%02X C%d (in A%02X X%02X Y%02X)\n", addr, tag, ro.a, ro.x, ro.y, ro.c, rn.a, rn.x, rn.y, rn.c, in.a, in.x, in.y);
+    }
+    memcpy(gRam, ram0, sizeof ram0);
+    memcpy(gWram, wram0, sizeof wram0);
+    Hw::gVideo = v;
+    sShadowDepth--;
+    return n;
+}
+
 } // namespace Game

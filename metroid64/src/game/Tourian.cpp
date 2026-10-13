@@ -9,6 +9,8 @@
 #include "game/Objects.h"
 #include "game/Ram.h"
 #include "game/Samus.h"
+#include <cstdio>
+#include <cstdlib>
 
 namespace Game {
 
@@ -1132,7 +1134,9 @@ bool TourianHook(uint16_t addr, const Regs& in, Regs& out) {
             return true;
         case 0x95AE:
             ClearNameTableObjects(in.y);
+            out.a = 0;
             out.x = 0x03;
+            out.y = 0x80;
             return true;
         case 0x95B1:
             out = AddCannon(in);

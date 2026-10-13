@@ -1,7 +1,11 @@
-// Bank 1 (Brinstar): the area's own code ($99A1-$9D35). Its area routine ($95C3 -> $9D35) is an RTS.
+// Banks 1 (Brinstar, $99A1-$9D35) and 4 (Kraid's hideout, $9905-$9C49): the areas' own code. The two
+// banks share their enemy routines at different addresses; the differences are the table addresses,
+// the enemy types without a routine, and one bug Kraid's bank fixes ($9B94: the pieces around the boss
+// keep their own slot). Both area routines ($95C3) are an RTS.
 
 #include "game/Area.h"
 #include "game/AreaCommon.h"
+#include "game/AreaEnemies.h"
 #include "game/EnemyRam.h"
 #include "game/Enemies.h"
 #include "game/Engine.h"
@@ -14,40 +18,17 @@ using namespace Vars;
 
 namespace {
 
-constexpr uint16_t kCrawlerAnimTbl = 0x9AA0;
-constexpr uint16_t kRipperSpeedTbl = 0x9BA0;
-constexpr uint16_t kPieceYTbl = 0x9CB7;
-constexpr uint16_t kPieceXTbl = 0x9CBB;
-constexpr uint16_t kPieceTypeTbl = 0x9CC6;
-
-// $99A1: animate and draw the enemy, by its status ($81): $00 / $01 are the animation delays.
-void CommonEnemyJump() {
-    uint8_t s = Mem(0x81);
-    if (s == 0x01) {
-        EnemyAnimDrawOnly(Mem(0x01));
-    } else if (s == 0x03) {
-        EnemyDraw();
-    } else {
-        EnemyAnimDraw(Mem(0x00));
-    }
-}
-
-// $99C8
-void Delays6And8() {
-    Mem(0x00) = 0x06;
-    Mem(0x01) = 0x08; // $99CC
-    CommonEnemyJump();
-}
-
-// $99B8 / $99D3: sidehopper-like enemies (turn toward Samus).
-void HopperAI(uint8_t x, uint8_t anims) {
-    Mem(0x85) = anims;
-    Mem(0x86) = anims;
-    if (Enstatus[x] != 0x03) {
-        EnemyTurnAnim();
-    }
-    Delays6And8();
-}
+struct BankTables {
+    uint16_t crawlerAnim; // $9AA0 / $99EF
+    uint16_t ripperSpeed; // $9BA0 / $9AB2
+    uint16_t pieceY;      // $9CB7 / $9BCB
+    uint16_t pieceX;      // $9CBB / $9BCF
+    uint16_t pieceType;   // $9CC6 / $9BDA
+    bool kraid;
+};
+constexpr BankTables kBrinstar{ 0x9AA0, 0x9BA0, 0x9CB7, 0x9CBB, 0x9CC6, false };
+constexpr BankTables kKraid{ 0x99EF, 0x9AB2, 0x9BCB, 0x9BCF, 0x9BDA, true };
+const BankTables* sBank = &kBrinstar;
 
 // $99D8
 void Enemy3AI(uint8_t x) {
@@ -95,79 +76,6 @@ void Enemy4AI(uint8_t x) {
     EnemyAnimDraw(0x02);
 }
 
-// $9A8F: the crawler's animation for its direction.
-void CrawlerAnim(uint8_t x) {
-    uint8_t y = (uint8_t)(((En040A[x] & 0x03) << 1) | (En0405[x] & 0x01));
-    SetEnemyAnim(x, Read((uint16_t)(kCrawlerAnimTbl + y)));
-}
-
-// $9ABD
-void CrawlerFlip(uint8_t x) {
-    En0405[x] ^= 0x01;
-}
-
-// $9AE2: move one pixel in direction a (with bit 0 of $0405). Returns the carry.
-bool CrawlerMove(uint8_t x, uint8_t a) {
-    uint8_t d = En0405[x];
-    Mem(0x00) = (uint8_t)(d >> 1);
-    uint8_t index = (uint8_t)((a << 1) | (d & 0x01));
-    return EnemyMoveByTable8048(index);
-}
-
-// $9AA8
-void CrawlerBlocked(bool carry) {
-    uint8_t x = PageIndex;
-    if (carry) {
-        return;
-    }
-    if (Mem(0x00) != 0) {
-        CrawlerFlip(x);
-        return;
-    }
-    En040A[x] = (uint8_t)((En040A[x] - 1) & 0x03);
-    CrawlerAnim(x);
-}
-
-// $9AC6: around a corner?
-void CrawlerCorner(uint8_t x) {
-    uint8_t a = (uint8_t)((En040A[x] + 1) & 0x03); // $9ADA
-    bool c = CrawlerMove(x, a);
-    x = PageIndex;
-    if (!c) {
-        return;
-    }
-    En040A[x] = (uint8_t)((En040A[x] + 1) & 0x03);
-    CrawlerAnim(x);
-}
-
-// $9A4C: crawlers (zoomers).
-void CrawlerAI(uint8_t x) {
-    bool c;
-    if (EnemyFrameCarry(x, c) & 0x03) {
-        uint8_t s = Mem(0x81);
-        if (s == 0x01) {
-            EnemyAnimDrawOnly(0x08);
-            return;
-        }
-        if (s == 0x03) {
-            EnemyDraw();
-            return;
-        }
-        if (Enstatus[x] != 0x03) {
-            uint8_t a = En040A[x] & 0x03;
-            if (a == 0x01 && EnYRoomPos[x] == 0xE4) {
-                CrawlerFlip(x);
-                En040A[x] = 0x03;
-            } else {
-                CrawlerBlocked(CrawlerMove(x, a));
-            }
-            CrawlerCorner(PageIndex);
-        }
-    }
-    UpdateEnemyAnim(0x03);
-    EnemyDraw();
-}
-
 // $9AF5
 void Enemy6AI(uint8_t x) {
     uint8_t s = Mem(0x81);
@@ -190,50 +98,6 @@ void Enemy6AI(uint8_t x) {
         }
     }
     EnemyAnimDraw(0x03);
-}
-
-// $9CA8
-void EnemyPosTo08(uint8_t x) {
-    Mem(0x08) = EnYRoomPos[x];
-    Mem(0x09) = EnXRoomPos[x];
-    Mem(0x0B) = EnNameTable[x];
-}
-
-// $9C96
-void EnemyPosFrom08(uint8_t x) {
-    EnYRoomPos[x] = Mem(0x08);
-    EnXRoomPos[x] = Mem(0x09);
-    EnNameTable[x] = Mem(0x0B) & 0x01;
-}
-
-// $9B32: rippers.
-void RipperAI(uint8_t x) {
-    if (Enstatus[x] == 0x02 && En0403[x] == 0) {
-        if (En6AFE[x] == 0) {
-            if ((uint8_t)(ObjectY - EnYRoomPos[x]) < 0x40) {
-                En6AFE[x] = 0x7F;
-            }
-        } else if (!(En0402[x] & 0x80)) {
-            En0402[x] = 0;
-            EnCounter[x] = 0;
-            En6AFE[x] = 0;
-            En0403[x] = Read((uint16_t)(kRipperSpeedTbl + (En0405[x] & 0x01)));
-        }
-    }
-    if (!((En0405[x] << 1) & 0x80) && Enstatus[x] == 0x02) {
-        EnemyVertAccel833F(x);
-        uint8_t dy = Mem(0x00);
-        EnemyHorzAccel8395(x);
-        Mem(0x05) = Mem(0x00);
-        Mem(0x04) = dy;
-        EnemyPosTo08(x);
-        if (!MoveObjectByDeltas()) {
-            Enstatus[x] = 0;
-            return;
-        }
-        EnemyPosFrom08(x);
-    }
-    EnemyAnimDrawOnly(0x03);
 }
 
 // $9C2A: one of the pieces around the enemy in slot 0. Returns X as the original leaves it.
@@ -270,13 +134,15 @@ uint8_t PieceCheck(uint8_t x) {
     En0405[x] = a;
     bool c = a & 0x01;
     y = (uint8_t)(x >> 4);
-    Mem(0x04) = Read((uint16_t)(kPieceYTbl + y));
-    EnDataIndex[x] = Read((uint16_t)(kPieceTypeTbl + y));
+    Mem(0x04) = Read((uint16_t)(sBank->pieceY + y));
+    EnDataIndex[x] = Read((uint16_t)(sBank->pieceType + y));
     y = (uint8_t)((y << 1) | (c ? 1 : 0));
-    Mem(0x05) = Read((uint16_t)(kPieceXTbl + y));
+    Mem(0x05) = Read((uint16_t)(sBank->pieceX + y));
     EnemyPosTo08(0);
     bool moved = MoveObjectByDeltas();
-    x = PageIndex;
+    if (!sBank->kraid) {
+        x = PageIndex; // Brinstar's bank goes on with the boss's slot
+    }
     if (!moved) {
         return x;
     }
@@ -371,7 +237,9 @@ void EnemyAI(uint8_t x) {
             HopperAI(x, 0x0F);
             break;
         case 0x02:
-            Enemy2AI(x);
+            if (!sBank->kraid) {
+                Enemy2AI(x);
+            }
             break;
         case 0x03:
             Enemy3AI(x);
@@ -380,13 +248,15 @@ void EnemyAI(uint8_t x) {
             Enemy4AI(x);
             break;
         case 0x05:
-            CrawlerAI(x);
+            CrawlerAI(x, sBank->crawlerAnim, 0xE4, 0x08);
             break;
         case 0x06:
-            Enemy6AI(x);
+            if (!sBank->kraid) {
+                Enemy6AI(x);
+            }
             break;
         case 0x07:
-            RipperAI(x);
+            RipperAI(x, sBank->ripperSpeed);
             break;
         case 0x08:
             Enemy8AI(x);
@@ -396,14 +266,30 @@ void EnemyAI(uint8_t x) {
             Enemy9AI(x);
             break;
         default:
-            Original(0x95E5, { 0, x, 0 }); // no routine (the table holds $0000)
-            break;
+            if (!sBank->kraid) {
+                Original(0x95E5, { 0, x, 0 }); // no routine (Brinstar's table holds $0000)
+            }
+            break; // Kraid's bank: $95CB, an RTS
     }
 }
+
+bool BrinstarKraidHook(uint16_t addr, const Regs& in, Regs& out);
 
 } // namespace
 
 bool BrinstarHook(uint16_t addr, const Regs& in, Regs& out) {
+    sBank = &kBrinstar;
+    return BrinstarKraidHook(addr, in, out);
+}
+
+bool KraidHook(uint16_t addr, const Regs& in, Regs& out) {
+    sBank = &kKraid;
+    return BrinstarKraidHook(addr, in, out);
+}
+
+namespace {
+
+bool BrinstarKraidHook(uint16_t addr, const Regs& in, Regs& out) {
     out = in;
     switch (addr) {
         case 0x95C3: // AreaRoutine: RTS
@@ -418,5 +304,7 @@ bool BrinstarHook(uint16_t addr, const Regs& in, Regs& out) {
             return NoAreaHook(addr, in, out);
     }
 }
+
+} // namespace
 
 } // namespace Game
