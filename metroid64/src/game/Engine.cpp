@@ -8,6 +8,7 @@
 #include "game/Game.h"
 #include "game/Area.h"
 #include "game/Constants.h"
+#include "game/Hud.h"
 #include "game/Hw.h"
 #include "game/Items.h"
 #include "game/Original.h"
@@ -925,7 +926,7 @@ void MoreInit() {
     x++;
     SpareMem30 = x;
     x++;
-    ScrollDir = x; // left
+    ScrollDir = x;          // left
     MapPosX = Read(0x95D7); // Samus's start position on the map
     MapPosY = Read(0x95D8);
     PalToggle = Read(0x95DA);
@@ -1306,10 +1307,6 @@ void CheckMissileToggle() {
 
 // --- Not translated yet ---------------------------------------------------------------------------
 
-void DisplayBar() {
-    Original(0xE0C1);
-}
-
 void GetRoomNum() {
     Original(0xE720);
 }
@@ -1319,7 +1316,5 @@ void SetupRoom() {
 void ScrollDoor() {
     Original(0xE1F1);
 }
-
-
 
 } // namespace Game

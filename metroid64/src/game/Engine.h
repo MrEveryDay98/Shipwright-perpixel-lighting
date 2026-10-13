@@ -4,6 +4,7 @@
 
 #include "game/Area.h"
 #include "game/Enemies.h"
+#include "game/Hud.h"
 #include "game/Items.h"
 #include "game/Original.h"
 #include "game/Projectiles.h"
@@ -110,7 +111,6 @@ uint8_t PowerUpMusic();
 uint8_t IntroMusic();
 uint8_t MotherBrainMusic();
 uint8_t TourianMusic();
-void DisplayBar();
 void EraseAllSprites();
 void PrepVertMirror();
 void CheckPalWrite();
