@@ -35,11 +35,8 @@ if (-not (Test-Path $clangFormatFilePath) -or ($currentVersion -ne $requiredVers
 }
 
 $basePath = (Resolve-Path .).Path
-$files = Get-ChildItem -Path $basePath\soh -Recurse -File `
-    | Where-Object { ($_.Extension -eq '.c' -or $_.Extension -eq '.cpp' -or `
-                      (($_.Extension -eq '.h' -or $_.Extension -eq '.hpp') -and `
-                       (-not ($_.FullName -like "*\soh\src\*" -or $_.FullName -like "*\soh\include\*")))) -and `
-                     (-not ($_.FullName -like "*\soh\assets\*" -or $_.FullName -like "*\soh\build\*")) }
+$files = Get-ChildItem -Path $basePath\metroid64 -Recurse -File `
+    | Where-Object { ($_.Extension -eq '.c' -or $_.Extension -eq '.cpp' -or $_.Extension -eq '.h' -or $_.Extension -eq '.hpp') }
 
 for ($i = 0; $i -lt $files.Length; $i++) {
     $file = $files[$i]

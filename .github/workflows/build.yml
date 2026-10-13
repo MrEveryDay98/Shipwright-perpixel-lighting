@@ -1,0 +1,28 @@
+name: Build Metroid64
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++ ninja-build $(cat linux-build-deps/apt.txt)
+      - name: Configure
+        run: cmake -H. -Bbuild -GNinja -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build -j
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: metroid64-linux
+          path: |
+            build/metroid64/metroid64
+            build/metroid64/metroid64.o2r

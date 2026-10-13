@@ -1,117 +1,90 @@
-![Ship of Harkinian](docs/shiptitle.darkmode.png#gh-dark-mode-only)
-![Ship of Harkinian](docs/shiptitle.lightmode.png#gh-light-mode-only)
+# Metroid64
 
-## Website
+A 2.5D remake of NES *Metroid* built on [libultraship](https://github.com/Kenix3/libultraship), the engine
+behind Ship of Harkinian (Shipwright). Every 8x8 background tile of the original becomes a textured 3D block,
+viewed by a perspective camera that follows Samus.
 
-Official Website: https://www.shipofharkinian.com/
+This project began as a fork of Shipwright. All of the Ocarina of Time code, its asset pipeline (Torch) and its
+tooling have been removed. What's left is libultraship (window, Fast3D renderer, input, ImGui, archives) and the
+Metroid64 game in [`metroid64/`](metroid64).
 
-## Discord
+## You need your own ROM
 
-Official Discord: https://discord.com/invite/shipofharkinian
+Metroid64 ships **no Nintendo data**. At startup it reads the level layout, tiles, palettes, items, doors,
+elevators and Samus' animation frames from your own `Metroid (USA).nes`. Only that exact dump is accepted
+(its PRG ROM is checked against a CRC32).
 
-If you're having any trouble after reading through this `README`, feel free to ask for help in the Support text channels. Please keep in mind that we do not condone piracy.
+You can provide the ROM in any of these ways:
 
-# Quick Start
+- drag and drop the `.nes` file onto the game window,
+- pass it on the command line: `metroid64 "Metroid (USA).nes"`,
+- put it next to the executable as `metroid.nes` (any `.nes` file in that folder is tried).
 
-The Ship does not include any copyrighted assets.  You are required to provide a supported copy of the game.
+The path is remembered in `metroid64.json`.
 
-### 1. Verify your ROM dump
-You can verify you have dumped a supported copy of the game by using the compatibility checker at https://ship.equipment/. If you'd prefer to manually validate your ROM dump, you can cross-reference its `sha1` hash with the hashes [here](docs/supportedHashes.json).
+## Building
 
-### 2. Download The Ship of Harkinian from [Releases](https://github.com/HarbourMasters/Shipwright/releases)
+Linux (Debian/Ubuntu):
 
-### 3. Launch the Game!
-#### Windows
-* Extract the zip
-* Launch `soh.exe`
-
-#### Linux
-* Place your supported copy of the game in the same folder as the appimage.
-* Execute `soh.appimage`.  You may have to `chmod +x` the appimage via terminal.
-
-#### macOS
-* Run `soh.app`. When prompted, select your supported copy of the game.
-* You should see a notification saying `Processing OTR`, then, once the process is complete, you should get a notification saying `OTR Successfully Generated`, then the game should start.
-
-#### Nintendo Switch
-* Run one of the PC releases to generate an `oot.o2r` and/or `oot-mq.o2r` file. After launching the game on PC, you will be able to find these files in the same directory as `soh.exe` or `soh.appimage`. On macOS, these files can be found in `/Users/<username>/Library/Application Support/com.shipofharkinian.soh/`
-* Copy the files to your sd card
+```sh
+git submodule update --init --recursive
+sudo apt-get install g++ $(cat linux-build-deps/apt.txt)
+cmake -H. -Bbuild -GNinja -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+./build/metroid64/metroid64 "path/to/Metroid (USA).nes"
 ```
-sdcard
-└── switch
-    └── soh
-        ├── oot-mq.o2r
-        ├── oot.o2r
-        ├── soh.nro
-        └── soh.o2r
-```
-* Launch via Atmosphere's `Game+R` launcher method.
 
-### 4. Play!
+The build produces `build/metroid64/metroid64` and `metroid64.o2r`. The archive holds only libultraship's
+renderer shaders and must sit next to the executable.
 
-Congratulations, you are now sailing with the Ship of Harkinian! Have fun!
+If CMake can't download `stb_image.h` (offline or behind a proxy), install `libstb-dev` and the build uses the
+system copy.
 
-# Configuration
+Windows and macOS keep the CMake plumbing inherited from Shipwright (vcpkg on Windows), but so far only the
+Linux build has been tested.
 
-### Default keyboard configuration
-| N64 | A | B | Z | Start | Analog stick | C buttons | D-Pad |
-| - | - | - | - | - | - | - | - |
-| Keyboard | X | C | Z | Space | WASD | Arrow keys | TFGH |
+## Controls
 
-### Other shortcuts
-| Keys | Action |
-| - | - |
-| ESC | Toggle menu |
-| F2 | Toggle capture mouse input |
-| F5 | Save state |
-| F6 | Change state |
-| F7 | Load state |
-| F9 | Toggle Text-to-Speech (Windows and Mac only) |
-| F11 | Fullscreen |
-| Tab | Toggle Alternate assets |
-| Ctrl+R | Reset |
+Defaults use libultraship's N64-style mapping. Gamepads work out of the box.
 
-# Project Overview
-Ship of Harkinian (SOH) is built atop a custom library dubbed libultraship (LUS). Back in the N64 days, there was an SDK distributed to developers named libultra; LUS is designed to mimic the functionality of libultra on modern hardware. In addition, we are dependent on the source code provided by the OOT decompilation project.
+| Action | Keyboard | N64 button |
+| --- | --- | --- |
+| Move / aim up / morph (down) | W A S D | Stick or D-pad |
+| Jump (hold for height) | X | A |
+| Shoot, or lay a bomb as the ball | C | B |
+| Toggle missiles | R or Z | R / Z |
+| Pause | Space | Start |
 
-In order for the game to function, you will require a **legally acquired** ROM for Ocarina of Time. Click [here](https://ship.equipment/) to check the compatibility of your specific rom. Any copyrighted assets are extracted from the ROM and reformatted as a .o2r archive file which the code uses.
+## What works
 
-### Graphics Backends
-Currently, there are three rendering APIs supported: DirectX11 (Windows), OpenGL (all platforms), and Metal (MacOS). You can change which API to use in the `Settings` menu of the menubar, which requires a restart.  If you're having an issue with crashing, you can change the API in the `shipofharkinian.json` file by finding the line `gfxbackend:""` and changing the value to `sdl` for OpenGL. DirectX 11 is the default on Windows.
+- The whole world map: all five areas, decoded from the ROM, with doors and alternate palettes.
+- Samus: run, variable-height jump, spin jump, aim up, morph ball, bomb jumps. Her sprite frames come
+  from the ROM and are extruded into thin layers.
+- Beams (short, long, wave, ice), missiles, bombs, blastable blocks that regrow.
+- Blue, red (5 missiles) and orange (10 missiles) doors.
+- All 38 power-ups and expansions, collected with the original item names.
+- Elevators between Brinstar, Norfair, Kraid's Lair, Ridley's Lair and Tourian.
 
-# Custom Assets
+## Not done yet
 
-Custom assets are packed in `.otr` archive files. To use custom assets, place them in the `mods` folder.
+- Enemies, bosses, Mother Brain, Zebetites and Metroids. Spawn data is decoded but not simulated.
+- Damage, lava/acid, death and the escape sequence.
+- Audio, passwords/saving, title screen and ending.
+- A 3D Samus model. The renderer draws her as a billboard sprite for now; a model can replace it in
+  `Renderer::BuildFrame`.
 
-If you're interested in creating and/or packing your own custom asset `.otr` files, check out the following tools:
-* [**retro - OTR generator**](https://github.com/HarbourMasters64/retro)
-* [**fast64 - Blender plugin**](https://github.com/HarbourMasters/fast64)
+## Developer notes
 
-# Development
-### Building
+- `METROID64_WARP=x,y` starts Samus in map screen `(x, y)` (for example `22,11` is Brinstar's elevator to Norfair).
+- `METROID64_FRAMES=n` quits after `n` frames, for headless smoke tests.
+- [`docs/ROM_FORMAT.md`](docs/ROM_FORMAT.md) records the ROM addresses and data formats the decoder relies on.
 
-If you want to manually compile SoH, please consult the [building instructions](docs/BUILDING.md).
+Source layout:
 
-### Playtesting
-If you want to playtest a continuous integration build, you can find them at the links below. Keep in mind that these are for playtesting only, and you will likely encounter bugs and possibly crashes. 
-
-* [Windows](https://nightly.link/HarbourMasters/Shipwright/workflows/generate-builds/develop/soh-windows.zip)
-* [macOS](https://nightly.link/HarbourMasters/Shipwright/workflows/generate-builds/develop/soh-mac.zip)
-* [Linux](https://nightly.link/HarbourMasters/Shipwright/workflows/generate-builds/develop/soh-linux.zip)
-
-### Further Reading
-More detailed documentation can be found in the 'docs' directory, including the aforementioned [building instructions](docs/BUILDING.md).
-
-* [Credits](docs/CREDITS.md)
-* [Custom Music](docs/CUSTOM_MUSIC.md)
-* [Formatting](docs/FORMATTING.md)
-* [Controller Mapping](docs/GAME_CONTROLLER_DB.md)
-* [Modding](docs/MODDING.md)
-* [Versioning](docs/VERSIONING.md)
-
-<a href="https://github.com/Kenix3/libultraship/">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./docs/poweredbylus.darkmode.png">
-    <img alt="Powered by libultraship" src="./docs/poweredbylus.lightmode.png">
-  </picture>
-</a>
+| File | Purpose |
+| --- | --- |
+| `metroid64/src/Rom.*` | ROM validation and decoding: world map, rooms, structures, macros, CHR, palettes, items, Samus frames |
+| `metroid64/src/Game.*` | Gameplay: physics, weapons, doors, items, elevators |
+| `metroid64/src/Renderer.*` | Turns the world into Fast3D display lists (cached per screen) |
+| `metroid64/src/Hud.*` | ImGui overlay: energy, missiles, messages, ROM prompt |
+| `metroid64/src/main.cpp` | libultraship bootstrap and main loop |
