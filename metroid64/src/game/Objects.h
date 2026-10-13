@@ -19,5 +19,11 @@ uint8_t XDisplacement(uint8_t y);
 uint8_t NegativeDisplacement(uint8_t a);
 uint8_t IsObjectVisible();
 void SpriteFlipBitsOveride(uint8_t y);
+void EnemyExplosionDone();
+void ChooseItemDrop(uint8_t a);
+void NoItemDrop();
+void MiniBossKilled();
+uint8_t AddToMaxMissiles(uint8_t n);
+bool DrawEnemy();
 
 } // namespace Game

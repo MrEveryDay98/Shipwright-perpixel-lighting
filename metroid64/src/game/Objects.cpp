@@ -3,6 +3,8 @@
 #include "game/Objects.h"
 
 #include "game/Constants.h"
+#include "game/Area.h"
+#include "game/Enemies.h"
 #include "game/Engine.h"
 #include "game/Original.h"
 #include "game/Ram.h"
@@ -14,6 +16,10 @@ using namespace Vars;
 using namespace Const;
 
 namespace {
+// $FA18 KillObject lives in the enemy code (Enemies.cpp); X = the enemy slot.
+void KillObject() {
+    Original(0xFA18, { 0, PageIndex, 0 });
+}
 constexpr uint16_t kObjectAnimIdxTbl = 0x8572; // in the area bank
 constexpr uint16_t kFramePtrTable = 0x860B;
 constexpr uint16_t kPlacePtrTable = 0x86DF;
@@ -76,6 +82,157 @@ uint8_t GetSpriteCntrlData() {
         SpriteFlipBitsOveride(0);
     }
     return (uint8_t)((control & 0x0F) << 1);
+}
+
+// --- $DCF5 Enemy death: item drops -------------------------------------------------------------------
+
+// Reached from DrawEnemy when an enemy's explosion ends. The original pops DrawEnemy's caller's return
+// address here, so that caller is left (DrawEnemy returns true).
+void EnemyExplosionDone() {
+    ClearObjectCntrl();
+    uint8_t x = PageIndex;
+    if (InArea == 0x13) {
+        uint8_t d = EnDataIndex[x];
+        if (d == 0x04 || d == 0x02) {
+            KillObject(); // Tourian's Metroids leave nothing
+            return;
+        }
+    }
+    if ((uint8_t)(Mem((uint16_t)(0x040C + x)) << 1) & 0x80) {
+        MiniBossKilled();
+        return;
+    }
+    Regs r = Original(0xF74B, { 0, x, 0 });
+    GenByte00 = r.a;
+    r = AreaHook(0x80B0, r);
+    EnDataIndex[x] = r.a & 0x20;
+    Enstatus[x] = 0x05;
+    Mem((uint16_t)(0x040D + x)) = 0x60;
+    uint8_t a = RandomNumber1;
+    if (a < 0x10) {
+        NoItemDrop();
+        return;
+    }
+    ChooseItemDrop(a);
+}
+
+// $DD30: picks the drop from ItemDropTbl, unless enough of that pickup is already out.
+void ChooseItemDrop(uint8_t a) {
+    uint8_t x = PageIndex;
+    static const uint16_t kItemDropTbl = 0xDE35;
+    uint8_t drop = Read((uint16_t)(kItemDropTbl + (a & 0x07)));
+    EnAnimFrame[x] = drop;
+    if (drop == 0x80) { // missile
+        if (MaxMissilePickup == CrntMslePickups || MaxMissiles == 0) {
+            NoItemDrop();
+            return;
+        }
+        CrntMslePickups++;
+        return;
+    }
+    if (MaxEnergyPickup == CrntEnrgyPickups) {
+        NoItemDrop();
+        return;
+    }
+    CrntEnrgyPickups++;
+    if (drop != 0x89) {
+        return;
+    }
+    bool carry = GenByte00 & 0x01;
+    GenByte00 = (uint8_t)(GenByte00 >> 1);
+    if (carry) {
+        return;
+    }
+    NoItemDrop();
+}
+
+// $DD5B
+void NoItemDrop() {
+    if (InArea != 0x13) {
+        KillObject();
+        return;
+    }
+    // Tourian always drops something: reset the pickup counts and try again.
+    uint8_t a = RandomNumber1;
+    CrntEnrgyPickups = 0;
+    CrntMslePickups = 0;
+    MaxMissilePickup = 1;
+    MaxEnergyPickup = 1;
+    ChooseItemDrop(a);
+}
+
+// $DD75: Kraid or Ridley died.
+void MiniBossKilled() {
+    PowerUpMusic();
+    uint8_t a = InArea & 0x0F;
+    MiniBossKillDly = a;
+    a >>= 1;
+    MaxMissiles[a] = a;
+    AddToMaxMissiles(75);
+    NoItemDrop();
+}
+
+// $DD97: adds to both MissileCount and MaxMissiles (capped at 255). Returns the new MaxMissiles.
+uint8_t AddToMaxMissiles(uint8_t n) {
+    unsigned c = MissileCount + n;
+    MissileCount = c > 0xFF ? 0xFF : (uint8_t)c;
+    unsigned m = MaxMissiles + n;
+    MaxMissiles = m > 0xFF ? 0xFF : (uint8_t)m;
+    return MaxMissiles;
+}
+
+// --- $DD8B DrawEnemy ---------------------------------------------------------------------------------
+
+// Draws the enemy at PageIndex. Returns true when its explosion ended: the original then leaves the
+// routine that called DrawEnemy (see EnemyExplosionDone).
+bool DrawEnemy() {
+    uint8_t x = PageIndex;
+    if (EnAnimFrame[x] == 0xF7) {
+        ClearObjectCntrl();
+        return false;
+    }
+    Mem(0x0A) = EnYRoomPos[x];
+    Mem(0x0B) = EnXRoomPos[x];
+    Mem(0x06) = EnNameTable[x];
+    // Frame pointers: two tables ($41 and $43), the second for frames $80 and up.
+    uint8_t frame = EnAnimFrame[x];
+    uint8_t y = (uint8_t)(frame << 1);
+    uint16_t table = (frame & 0x80) ? (uint16_t)(Mem(0x43) | (Mem(0x44) << 8)) : (uint16_t)(Mem(0x41) | (Mem(0x42) << 8));
+    Mem(0x00) = Read((uint16_t)(table + y));
+    Mem(0x01) = Read((uint16_t)(table + (uint8_t)(y + 1)));
+    uint8_t place = GetSpriteCntrlData();
+    uint16_t places = (uint16_t)(Mem(0x45) | (Mem(0x46) << 8));
+    Mem(0x02) = Read((uint16_t)(places + place));
+    Mem(0x03) = Read((uint16_t)(places + (uint8_t)(place + 1)));
+    y = 0;
+    if (place == 0x02) {
+        // Exploding: spin the pieces; after 25 frames the enemy is done.
+        x = PageIndex;
+        uint8_t counter = ++EnCounter[x];
+        Mem(0x05) = (uint8_t)((Mem(0x05) & 0x3F) | Read((uint16_t)(kExplodeRotationTbl + (counter & 0x03))));
+        if (counter == 0x19) {
+            EnemyExplosionDone();
+            return true;
+        }
+    }
+    x = PageIndex;
+    y++;
+    EnRadY[x] = Read((uint16_t)(Ptr00() + y));
+    ReduceYRadius(EnRadY[x]);
+    y++;
+    EnRadX[x] = Read((uint16_t)(Ptr00() + y));
+    Mem(0x09) = EnRadX[x];
+    y++;
+    Mem(0x11) = y;
+    Mem(0x08) = (uint8_t)(IsObjectVisible() << 1);
+    x = PageIndex;
+    Mem((uint16_t)(0x0405 + x)) = (uint8_t)((Mem((uint16_t)(0x0405 + x)) & 0xFD) | Mem(0x08));
+    if (Mem(0x08) == 0) {
+        ClearObjectCntrl();
+        return false;
+    }
+    DrawSpriteObject(SpritePagePos);
+    return false;
 }
 
 // --- $DE3D ReduceYRadius -----------------------------------------------------------------------------
