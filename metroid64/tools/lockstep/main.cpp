@@ -10,6 +10,9 @@
 //     --poke <addr=val,...>      written into both games' memory before every frame (e.g. items,
 //                                health), so random play can reach more of the game
 //     --dump <addr[-addr],...>   prints these RAM/WRAM bytes of the original at the end (or failure)
+//     --password <area,gear,missiles[,suitless]>   (hex) starts the game from a password made with the
+//                                port's own password code: area $10-$14, all items collected none.
+//                                Replaces --script; --sync defaults to 30
 //     --check-lag                also compares at the frames where the original lagged and prints the
 //                                differences without failing (a few are expected: the original ran extra
 //                                NMIs, so joypad, sound and sprite bytes differ)
@@ -17,6 +20,8 @@
 #include "game/Game.h"
 #include "game/Hw.h"
 #include "game/Memory.h"
+#include "game/Ram.h"
+#include "game/Title.h"
 #include "nes/Nes.h"
 
 #include <cstdio>
@@ -252,6 +257,55 @@ void Dump(const char* tag, Nes::Machine& emu, const std::string& spec) {
     printf("\n");
 }
 
+// Buttons that go from the title to the password screen and type a password made for the given
+// area, gear and missiles, then press START. Leaves the port's RAM dirty (it is replaced at the sync).
+Script PasswordScript(const char* spec) {
+    unsigned v[4] = { 0x10, 0, 0, 0 };
+    sscanf(spec, "%x,%x,%x,%x", &v[0], &v[1], &v[2], &v[3]);
+    using namespace Game::Vars;
+    for (int i = 0; i < 0x12; i++) {
+        PasswordByte00[i] = 0;
+    }
+    PasswordByte08 = (uint8_t)((v[0] & 0x3F) | (v[3] ? 0x80 : 0));
+    PasswordByte09 = (uint8_t)v[1];
+    PasswordByte0A = (uint8_t)v[2];
+    PasswordByte10 = 0x01;
+    Game::PswrdChksmNScrmbl();
+    Game::LoadPasswordChar();
+
+    // Title: START, SELECT (to CONTINUE), START; then the 13x5 character grid, cursor at 0.
+    Script sc;
+    sc.events = { { 120, 0x08 }, { 125, 0 }, { 160, 0x04 }, { 165, 0 }, { 200, 0x08 }, { 205, 0 } };
+    int f = 300, row = 0, col = 0;
+    auto press = [&](uint8_t b, int on, int off) {
+        sc.events.emplace_back(f, b);
+        sc.events.emplace_back(f + on, 0);
+        f += on + off;
+    };
+    for (int i = 0; i < 24; i++) {
+        int r = (PasswordChar00[i] & 0x3F) / 13, c = (PasswordChar00[i] & 0x3F) % 13;
+        while (row != r) {
+            press(0x20, 2, 3); // down
+            row = (row + 1) % 5;
+        }
+        while (col != c) {
+            press(0x80, 2, 3); // right, wrapping to the next row
+            if (++col == 13) {
+                col = 0;
+                row = (row + 1) % 5;
+                while (row != r) {
+                    press(0x20, 2, 3);
+                    row = (row + 1) % 5;
+                }
+            }
+        }
+        press(0x01, 2, 3); // A
+    }
+    f += 30;
+    press(0x08, 3, 60);
+    return sc;
+}
+
 int main(int argc, char** argv) {
     if (argc < 2) {
         fprintf(stderr, "usage: lockstep <rom> [--script s] [--sync n] [--frames n] [--random seed] [--ram-h path] "
@@ -264,6 +318,8 @@ int main(int argc, char** argv) {
     std::vector<std::pair<uint16_t, uint8_t>> pokes;
     const char* ramH = "metroid64/src/game/Ram.h";
     std::string dump;
+    const char* password = nullptr;
+    bool syncGiven = false;
     bool checkLag = false;
     for (int i = 2; i < argc; i += 2) {
         std::string opt = argv[i];
@@ -275,12 +331,15 @@ int main(int argc, char** argv) {
         if (i + 1 >= argc) {
             break;
         }
-        if (opt == "--dump") {
+        if (opt == "--password") {
+            password = argv[i + 1];
+        } else if (opt == "--dump") {
             dump = argv[i + 1];
         } else if (opt == "--script") {
             script = ParseScript(argv[i + 1]);
         } else if (opt == "--sync") {
             sync = atoi(argv[i + 1]);
+            syncGiven = true;
         } else if (opt == "--frames") {
             frames = atoi(argv[i + 1]);
         } else if (opt == "--random") {
@@ -308,6 +367,12 @@ int main(int argc, char** argv) {
     if (!Game::LoadRom(rom, &error)) {
         fprintf(stderr, "%s\n", error);
         return 2;
+    }
+    if (password) {
+        script = PasswordScript(password);
+        if (!syncGiven) {
+            sync = 30;
+        }
     }
     static RecordingMachine emu;
     emu.Load(rom);

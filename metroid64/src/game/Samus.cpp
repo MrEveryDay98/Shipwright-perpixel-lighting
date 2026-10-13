@@ -925,9 +925,7 @@ bool SamusDoor() {
                 if (music != 0) {
                     StartMusic();
                     if (music & 0x80) {
-                        ItemRmMusicSts = 0;
-                    } else {
-                        setItemMusic = true;
+                        ItemRmMusicSts = 0; // left the item room
                     }
                 }
                 for (;;) {

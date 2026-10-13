@@ -56,6 +56,9 @@ lockstep "Metroid (USA).nes" --script 120:08,125:00,200:08,205:00 --sync 650 --f
 - `--random seed`: random buttons after the script (Start excluded).
 - `--poke addr=val,...`: written into both sides' memory before every frame, to reach parts of the game
   quickly (all items and full energy, an item placed on Samus, a later area).
+- `--password area,gear,missiles[,suitless]` (hex): types a password made with the port's own password code
+  on the title screen, so the game starts in that area (`10` Brinstar to `14` Ridley's hideout) with that
+  gear. Combine with `--random` and `--poke` to play around an area.
 - `--dump addr[-addr],...`: prints the original's bytes at the end, to check a test reached what it was
   meant to (an item collected, a room entered).
 - `--check-lag`: also compares after the original's lag frames and prints the differences without failing.

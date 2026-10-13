@@ -317,6 +317,11 @@ bool IsBlastTile(uint8_t tile, uint8_t x, bool carry) {
     if (UpdtngPrjctl == 0) {
         return carry;
     }
+    return BlastTile(tile, x);
+}
+
+// $E9C2: bombs come in here, whatever UpdtngPrjctl says. Returns the carry (clear).
+bool BlastTile(uint8_t tile, uint8_t x) {
     uint8_t y = AreaHook(0x95BD, { tile, x, tile }).y;
     if (y >= 0x98) {
         return false; // not blastable after all

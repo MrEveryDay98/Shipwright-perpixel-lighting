@@ -342,7 +342,7 @@ void BombBlastTiles() {
 void BlastTileAt04(uint8_t x) {
     uint8_t tile = Read(Ptr04());
     if (IsBlastableRange(tile) && tile < 0xA0) {
-        IsBlastTile(tile, x, false);
+        BlastTile(tile, x);
     }
 }
 

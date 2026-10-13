@@ -29,6 +29,7 @@ void MakeCartRAMPtr();
 void NextCrashTile();
 void SwitchNameTable();
 bool IsBlastTile(uint8_t tile, uint8_t x, bool carry);
+bool BlastTile(uint8_t tile, uint8_t x);
 uint8_t GetNameTable();
 uint8_t OnNameTable0();
 
