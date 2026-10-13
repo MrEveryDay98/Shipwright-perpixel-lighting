@@ -1,4 +1,5 @@
 #include "Game.h"
+#include "Enemy.h"
 
 #include <algorithm>
 #include <cmath>
@@ -41,9 +42,24 @@ int TileIndex(int tx, int ty) {
 
 } // namespace
 
+const char* PoseName(Pose pose) {
+    static const char* const names[(int)Pose::Count] = {
+        "Stand", "Run", "Jump", "Spin", "Morph", "RunShoot", "JumpShoot", "StandUp", "RunUp", "JumpUp", "Front", "Move",
+    };
+    return names[(int)pose];
+}
+
 void Game::Init(const Rom* rom) {
     mRom = rom;
     mSamus = Samus{};
+    mEnemies.clear();
+    mEnemyShots.clear();
+    mPickups.clear();
+    mSpawnActive.assign(rom->Enemies().size(), -1);
+    mSpawnCooldown.assign(rom->Enemies().size(), 0);
+    mBossesDefeated.clear();
+    mDeathTimer = 0;
+    mPaused = false;
     mShots.clear();
     mBombs.clear();
     mEffects.clear();
@@ -99,12 +115,38 @@ void Game::Init(const Rom* rom) {
     if (const char* warp = getenv("METROID64_WARP")) {
         sscanf(warp, "%d,%d", &startX, &startY);
     }
-    mSamus.x = startX * kScreenPxW + 128;
-    mSamus.y = startY * kScreenPxH + 64;
+    mCheckpointX = startX;
+    mCheckpointY = startY;
+    PlaceSamusAt(startX, startY);
+    Say("EMERGENCY ORDER: DEFEAT THE METROID OF THE PLANET ZEBETH");
+    // Developer switch: METROID64_ALLITEMS=1 starts with every upgrade.
+    if (getenv("METROID64_ALLITEMS")) {
+        GiveAllItems();
+    }
+}
+
+void Game::PlaceSamusAt(int screenX, int screenY) {
+    mSamus.x = screenX * kScreenPxW + 128;
+    mSamus.y = screenY * kScreenPxH + 64;
     for (int i = 0; i < 160 && !SolidAt(mSamus.x, mSamus.y + 1); i++) {
         mSamus.y += 1;
     }
-    Say("EMERGENCY ORDER: DEFEAT THE METROID OF THE PLANET ZEBETH");
+    mSamus.prevX = mSamus.x;
+    mSamus.prevY = mSamus.y;
+    mSamus.vx = mSamus.vy = 0;
+    mSamus.morph = false;
+}
+
+void Game::GiveAllItems() {
+    for (int i = 0; i < PU_COUNT; i++) {
+        if (i != PU_ICE_BEAM && i != PU_ENERGY_TANK && i != PU_MISSILES) {
+            mSamus.items |= 1 << i;
+        }
+    }
+    mSamus.maxEnergy = 699;
+    mSamus.energy = mSamus.maxEnergy;
+    mSamus.maxMissiles = mSamus.missiles = 255;
+    Say("ALL ITEMS");
 }
 
 const char* Game::AreaName() const {
@@ -128,14 +170,25 @@ bool Game::TileIntact(int tx, int ty) const {
     return mBlasted.find(TileIndex(tx, ty)) == mBlasted.end();
 }
 
-bool Game::SolidAt(float x, float y) const {
+bool Game::TerrainSolidAt(float x, float y) const {
     if (x < 0 || y < 0 || x >= kWorldTilesW * 8 || y >= kWorldTilesH * 8) {
         return true;
     }
     int tx = (int)x >> 3, ty = (int)y >> 3;
     const WorldTile& t = mRom->Tile(tx, ty);
-    if (t.kind == TILE_SOLID || (t.kind == TILE_BLAST && TileIntact(tx, ty))) {
+    return t.kind == TILE_SOLID || (t.kind == TILE_BLAST && TileIntact(tx, ty));
+}
+
+bool Game::SolidAt(float x, float y) const {
+    if (TerrainSolidAt(x, y)) {
         return true;
+    }
+    // Frozen enemies are platforms, as in the original.
+    for (const Enemy& e : mEnemies) {
+        if (e.alive && e.frozen > 0 && x >= e.x - e.halfW && x < e.x + e.halfW && y >= e.y - e.halfH &&
+            y < e.y + e.halfH) {
+            return true;
+        }
     }
     for (const DoorState& d : mDoors) {
         if (!d.open && x >= d.x0 && x < d.x1 && y >= d.y0 && y < d.y1) {
@@ -170,19 +223,49 @@ bool Game::BoxBlocked(float x0, float y0, float x1, float y1) const {
 }
 
 void Game::Update(const Input& in) {
-    mFrame++;
-    if (mMessageTimer > 0) {
-        mMessageTimer--;
+    // Positions at the start of the tick, for render interpolation.
+    mSamus.prevX = mSamus.x;
+    mSamus.prevY = mSamus.y;
+    for (Enemy& e : mEnemies) {
+        e.prevX = e.x;
+        e.prevY = e.y;
     }
-    if (in.startPressed && mRide < 0) {
+    for (Projectile& p : mShots) {
+        p.prevX = p.x;
+        p.prevY = p.y;
+    }
+    for (EnemyShot& p : mEnemyShots) {
+        p.prevX = p.x;
+        p.prevY = p.y;
+    }
+
+    if (in.startPressed && mRide < 0 && mDeathTimer == 0) {
         mPaused = !mPaused;
     }
     if (mPaused) {
         return;
     }
+    mFrame++;
+    if (mMessageTimer > 0) {
+        mMessageTimer--;
+    }
+    if (mCheats.infiniteEnergy) {
+        mSamus.energy = std::max(mSamus.energy, 99);
+    }
+    if (mCheats.infiniteMissiles && mSamus.maxMissiles > 0) {
+        mSamus.missiles = mSamus.maxMissiles;
+    }
+    if (mDeathTimer > 0) {
+        UpdateDeath();
+        return;
+    }
     if (mRide >= 0) {
         UpdateRide();
+        UpdatePose();
         return;
+    }
+    if (mSamus.invuln > 0) {
+        mSamus.invuln--;
     }
 
     if (in.toggleMissilePressed) {
@@ -208,8 +291,16 @@ void Game::Update(const Input& in) {
     UpdateBombs();
     UpdateBlasted();
     UpdateDoors();
+    EnemyLogic::Update(*this);
     CheckItems();
     CheckElevators(in);
+    UpdatePose();
+    if (mSamus.energy <= 0 && mDeathTimer == 0) {
+        mDeathTimer = 1;
+        mShots.clear();
+        mBombs.clear();
+        Spawn(mSamus.x, mSamus.y - 16, 0xFFFFFFFF, 40);
+    }
 
     for (Effect& e : mEffects) {
         e.age++;
@@ -220,7 +311,6 @@ void Game::Update(const Input& in) {
 
 void Game::MoveSamus(const Input& in) {
     Samus& s = mSamus;
-    s.animTimer++;
     if (s.shootTimer > 0) {
         s.shootTimer--;
     }
@@ -236,9 +326,11 @@ void Game::MoveSamus(const Input& in) {
     }
     s.aimUp = in.up && !s.morph;
 
-    // Horizontal
+    // Horizontal (no steering for a moment after being knocked back)
     float target = 0;
-    if (in.left) {
+    if (s.invuln > 45) {
+        target = s.vx;
+    } else if (in.left) {
         target = -kRunSpeed;
         s.facing = -1;
     } else if (in.right) {
@@ -312,34 +404,74 @@ void Game::MoveSamus(const Input& in) {
     }
 }
 
-int Game::SamusFrame() const {
-    // Frame numbers in the ROM's Samus animation table.
-    const Samus& s = mSamus;
-    if (s.morph) {
-        static const int ball[] = { 24, 26 };
-        return ball[(s.animTimer / 6) % 2];
-    }
-    if (!s.grounded) {
-        if (s.spinning && !s.Has(PU_SCREW_ATTACK) && s.shootTimer == 0) {
-            static const int spin[] = { 19, 20, 21, 22 };
-            return spin[(s.animTimer / 3) % 4];
-        }
+void Game::UpdatePose() {
+    Samus& s = mSamus;
+    Pose pose;
+    bool moving = std::fabs(s.vx) > 0.2f;
+    if (mRide >= 0) {
+        pose = Pose::Front;
+    } else if (s.morph) {
+        pose = Pose::Morph;
+    } else if (!s.grounded) {
         if (s.spinning && s.shootTimer == 0) {
-            static const int spin[] = { 19, 20, 21, 22 };
-            return spin[(s.animTimer / 2) % 4];
+            pose = Pose::Spin;
+        } else if (s.aimUp) {
+            pose = Pose::JumpUp;
+        } else {
+            pose = s.shootTimer > 0 ? Pose::JumpShoot : Pose::Jump;
         }
-        return s.aimUp ? 43 : 17;
+    } else if (moving) {
+        pose = s.aimUp ? Pose::RunUp : (s.shootTimer > 0 ? Pose::RunShoot : Pose::Run);
+    } else {
+        pose = s.aimUp ? Pose::StandUp : Pose::Stand;
     }
-    if (std::fabs(s.vx) > 0.2f) {
-        static const int run[] = { 4, 5, 16 };
-        static const int runShoot[] = { 13, 14, 15 };
-        int i = (s.animTimer / 6) % 3;
-        return s.shootTimer > 0 ? runShoot[i] : run[i];
+    // Run/shoot variants share timing so the legs don't skip when firing.
+    bool sameFamily = (pose == Pose::Run || pose == Pose::RunShoot || pose == Pose::RunUp) &&
+                      (s.pose == Pose::Run || s.pose == Pose::RunShoot || s.pose == Pose::RunUp);
+    if (pose != s.pose && !sameFamily) {
+        s.poseTicks = 0;
     }
-    if (s.aimUp) {
-        return 43;
+    s.pose = pose;
+    // The ball only rolls while it moves.
+    if (pose != Pose::Morph || moving) {
+        s.poseTicks++;
     }
-    return s.shootTimer > 0 ? 8 : 0;
+}
+
+void Game::HurtSamus(int damage, float fromX) {
+    Samus& s = mSamus;
+    if (s.invuln > 0 || mDeathTimer > 0 || mRide >= 0) {
+        return;
+    }
+    if (s.Has(PU_VARIA)) {
+        damage = (damage + 1) / 2;
+    }
+    s.energy -= damage;
+    s.invuln = 60;
+    s.vx = (s.x < fromX ? -1.5f : 1.5f);
+    if (!s.morph) {
+        s.vy = -2.0f;
+        s.grounded = false;
+    }
+}
+
+void Game::UpdateDeath() {
+    mDeathTimer++;
+    mFade = std::min(1.0f, mDeathTimer / 60.0f);
+    if (mDeathTimer == 30) {
+        Say("SAMUS WAS DEFEATED");
+    }
+    if (mDeathTimer >= 120) {
+        mDeathTimer = 0;
+        mFade = 0;
+        mSamus.energy = 30;
+        mSamus.invuln = 90;
+        mEnemies.clear();
+        mEnemyShots.clear();
+        std::fill(mSpawnActive.begin(), mSpawnActive.end(), -1);
+        PlaceSamusAt(mCheckpointX, mCheckpointY);
+        Say(AreaName());
+    }
 }
 
 void Game::Shoot() {
@@ -351,7 +483,7 @@ void Game::Shoot() {
     if (missile) {
         s.missiles--;
     }
-    Projectile p;
+    Projectile p{};
     p.missile = missile;
     p.age = 0;
     float speed = missile ? 5.0f : (float)kBeamSpeed;
@@ -367,6 +499,8 @@ void Game::Shoot() {
         p.vy = 0;
     }
     p.life = missile ? kMissileLife : (s.Has(PU_LONG_BEAM) || s.Has(PU_WAVE_BEAM) ? kLongBeamLife : kShortBeamLife);
+    p.prevX = p.x;
+    p.prevY = p.y;
     mShots.push_back(p);
     s.shootTimer = 12;
 }
@@ -416,6 +550,9 @@ void Game::UpdateShots() {
         p.life--;
         bool consumed = false;
         HitDoors(p, consumed);
+        if (!consumed) {
+            EnemyLogic::HitByProjectile(*this, p, consumed);
+        }
         if (consumed) {
             p.life = 0;
             continue;
@@ -450,6 +587,7 @@ void Game::UpdateBombs() {
         Projectile fake{ b.x, b.y, 0, 0, 0, 0, false };
         bool consumed = false;
         HitDoors(fake, consumed);
+        EnemyLogic::BombBlast(*this, b.x, b.y);
         Spawn(b.x, b.y, 0xFFFFA0FF, 18);
         // Bomb jump
         if (mSamus.morph && std::fabs(mSamus.x - b.x) < 18 && std::fabs(mSamus.y - 7 - b.y) < 18) {
@@ -577,15 +715,23 @@ void Game::UpdateRide() {
         if (mRideTimer == kRideFrames / 2) {
             s.x = (to.platX0 + to.platX1) * 0.5f;
             s.y = to.platY - dir * (kRideFrames / 2) * 1.5f;
+            s.prevX = s.x; // teleport: don't interpolate across the cut
+            s.prevY = s.y;
+            mEnemies.clear();
+            mEnemyShots.clear();
+            std::fill(mSpawnActive.begin(), mSpawnActive.end(), -1);
         }
         s.y += dir * 1.5f;
         mFade = std::max(0.0f, 1.0f - (mRideTimer - kRideFrames / 2) / (kRideFrames * 0.4f));
     }
     if (mRideTimer >= kRideFrames) {
         s.y = (float)to.platY;
+        s.prevY = s.y;
         s.grounded = true;
         mRide = -1;
         mFade = 0;
+        mCheckpointX = to.elevator.screenX;
+        mCheckpointY = to.elevator.screenY;
         Say(AreaName());
     }
 }

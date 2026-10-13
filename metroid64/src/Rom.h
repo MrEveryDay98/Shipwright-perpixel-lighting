@@ -67,15 +67,47 @@ struct Elevator {
 
 struct EnemySpawn {
     int worldPxX, worldPxY;
-    uint8_t type;
+    uint8_t type; // low nibble: enemy kind for the area; bit 7: tougher variant
     Area area;
+    bool pipe; // spawned repeatedly from a pipe (room entity type 7)
 };
 
 // One decoded sprite frame: RGBA8 (0xRRGGBBAA) image with the object's origin at (originX, originY).
+// minX..maxY is the opaque bounding box relative to the origin (empty frames have minX > maxX).
 struct SpriteFrame {
     int w = 0, h = 0, originX = 0, originY = 0;
+    int minX = 1, minY = 1, maxX = 0, maxY = 0;
     std::vector<uint32_t> rgba;
+    bool Empty() const {
+        return minX > maxX;
+    }
 };
+
+// Frame numbers in the ROM's object animation table ($8572 in every area bank) for Samus' poses.
+// Each value is the table offset the game stores in Samus' animation index.
+enum SamusAnim : uint8_t {
+    ANIM_RUN = 0x00,
+    ANIM_FRONT = 0x04,
+    ANIM_STAND = 0x07,
+    ANIM_JUMP = 0x0C,
+    ANIM_SPIN = 0x0E,
+    ANIM_MORPH = 0x16,
+    ANIM_JUMP_SHOOT = 0x20,
+    ANIM_RUN_SHOOT = 0x22,
+    ANIM_STAND_UP = 0x27,
+    ANIM_RUN_UP = 0x37,
+    ANIM_JUMP_UP = 0x3B,
+};
+
+// Object (Samus/projectile/item) frames used directly.
+constexpr uint8_t kFrameBeam = 0x28;
+constexpr uint8_t kFrameWaveBeam = 0x2A;
+constexpr uint8_t kFrameMissileH = 0x24;
+constexpr uint8_t kFrameMissileUp = 0x27;
+constexpr uint8_t kFrameBomb0 = 0x4E;
+constexpr uint8_t kFrameBomb1 = 0x4F;
+constexpr uint8_t kFrameBombBlast = 0x4C;
+constexpr uint8_t kFramePowerUpBase = 0x50; // + PowerUp id
 
 struct WorldTile {
     uint8_t chr = 0;     // pattern index in the area's background pattern table
@@ -120,12 +152,24 @@ class Rom {
     // NES master palette entry as 0xRRGGBBAA.
     static uint32_t NesColor(uint8_t idx);
 
-    const SpriteFrame& SamusFrame(int idx) const {
-        return mSamusFrames[idx];
+    // Samus, beams, bombs and power-up item frames.
+    const SpriteFrame& ObjectFrame(int idx) const {
+        return mObjectFrames[idx];
     }
-    int SamusFrameCount() const {
-        return (int)mSamusFrames.size();
+    int ObjectFrameCount() const {
+        return (int)mObjectFrames.size();
     }
+    // Frame sequence of an object animation starting at the given table offset (blank frames are $FF).
+    std::vector<uint8_t> ObjectAnim(uint8_t offset) const;
+
+    // Enemy frames of an area, and the animation an enemy type plays (from the per-area tables).
+    const SpriteFrame& EnemyFrame(Area area, int idx) const {
+        return mEnemyFrames[area][idx];
+    }
+    int EnemyFrameCount(Area area) const {
+        return (int)mEnemyFrames[area].size();
+    }
+    std::vector<uint8_t> EnemyAnim(Area area, uint8_t type, bool facingRight) const;
 
     int StartScreenX() const {
         return mStartX;
@@ -140,7 +184,8 @@ class Rom {
     void BuildChr(Area area);
     void DecodeScreen(int sx, int sy);
     void DecodeItems(Area area);
-    void DecodeSamusFrames();
+    void DecodeSpriteFrames();
+    SpriteFrame DecodeFrame(Area area, uint16_t framePtrTbl, uint16_t placeTbl, int idx) const;
     TileKind Classify(Area area, uint8_t chr) const;
     uint8_t ChrPixel(Area area, uint16_t base, uint8_t chr, int x, int y) const;
 
@@ -155,7 +200,8 @@ class Rom {
     std::vector<Item> mItems;
     std::vector<Elevator> mElevators;
     std::vector<EnemySpawn> mEnemies;
-    std::vector<SpriteFrame> mSamusFrames;
+    std::vector<SpriteFrame> mObjectFrames;
+    std::array<std::vector<SpriteFrame>, AREA_COUNT> mEnemyFrames;
     int mStartX = 3, mStartY = 14;
 };
 

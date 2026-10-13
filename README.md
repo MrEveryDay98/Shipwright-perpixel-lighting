@@ -40,12 +40,13 @@ renderer shaders and must sit next to the executable.
 If CMake can't download `stb_image.h` (offline or behind a proxy), install `libstb-dev` and the build uses the
 system copy.
 
-Windows and macOS keep the CMake plumbing inherited from Shipwright (vcpkg on Windows), but so far only the
-Linux build has been tested.
+Windows builds come from CI: see the `metroid64-windows` artifact on the repository's Actions page. CI builds
+with MSVC and a static vcpkg. macOS keeps the CMake setup inherited from Shipwright but has not been tried.
 
 ## Controls
 
-Defaults use libultraship's N64-style mapping. Gamepads work out of the box.
+Defaults use libultraship's N64-style mapping. Gamepads work out of the box. Press **F1** for the menu,
+then **Controls → Controller configuration** to remap anything.
 
 | Action | Keyboard | N64 button |
 | --- | --- | --- |
@@ -55,28 +56,57 @@ Defaults use libultraship's N64-style mapping. Gamepads work out of the box.
 | Toggle missiles | R or Z | R / Z |
 | Pause | Space | Start |
 
+## Menu (F1)
+
+- **Game**: Open ROM, Reset, Pause, Quit.
+- **Graphics**:
+  - Fullscreen and VSync.
+  - Frame interpolation: logic stays at 60 Hz and rendering is interpolated up to the monitor's refresh rate or a target FPS.
+  - Internal resolution, MSAA, low-resolution modes, sharp (nearest-neighbour) upscaling, texture filter.
+  - Camera FOV, distance and height.
+  - Renderer backend.
+- **Controls**: libultraship's controller configuration window.
+- **Developer**: stats and console windows, infinite energy/missiles, give all items.
+
 ## What works
 
 - The whole world map: all five areas, decoded from the ROM, with doors and alternate palettes.
-- Samus: run, variable-height jump, spin jump, aim up, morph ball, bomb jumps. Her sprite frames come
-  from the ROM and are extruded into thin layers.
-- Beams (short, long, wave, ice), missiles, bombs, blastable blocks that regrow.
-- Blue, red (5 missiles) and orange (10 missiles) doors.
-- All 38 power-ups and expansions, collected with the original item names.
-- Elevators between Brinstar, Norfair, Kraid's Lair, Ridley's Lair and Tourian.
+- Samus:
+  - run, variable-height jump, somersault, aim up, morph ball and bomb jumps;
+  - animations use the ROM's own animation tables and frames, drawn as flat sprites;
+  - contact damage, knockback, Varia's damage reduction, death and respawn at the last elevator.
+- Enemies placed from the ROM's room data and pipes, with sprites and animations from the ROM's per-area enemy tables:
+  - Brinstar: Zoomer, Skree, Ripper, Rio, Reo, Zeb;
+  - Norfair: Geruta, Ripper II, Nova, Gamet, Multiviola, Dragon, Squeept;
+  - Tourian: Metroids, Rinka;
+  - Kraid's Lair: Sidehoppers, Zeela, Geega, Kraid;
+  - Ridley's Lair: Holtz, Dessgeega, Viola, Zebbo, Multiviola, Ridley.
+
+  Each kind runs a reimplemented behaviour: crawling, diving, swooping, hopping, pipe swarms, latching, bouncing, spitting, and simple boss patterns.
+- Combat:
+  - beams (short, long, wave, ice) and missiles;
+  - the ice beam freezes enemies into platforms, Rippers only take missiles, and Metroids only take damage while frozen;
+  - the screw attack kills on contact;
+  - enemies drop energy and missiles.
+- Blastable blocks that regrow, and blue, red (5 missiles) and orange (10 missiles) doors.
+- All 38 power-ups and expansions, using the ROM's item sprites.
+- Elevators between all areas.
+- Model support: any character can be replaced by a 3D model with per-pose animations. See [docs/MODELS.md](docs/MODELS.md).
 
 ## Not done yet
 
-- Enemies, bosses, Mother Brain, Zebetites and Metroids. Spawn data is decoded but not simulated.
-- Damage, lava/acid, death and the escape sequence.
+- Enemy behaviour is reimplemented and not frame-exact to the original.
+- Some enemy kinds the ROM defines aren't placed or simulated. Mellows and Memus come from special item data, which isn't read yet.
+- Mother Brain, Zebetites, Tourian cannons, and statues/bridges.
+- Lava and acid damage, and the escape sequence.
 - Audio, passwords/saving, title screen and ending.
-- A 3D Samus model. The renderer draws her as a billboard sprite for now; a model can replace it in
-  `Renderer::BuildFrame`.
+- Skeletal animation for models (per-pose flipbooks work today).
 
 ## Developer notes
 
 - `METROID64_WARP=x,y` starts Samus in map screen `(x, y)` (for example `22,11` is Brinstar's elevator to Norfair).
-- `METROID64_FRAMES=n` quits after `n` frames, for headless smoke tests.
+- `METROID64_FRAMES=n` quits after `n` frames (one game tick per frame), for headless smoke tests.
+- `METROID64_ALLITEMS=1` starts with every upgrade.
 - [`docs/ROM_FORMAT.md`](docs/ROM_FORMAT.md) records the ROM addresses and data formats the decoder relies on.
 
 Source layout:
@@ -84,7 +114,10 @@ Source layout:
 | File | Purpose |
 | --- | --- |
 | `metroid64/src/Rom.*` | ROM validation and decoding: world map, rooms, structures, macros, CHR, palettes, items, Samus frames |
-| `metroid64/src/Game.*` | Gameplay: physics, weapons, doors, items, elevators |
-| `metroid64/src/Renderer.*` | Turns the world into Fast3D display lists (cached per screen) |
+| `metroid64/src/Game.*` | Gameplay: physics, weapons, damage, doors, items, elevators |
+| `metroid64/src/Enemy.*` | Enemy spawning, AI per archetype, combat and drops |
+| `metroid64/src/Visual.*` | Sprite and model visuals; model manifest loading |
+| `metroid64/src/Renderer.*` | Turns the world into Fast3D display lists (cached per screen), draws visuals |
+| `metroid64/src/Menu.*` | F1 menu: graphics, frame rate, controls, developer |
 | `metroid64/src/Hud.*` | ImGui overlay: energy, missiles, messages, ROM prompt |
 | `metroid64/src/main.cpp` | libultraship bootstrap and main loop |

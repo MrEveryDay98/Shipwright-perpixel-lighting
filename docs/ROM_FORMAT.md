@@ -110,3 +110,52 @@ The useful frames are:
 | 19-22 | somersault |
 | 24, 26 | morph ball |
 | 43 | aim up |
+
+## Animation tables
+
+The object animation table is at `$8572` (in every area bank). It holds frame sequences ending in `$FF`, and `$F7` is a blank frame. Samus' animation index (`$0305`) is an offset into this table:
+
+| Offset | Animation |
+| --- | --- |
+| `$00` | run |
+| `$04` | facing front |
+| `$07` | stand (set by the routine at `$CF69`) |
+| `$0C` | jump |
+| `$0E` | somersault |
+| `$16` | morph ball |
+| `$20` | jump while shooting |
+| `$22` | run while shooting |
+| `$27` | stand aiming up |
+| `$37` | run aiming up |
+| `$3B` | jump aiming up |
+
+Frame codes are `$FD` (attributes), `$FE` (skip a slot), `$FC dy dx` (shift the placement, used for the morph ball's bounce) and `$FF` (end). Header bit `$80` flips the whole frame vertically.
+
+Some object frames are drawn directly:
+
+| Frames | Object |
+| --- | --- |
+| `$28` | beam |
+| `$2A` | wave beam |
+| `$24` / `$27` | missile (horizontal / up) |
+| `$4E`, `$4F` | bomb |
+| `$4C` | bomb blast |
+| `$50`-`$59` | power-up items, in item ID order |
+
+## Enemies
+
+Each area bank has its own enemy data:
+
+| Address | Contents |
+| --- | --- |
+| `$95A0` | enemy frame pointer table |
+| `$95A4` | placement table |
+| `$95A6` | enemy animation table |
+| `$963B` | 32-entry index, `[type * 2 + facing]` → offset into the animation table |
+
+Room entities give enemy spawns:
+
+- type `1`: `[slot<<4 \| 1][type][yx]`
+- type `7` (pipes that keep spawning): `[slot<<4 \| 7][type][yx]`
+
+The low nibble of `type` is the enemy kind for that area, and bit 7 marks the tougher variant.

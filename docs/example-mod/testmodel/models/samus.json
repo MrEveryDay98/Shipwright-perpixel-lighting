@@ -1,0 +1,27 @@
+{
+ "scale": 1.0,
+ "offset": [
+  0,
+  0,
+  0
+ ],
+ "yaw_right": 0,
+ "yaw_left": 180,
+ "fallback": "Stand",
+ "animations": {
+  "Stand": {
+   "fps": 1,
+   "frames": [
+    "models/samus/stand"
+   ]
+  },
+  "Run": {
+   "fps": 8,
+   "loop": true,
+   "frames": [
+    "models/samus/stand",
+    "models/samus/run1"
+   ]
+  }
+ }
+}

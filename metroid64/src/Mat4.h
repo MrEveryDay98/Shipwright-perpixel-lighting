@@ -16,6 +16,65 @@ struct Mat4 {
     float m[4][4] = {};
 };
 
+inline Mat4 Identity() {
+    Mat4 r;
+    for (int i = 0; i < 4; i++) {
+        r.m[i][i] = 1.0f;
+    }
+    return r;
+}
+
+// Row-vector convention: Mul(a, b) applies a first, then b.
+inline Mat4 Mul(const Mat4& a, const Mat4& b) {
+    Mat4 r;
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            float sum = 0;
+            for (int k = 0; k < 4; k++) {
+                sum += a.m[i][k] * b.m[k][j];
+            }
+            r.m[i][j] = sum;
+        }
+    }
+    return r;
+}
+
+inline Mat4 Translate(float x, float y, float z) {
+    Mat4 r = Identity();
+    r.m[3][0] = x;
+    r.m[3][1] = y;
+    r.m[3][2] = z;
+    return r;
+}
+
+inline Mat4 Scale(float x, float y, float z) {
+    Mat4 r = Identity();
+    r.m[0][0] = x;
+    r.m[1][1] = y;
+    r.m[2][2] = z;
+    return r;
+}
+
+inline Mat4 RotateY(float deg) {
+    float c = cosf(deg * (float)M_PI / 180.0f), s = sinf(deg * (float)M_PI / 180.0f);
+    Mat4 r = Identity();
+    r.m[0][0] = c;
+    r.m[0][2] = -s;
+    r.m[2][0] = s;
+    r.m[2][2] = c;
+    return r;
+}
+
+inline Mat4 RotateZ(float deg) {
+    float c = cosf(deg * (float)M_PI / 180.0f), s = sinf(deg * (float)M_PI / 180.0f);
+    Mat4 r = Identity();
+    r.m[0][0] = c;
+    r.m[0][1] = s;
+    r.m[1][0] = -s;
+    r.m[1][1] = c;
+    return r;
+}
+
 inline Mat4 Perspective(float fovyDeg, float aspect, float nearZ, float farZ) {
     Mat4 r;
     float cot = 1.0f / tanf(fovyDeg * (float)M_PI / 360.0f);

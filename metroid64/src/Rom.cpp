@@ -1,5 +1,6 @@
 #include "Rom.h"
 
+#include <algorithm>
 #include <cstring>
 #include <fstream>
 #include <iterator>
@@ -22,6 +23,13 @@ constexpr uint16_t kStartMapY = 0x95D8;
 constexpr uint16_t kObjFramePtrTbl = 0x860B;
 constexpr uint16_t kObjPlacePtrTbl = 0x86DF;
 constexpr int kObjFrameCount = (kObjPlacePtrTbl - kObjFramePtrTbl) / 2;
+constexpr uint16_t kObjAnimTbl = 0x8572;
+// Enemy tables (per area bank).
+constexpr uint16_t kEnFramePtrTblPtr = 0x95A0;
+constexpr uint16_t kEnPlacePtrTblPtr = 0x95A4;
+constexpr uint16_t kEnAnimTblPtr = 0x95A6;
+constexpr uint16_t kEnAnimIndexTbl = 0x963B; // [type * 2 + facing] -> offset into the enemy animation table
+constexpr int kSpriteCanvas = 64;
 // World map (bank 0) and the CHR loading table (bank 7).
 constexpr uint32_t kWorldMapOffset = 0x253E;
 constexpr uint16_t kGfxInfoTbl = 0xC6E0;
@@ -174,7 +182,7 @@ bool Rom::Load(const std::string& path, std::string& error) {
     for (int a = AREA_BRINSTAR; a < AREA_COUNT; a++) {
         DecodeItems((Area)a);
     }
-    DecodeSamusFrames();
+    DecodeSpriteFrames();
     mLoaded = true;
     return true;
 }
@@ -288,8 +296,8 @@ void Rom::DecodeScreen(int sx, int sy) {
             case 1: {
                 uint8_t type = Rd(bank, a + 1);
                 uint8_t pos = Rd(bank, a + 2);
-                mEnemies.push_back(
-                    { sx * kScreenPxW + (pos & 0x0F) * 16 + 8, sy * kScreenPxH + (pos >> 4) * 16 + 8, type, area });
+                mEnemies.push_back({ sx * kScreenPxW + (pos & 0x0F) * 16 + 8, sy * kScreenPxH + (pos >> 4) * 16 + 8,
+                                     type, area, false });
                 a += 3;
                 break;
             }
@@ -308,9 +316,14 @@ void Rom::DecodeScreen(int sx, int sy) {
             case 6:
                 a += 1;
                 break;
-            case 7:
+            case 7: { // pipe that keeps releasing enemies
+                uint8_t type = Rd(bank, a + 1);
+                uint8_t pos = Rd(bank, a + 2);
+                mEnemies.push_back({ sx * kScreenPxW + (pos & 0x0F) * 16 + 8, sy * kScreenPxH + (pos >> 4) * 16 + 8,
+                                     type, area, true });
                 a += 3;
                 break;
+            }
             default:
                 guard = 64; // unknown entry, stop parsing this room
                 break;
@@ -374,55 +387,115 @@ void Rom::DecodeItems(Area area) {
     }
 }
 
-void Rom::DecodeSamusFrames() {
-    // Frame: [flags | placement index][2 size bytes] then tiles; $FD n sets sprite attributes,
-    // $FE skips a placement slot, $FF ends. Placement tables are (y, x) signed offset pairs.
-    constexpr int kSize = 48, kOrigin = 24;
-    const int bank = AREA_BRINSTAR;
-    const auto& pal = mPalette[AREA_BRINSTAR];
-    mSamusFrames.clear();
-    for (int i = 0; i < kObjFrameCount; i++) {
-        SpriteFrame fr;
-        fr.w = fr.h = kSize;
-        fr.originX = fr.originY = kOrigin;
-        fr.rgba.assign(kSize * kSize, 0);
-        uint16_t a = Rw(bank, kObjFramePtrTbl + 2 * i);
-        uint8_t hdr = Rd(bank, a);
-        uint16_t place = Rw(bank, kObjPlacePtrTbl + 2 * (hdr & 0x0F));
-        bool mirrored = hdr & 0x40;
-        uint8_t attr = hdr & 0xF0;
-        a += 3;
-        for (int guard = 0; guard < 64; guard++) {
-            uint8_t t = Rd(bank, a++);
-            if (t == 0xFF) {
-                break;
-            }
-            if (t == 0xFD) {
-                attr = Rd(bank, a++);
-                continue;
-            }
-            int y = (int8_t)Rd(bank, place);
-            int x = (int8_t)Rd(bank, place + 1);
-            place += 2;
-            if (t == 0xFE) {
-                continue;
-            }
-            if (mirrored) {
-                x = -x - 8;
-            }
-            bool hflip = attr & 0x40, vflip = attr & 0x80;
-            for (int py = 0; py < 8; py++) {
-                for (int px = 0; px < 8; px++) {
-                    uint8_t ci = ChrPixel(AREA_BRINSTAR, 0x0000, t, hflip ? 7 - px : px, vflip ? 7 - py : py);
-                    int ox = kOrigin + x + px, oy = kOrigin + y + py;
-                    if (ci && ox >= 0 && oy >= 0 && ox < kSize && oy < kSize) {
-                        fr.rgba[oy * kSize + ox] = NesColor(pal[16 + (attr & 3) * 4 + ci]);
-                    }
+SpriteFrame Rom::DecodeFrame(Area area, uint16_t framePtrTbl, uint16_t placeTbl, int idx) const {
+    // Frame: [flags | placement index][2 size bytes] then tiles. $FD n sets sprite attributes,
+    // $FC dy dx shifts the placement, $FE skips a placement slot, $FF ends. Placement tables are
+    // signed (y, x) pairs. Flag $40 mirrors the frame horizontally and $80 vertically.
+    const int bank = area;
+    const auto& pal = mPalette[area];
+    SpriteFrame fr;
+    fr.w = fr.h = kSpriteCanvas;
+    fr.originX = fr.originY = kSpriteCanvas / 2;
+    fr.rgba.assign(kSpriteCanvas * kSpriteCanvas, 0);
+    fr.minX = fr.minY = 1000;
+    fr.maxX = fr.maxY = -1000;
+
+    uint16_t a = Rw(bank, framePtrTbl + 2 * idx);
+    uint8_t hdr = Rd(bank, a);
+    uint16_t place = Rw(bank, placeTbl + 2 * (hdr & 0x0F));
+    uint8_t attr = hdr & 0xF0;
+    int shiftY = 0, shiftX = 0;
+    a += 3;
+    for (int guard = 0; guard < 64; guard++) {
+        uint8_t t = Rd(bank, a++);
+        if (t == 0xFF) {
+            break;
+        }
+        if (t == 0xFD) {
+            attr = Rd(bank, a++);
+            continue;
+        }
+        if (t == 0xFC) {
+            shiftY = (int8_t)Rd(bank, a);
+            shiftX = (int8_t)Rd(bank, a + 1);
+            a += 2;
+            continue;
+        }
+        int y = (int8_t)Rd(bank, place) + shiftY;
+        int x = (int8_t)Rd(bank, place + 1) + shiftX;
+        place += 2;
+        if (t == 0xFE) {
+            continue;
+        }
+        if (hdr & 0x40) {
+            x = -x - 8;
+        }
+        if (hdr & 0x80) {
+            y = -y - 8;
+        }
+        bool hflip = attr & 0x40, vflip = attr & 0x80;
+        for (int py = 0; py < 8; py++) {
+            for (int px = 0; px < 8; px++) {
+                uint8_t ci = ChrPixel(area, 0x0000, t, hflip ? 7 - px : px, vflip ? 7 - py : py);
+                int ox = fr.originX + x + px, oy = fr.originY + y + py;
+                if (ci && ox >= 0 && oy >= 0 && ox < kSpriteCanvas && oy < kSpriteCanvas) {
+                    fr.rgba[oy * kSpriteCanvas + ox] = NesColor(pal[16 + (attr & 3) * 4 + ci]);
+                    fr.minX = std::min(fr.minX, x + px);
+                    fr.maxX = std::max(fr.maxX, x + px);
+                    fr.minY = std::min(fr.minY, y + py);
+                    fr.maxY = std::max(fr.maxY, y + py);
                 }
             }
         }
-        mSamusFrames.push_back(std::move(fr));
     }
+    if (fr.minX > fr.maxX) {
+        fr.minX = fr.minY = 1;
+        fr.maxX = fr.maxY = 0;
+    }
+    return fr;
+}
+
+void Rom::DecodeSpriteFrames() {
+    mObjectFrames.clear();
+    for (int i = 0; i < kObjFrameCount; i++) {
+        mObjectFrames.push_back(DecodeFrame(AREA_BRINSTAR, kObjFramePtrTbl, kObjPlacePtrTbl, i));
+    }
+    for (int a = AREA_BRINSTAR; a < AREA_COUNT; a++) {
+        uint16_t frames = Rw(a, kEnFramePtrTblPtr), place = Rw(a, kEnPlacePtrTblPtr);
+        int count = (place - frames) / 2;
+        mEnemyFrames[a].clear();
+        for (int i = 0; i < count; i++) {
+            mEnemyFrames[a].push_back(DecodeFrame((Area)a, frames, place, i));
+        }
+    }
+}
+
+std::vector<uint8_t> Rom::ObjectAnim(uint8_t offset) const {
+    std::vector<uint8_t> seq;
+    for (int i = 0; i < 16; i++) {
+        uint8_t f = Rd(AREA_BRINSTAR, kObjAnimTbl + offset + i);
+        if (f == 0xFF) {
+            break;
+        }
+        seq.push_back(f == 0xF7 ? 0xFF : f);
+    }
+    return seq;
+}
+
+std::vector<uint8_t> Rom::EnemyAnim(Area area, uint8_t type, bool facingRight) const {
+    std::vector<uint8_t> seq;
+    uint16_t table = Rw(area, kEnAnimTblPtr);
+    uint8_t offset = Rd(area, kEnAnimIndexTbl + (type & 0x0F) * 2 + (facingRight ? 0 : 1));
+    for (int i = 0; i < 16; i++) {
+        uint8_t f = Rd(area, table + offset + i);
+        if (f == 0xFF) {
+            break;
+        }
+        if (f != 0xF7 && f < mEnemyFrames[area].size()) {
+            seq.push_back(f);
+        }
+    }
+    return seq;
 }
 
 void Rom::TilePixels(Area area, bool alt, uint8_t chr, uint8_t palette, uint32_t out[64], bool transparentZero) const {

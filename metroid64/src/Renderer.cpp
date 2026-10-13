@@ -1,8 +1,11 @@
 #include "Renderer.h"
 
+#include "Enemy.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <libultraship/bridge/consolevariablebridge.h>
 #include <map>
 
 namespace Metroid {
@@ -15,8 +18,10 @@ constexpr float kBlockFront = 8.0f; // solid blocks span z = -8..+8 around the p
 constexpr float kBlockBack = -8.0f;
 constexpr float kDecorZ = -6.0f;     // passable background tiles sit just behind Samus
 constexpr float kBackWallZ = -48.0f; // dim wall closing off each screen
-constexpr int kSamusTexW = 32;
-constexpr int kSamusTexH = 48;
+constexpr float kSpriteZ = 0.0f;
+constexpr float kSamusZ = 1.0f;
+constexpr float kShotZ = 2.0f;
+constexpr int kSpriteTex = 64; // sprite frames are 64x64 canvases (4096 texels: one load block)
 constexpr size_t kFrameGfxCapacity = 1 << 16;
 constexpr size_t kFrameVtxCapacity = 1 << 16;
 
@@ -24,19 +29,6 @@ constexpr size_t kFrameVtxCapacity = 1 << 16;
 constexpr uint8_t kShadeFront = 255, kShadeTop = 210, kShadeSide = 160, kShadeBottom = 110;
 
 const uint32_t kAreaWallColor[AREA_COUNT] = { 0x000000FF, 0x0C1426FF, 0x1E0A18FF, 0x101016FF, 0x0C1A10FF, 0x1C0810FF };
-
-const uint32_t kItemColor[PU_COUNT] = {
-    0xE0E040FF, // bombs
-    0x40E0FFFF, // high jump
-    0xFFFFFFFF, // long beam
-    0x40FF60FF, // screw attack
-    0xFF8020FF, // maru mari
-    0xFFA0FFFF, // varia
-    0xC040FFFF, // wave beam
-    0x80F0FFFF, // ice beam
-    0xF02040FF, // energy tank
-    0x30C030FF, // missiles
-};
 
 void SetVtx(Vtx& v, float x, float y, float z, int s, int t, uint32_t rgba, uint8_t shade) {
     v.v.ob[0] = (short)std::lround(x);
@@ -51,6 +43,12 @@ void SetVtx(Vtx& v, float x, float y, float z, int s, int t, uint32_t rgba, uint
     v.v.cn[3] = (uint8_t)(rgba & 0xFF);
 }
 
+float Lerp(float a, float b, float t) {
+    return a + (b - a) * t;
+}
+
+Lights1 sModelLights = gdSPDefLights1(0x50, 0x50, 0x50, 0xFF, 0xFF, 0xFF, 0x28, 0x50, 0x50);
+
 } // namespace
 
 void Renderer::Init(const Rom* rom) {
@@ -58,8 +56,12 @@ void Renderer::Init(const Rom* rom) {
     for (auto& s : mScreens) {
         s = ScreenMesh{};
     }
+    mTextures.clear();
+    mSpriteTextures.clear();
+    mVisuals.Init(rom);
     mFrameDl.resize(kFrameGfxCapacity);
     mFrameVtx.reserve(kFrameVtxCapacity);
+    mFrameMtx.reserve(512);
     mViewport.vp.vscale[0] = kNativeW * 2;
     mViewport.vp.vscale[1] = kNativeH * 2;
     mViewport.vp.vscale[2] = G_MAXZ / 2;
@@ -68,7 +70,7 @@ void Renderer::Init(const Rom* rom) {
     mViewport.vp.vtrans[1] = kNativeH * 2;
     mViewport.vp.vtrans[2] = G_MAXZ / 2;
     mViewport.vp.vtrans[3] = 0;
-    mCameraInit = false;
+    mCamTick = -1;
 }
 
 const uint8_t* Renderer::TileTexture(Area area, bool alt, uint8_t chr, uint8_t pal, bool transparent) {
@@ -92,21 +94,16 @@ const uint8_t* Renderer::TileTexture(Area area, bool alt, uint8_t chr, uint8_t p
     return ptr;
 }
 
-const uint8_t* Renderer::SamusTexture(int frame, bool flip) {
-    int key = frame * 2 + (flip ? 1 : 0);
-    auto it = mSamusTextures.find(key);
-    if (it != mSamusTextures.end()) {
+const uint8_t* Renderer::SpriteTexture(const SpriteFrame& f) {
+    auto it = mSpriteTextures.find(&f);
+    if (it != mSpriteTextures.end()) {
         return it->second.get();
     }
-    const SpriteFrame& f = mRom->SamusFrame(frame);
-    auto tex = std::make_unique<uint8_t[]>(kSamusTexW * kSamusTexH * 4);
-    int x0 = f.originX - kSamusTexW / 2;
-    int y0 = f.originY - kSamusTexH / 2;
-    for (int y = 0; y < kSamusTexH; y++) {
-        for (int x = 0; x < kSamusTexW; x++) {
-            int sx = x0 + (flip ? kSamusTexW - 1 - x : x), sy = y0 + y;
-            uint32_t c = (sx >= 0 && sy >= 0 && sx < f.w && sy < f.h) ? f.rgba[sy * f.w + sx] : 0;
-            uint8_t* p = &tex[(y * kSamusTexW + x) * 4];
+    auto tex = std::make_unique<uint8_t[]>(kSpriteTex * kSpriteTex * 4);
+    for (int y = 0; y < kSpriteTex; y++) {
+        for (int x = 0; x < kSpriteTex; x++) {
+            uint32_t c = (x < f.w && y < f.h) ? f.rgba[y * f.w + x] : 0;
+            uint8_t* p = &tex[(y * kSpriteTex + x) * 4];
             p[0] = c >> 24;
             p[1] = c >> 16;
             p[2] = c >> 8;
@@ -114,7 +111,7 @@ const uint8_t* Renderer::SamusTexture(int frame, bool flip) {
         }
     }
     const uint8_t* ptr = tex.get();
-    mSamusTextures.emplace(key, std::move(tex));
+    mSpriteTextures.emplace(&f, std::move(tex));
     return ptr;
 }
 
@@ -197,16 +194,26 @@ void Renderer::AddBox(std::vector<Quad>& out, float x0, float y0, float z0, floa
     out.push_back(q);
 }
 
-void Renderer::EmitTexturedQuads(Gfx*& g, const uint8_t* tex, int w, int h, const std::vector<Quad>& quads,
+void Renderer::AddFlat(std::vector<Quad>& out, float cx, float cy, float half, float z, uint32_t rgba) {
+    Quad q;
+    float yc = -cy;
+    SetVtx(q.v[0], cx - half, yc - half, z, 0, 0, rgba, 255);
+    SetVtx(q.v[1], cx + half, yc - half, z, 0, 0, rgba, 255);
+    SetVtx(q.v[2], cx + half, yc + half, z, 0, 0, rgba, 255);
+    SetVtx(q.v[3], cx - half, yc + half, z, 0, 0, rgba, 255);
+    out.push_back(q);
+}
+
+void Renderer::EmitTexturedQuads(Gfx*& g, const uint8_t* tex, int size, const std::vector<Quad>& quads,
                                  std::vector<Vtx>& store) {
     if (quads.empty()) {
         return;
     }
-    if (w == 8 && h == 8) {
+    if (size == 8) {
         gDPLoadTextureBlock(g++, tex, G_IM_FMT_RGBA, G_IM_SIZ_32b, 8, 8, 0, G_TX_NOMIRROR | G_TX_CLAMP,
                             G_TX_NOMIRROR | G_TX_CLAMP, 3, 3, G_TX_NOLOD, G_TX_NOLOD);
     } else {
-        gDPLoadTextureBlock(g++, tex, G_IM_FMT_RGBA, G_IM_SIZ_32b, kSamusTexW, kSamusTexH, 0,
+        gDPLoadTextureBlock(g++, tex, G_IM_FMT_RGBA, G_IM_SIZ_32b, kSpriteTex, kSpriteTex, 0,
                             G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMASK, G_TX_NOMASK,
                             G_TX_NOLOD, G_TX_NOLOD);
     }
@@ -243,6 +250,71 @@ void Renderer::EmitColorQuads(Gfx*& g, const std::vector<Quad>& quads) {
             gSP2Triangles(g++, o, o + 1, o + 2, 0, o, o + 2, o + 3, 0);
         }
     }
+}
+
+Mtx* Renderer::AllocMtx(const Mat4& m) {
+    if (mFrameMtx.size() >= mFrameMtx.capacity()) {
+        return nullptr;
+    }
+    mFrameMtx.emplace_back();
+    ToMtx(m, &mFrameMtx.back());
+    return &mFrameMtx.back();
+}
+
+void Renderer::SetSpriteState(Gfx*& g) {
+    gDPPipeSync(g++);
+    gSPClearGeometryMode(g++, G_LIGHTING | G_FOG | G_TEXTURE_GEN | G_TEXTURE_GEN_LINEAR | G_CULL_BOTH);
+    gSPSetGeometryMode(g++, G_ZBUFFER | G_SHADE | G_SHADING_SMOOTH);
+    gDPSetCycleType(g++, G_CYC_1CYCLE);
+    gDPSetTextureFilter(g++, G_TF_POINT);
+    gDPSetTexturePersp(g++, G_TP_PERSP);
+    gDPSetTextureLUT(g++, G_TT_NONE);
+    gSPTexture(g++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
+    gDPSetCombineMode(g++, G_CC_MODULATERGBA, G_CC_MODULATERGBA);
+    gDPSetRenderMode(g++, G_RM_AA_ZB_TEX_EDGE, G_RM_AA_ZB_TEX_EDGE2);
+}
+
+void Renderer::SetColorState(Gfx*& g) {
+    gDPPipeSync(g++);
+    gSPClearGeometryMode(g++, G_LIGHTING);
+    gDPSetCombineMode(g++, G_CC_SHADE, G_CC_SHADE);
+    gDPSetRenderMode(g++, G_RM_AA_ZB_OPA_SURF, G_RM_AA_ZB_OPA_SURF2);
+}
+
+void Renderer::DrawSprite(Gfx*& g, const SpriteFrame& f, float originX, float originY, bool mirror, float angleDeg,
+                          uint32_t tint, float z) {
+    if (f.Empty() || g + 32 >= mFrameEnd) {
+        return;
+    }
+    // Corners of the 64x64 canvas around the origin, rotated in the play plane.
+    float c = std::cos(angleDeg * (float)M_PI / 180.0f), s = std::sin(angleDeg * (float)M_PI / 180.0f);
+    float left = (float)-f.originX, right = (float)(kSpriteTex - f.originX);
+    float top = (float)-f.originY, bottom = (float)(kSpriteTex - f.originY);
+    auto corner = [&](Vtx& v, float lx, float ly, int sTex, int tTex) {
+        // local (lx, ly) in NES orientation (y down) -> world 3D (y up); mirroring flips x
+        float wx = mirror ? -lx : lx, wy = -ly;
+        float rx = wx * c - wy * s, ry = wx * s + wy * c;
+        SetVtx(v, originX + rx, -originY + ry, z, sTex, tTex, tint, 255);
+    };
+    Quad q;
+    corner(q.v[0], left, bottom, 0, kSpriteTex);
+    corner(q.v[1], right, bottom, kSpriteTex, kSpriteTex);
+    corner(q.v[2], right, top, kSpriteTex, 0);
+    corner(q.v[3], left, top, 0, 0);
+    EmitTexturedQuads(g, SpriteTexture(f), kSpriteTex, { q }, mFrameVtx);
+}
+
+void Renderer::DrawModel(Gfx*& g, const Gfx* dl, const Mat4& model) {
+    Mtx* m = AllocMtx(model);
+    if (m == nullptr || dl == nullptr || g + 32 >= mFrameEnd) {
+        return;
+    }
+    gDPPipeSync(g++);
+    gSPSetLights1(g++, sModelLights);
+    gSPMatrix(g++, m, G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_PUSH);
+    gSPDisplayList(g++, dl);
+    gSPPopMatrix(g++, G_MTX_MODELVIEW);
+    SetSpriteState(g);
 }
 
 void Renderer::BuildScreen(int sx, int sy) {
@@ -284,59 +356,74 @@ void Renderer::BuildScreen(int sx, int sy) {
     mesh.dl.resize(groups.size() * 8 + (quadCount / 8 + 1) * 10 + groups.size() * 10 + 4);
     Gfx* g = mesh.dl.data();
     for (auto& [tex, quads] : groups) {
-        EmitTexturedQuads(g, tex, 8, 8, quads, mesh.vtx);
+        EmitTexturedQuads(g, tex, 8, quads, mesh.vtx);
     }
     gSPEndDisplayList(g++);
     mesh.dl.resize(g - mesh.dl.data());
 }
 
-Gfx* Renderer::BuildFrame(const Game& game) {
+void Renderer::UpdateCamera(const Game& game) {
+    // One easing step per game tick so the camera is independent of the render rate.
+    const Samus& s = game.GetSamus();
+    Vec3 target = { s.x, -(s.y - 20.0f), 0.0f };
+    if (mCamTick < 0) {
+        mCamPrev = mCamCur = target;
+        mCamTick = game.FrameCount();
+        return;
+    }
+    int steps = std::min(game.FrameCount() - mCamTick, 8);
+    for (int i = 0; i < steps; i++) {
+        mCamPrev = mCamCur;
+        mCamCur.x += (target.x - mCamCur.x) * 0.15f;
+        mCamCur.y += (target.y - mCamCur.y) * 0.10f;
+    }
+    if (std::fabs(target.x - mCamCur.x) > kScreenPxW || std::fabs(target.y - mCamCur.y) > kScreenPxH) {
+        mCamPrev = mCamCur = target; // teleported (elevator, respawn)
+    }
+    mCamTick = game.FrameCount();
+}
+
+Gfx* Renderer::BuildFrame(const Game& game, float alpha) {
     const Samus& samus = game.GetSamus();
     mFrameVtx.clear();
+    mFrameMtx.clear();
     Gfx* g = mFrameDl.data();
+    mFrameEnd = mFrameDl.data() + mFrameDl.size() - 64;
 
-    // Camera: follows Samus from slightly above, easing behind her movement.
-    Vec3 target = { samus.x, -(samus.y - 20.0f), 0.0f };
-    if (!mCameraInit) {
-        mCamera = target;
-        mCameraInit = true;
-    }
-    mCamera.x += (target.x - mCamera.x) * 0.15f;
-    mCamera.y += (target.y - mCamera.y) * 0.10f;
-    Vec3 eye = { mCamera.x, mCamera.y + 36.0f, 300.0f };
-    Vec3 at = { mCamera.x, mCamera.y, 0.0f };
-    ToMtx(Perspective(52.0f, (float)kNativeW / kNativeH, 16.0f, 2000.0f), &mProjection);
+    UpdateCamera(game);
+    float camX = Lerp(mCamPrev.x, mCamCur.x, alpha), camY = Lerp(mCamPrev.y, mCamCur.y, alpha);
+    float fov = CVarGetFloat("gMetroid64.Camera.Fov", 52.0f);
+    float dist = CVarGetFloat("gMetroid64.Camera.Distance", 300.0f);
+    float height = CVarGetFloat("gMetroid64.Camera.Height", 36.0f);
+    Vec3 eye = { camX, camY + height, dist };
+    Vec3 at = { camX, camY, 0.0f };
+    ToMtx(Perspective(fov, (float)kNativeW / kNativeH, 16.0f, 4000.0f), &mProjection);
     ToMtx(LookAt(eye, at, { 0, 1, 0 }), &mView);
 
     // Frame setup. Fast3D clears colour and depth at the start of every frame, so no fill
     // rectangle is needed (one drawn with z-buffering still enabled would stamp the depth buffer).
     gDPPipeSync(g++);
     gDPSetScissor(g++, G_SC_NON_INTERLACE, 0, 0, kNativeW, kNativeH);
-
     gSPViewport(g++, &mViewport);
     gSPMatrix(g++, &mProjection, G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
     gSPMatrix(g++, &mView, G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH);
-    gDPSetCycleType(g++, G_CYC_1CYCLE);
-    gSPClearGeometryMode(g++, G_LIGHTING | G_FOG | G_TEXTURE_GEN | G_TEXTURE_GEN_LINEAR | G_CULL_BOTH);
-    gSPSetGeometryMode(g++, G_ZBUFFER | G_SHADE | G_SHADING_SMOOTH);
-    gDPSetTextureFilter(g++, G_TF_POINT);
-    gDPSetTexturePersp(g++, G_TP_PERSP);
-    gDPSetTextureLUT(g++, G_TT_NONE);
     gDPSetTextureLOD(g++, G_TL_TILE);
     gDPSetTextureDetail(g++, G_TD_CLAMP);
     gDPSetTextureConvert(g++, G_TC_FILT);
     gDPSetCombineKey(g++, G_CK_NONE);
     gDPSetAlphaCompare(g++, G_AC_NONE);
-    gSPTexture(g++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
+    SetSpriteState(g);
+
+    int csx = (int)samus.x / kScreenPxW, csy = (int)(samus.y - 8) / kScreenPxH;
+    // Wider views (bigger FOV / distance) need more screens around Samus.
+    int rangeX = dist * std::tan(fov * (float)M_PI / 360.0f) * 2.4f > kScreenPxW * 1.5f ? 3 : 2;
 
     // Back walls (untextured)
-    int csx = (int)samus.x / kScreenPxW, csy = (int)(samus.y - 8) / kScreenPxH;
-    gDPSetCombineMode(g++, G_CC_SHADE, G_CC_SHADE);
-    gDPSetRenderMode(g++, G_RM_AA_ZB_OPA_SURF, G_RM_AA_ZB_OPA_SURF2);
+    SetColorState(g);
     {
         std::vector<Quad> walls;
         for (int sy = csy - 1; sy <= csy + 1; sy++) {
-            for (int sx = csx - 2; sx <= csx + 2; sx++) {
+            for (int sx = csx - rangeX; sx <= csx + rangeX; sx++) {
                 Area a = mRom->ScreenArea(sx, sy);
                 if (a == AREA_NONE) {
                     continue;
@@ -355,11 +442,9 @@ Gfx* Renderer::BuildFrame(const Game& game) {
     }
 
     // Static world geometry
-    gDPPipeSync(g++);
-    gDPSetCombineMode(g++, G_CC_MODULATERGBA, G_CC_MODULATERGBA);
-    gDPSetRenderMode(g++, G_RM_AA_ZB_TEX_EDGE, G_RM_AA_ZB_TEX_EDGE2);
+    SetSpriteState(g);
     for (int sy = csy - 1; sy <= csy + 1; sy++) {
-        for (int sx = csx - 2; sx <= csx + 2; sx++) {
+        for (int sx = csx - rangeX; sx <= csx + rangeX; sx++) {
             if (sx < 0 || sy < 0 || sx >= kMapW || sy >= kMapH) {
                 continue;
             }
@@ -377,7 +462,7 @@ Gfx* Renderer::BuildFrame(const Game& game) {
     {
         std::map<const uint8_t*, std::vector<Quad>> groups;
         for (int sy = csy - 1; sy <= csy + 1; sy++) {
-            for (int sx = csx - 2; sx <= csx + 2; sx++) {
+            for (int sx = csx - rangeX; sx <= csx + rangeX; sx++) {
                 Area area = mRom->ScreenArea(sx, sy);
                 if (area == AREA_NONE) {
                     continue;
@@ -394,51 +479,101 @@ Gfx* Renderer::BuildFrame(const Game& game) {
             }
         }
         for (auto& [tex, quads] : groups) {
-            EmitTexturedQuads(g, tex, 8, 8, quads, mFrameVtx);
+            EmitTexturedQuads(g, tex, 8, quads, mFrameVtx);
         }
     }
 
-    // Samus: the NES sprite extruded into a few layers so she has some thickness.
-    if (game.Fade() < 0.99f) {
-        int frame = game.SamusFrame();
-        const uint8_t* tex = SamusTexture(frame, samus.facing < 0);
-        const SpriteFrame& f = mRom->SamusFrame(frame);
-        // Align the lowest opaque row of the frame with her feet.
-        int bottom = 0;
-        for (int y = 0; y < f.h; y++) {
-            for (int x = 0; x < f.w; x++) {
-                if (f.rgba[y * f.w + x] & 0xFF) {
-                    bottom = y;
-                }
+    float viewL = samus.x - 480, viewR = samus.x + 480, viewT = samus.y - 320, viewB = samus.y + 320;
+    auto visible = [&](float x, float y) { return x > viewL && x < viewR && y > viewT && y < viewB; };
+    int tick = game.FrameCount();
+
+    // Power-ups on their pedestals
+    for (const ItemState& it : game.Items()) {
+        float x = (float)it.item.worldPxX, y = (float)it.item.worldPxY;
+        if (it.taken || !visible(x, y)) {
+            continue;
+        }
+        VisualInstance v;
+        v.pose = Pose::Stand;
+        v.ticks = tick;
+        v.x = x;
+        v.y = y;
+        // The original flashes power-ups; pulse the brightness instead.
+        uint8_t b = (uint8_t)(200 + 55 * (0.5f + 0.5f * std::sin(tick * 0.2f)));
+        v.tint = (b << 24) | (b << 16) | (b << 8) | 0xFF;
+        mVisuals.PowerUp(it.item.type)->Draw(*this, g, v);
+    }
+
+    // Enemies
+    for (const Enemy& e : game.Enemies()) {
+        float x = Lerp(e.prevX, e.x, alpha), y = Lerp(e.prevY, e.y, alpha);
+        if (!visible(x, y) || (e.hurt > 0 && (e.hurt / 2) % 2 == 1)) {
+            continue;
+        }
+        VisualInstance v;
+        v.pose = Pose::Move;
+        v.ticks = e.ticks;
+        v.x = x;
+        v.y = y;
+        v.facing = e.facing;
+        v.angle = e.angle;
+        v.tint = e.frozen > 0 ? 0x90E8FFFF : 0xFFFFFFFF;
+        mVisuals.Enemy(e.area, e.type)->Draw(*this, g, v);
+    }
+
+    // Samus (flickers while invulnerable)
+    if (game.Fade() < 0.99f && !(samus.invuln > 0 && (samus.invuln / 3) % 2 == 1)) {
+        VisualInstance v;
+        v.pose = samus.pose;
+        v.ticks = samus.poseTicks;
+        v.x = Lerp(samus.prevX, samus.x, alpha);
+        v.y = Lerp(samus.prevY, samus.y, alpha);
+        v.facing = samus.facing;
+        mVisuals.Samus()->Draw(*this, g, v);
+    }
+
+    // Beams, missiles and bombs (ROM sprites)
+    for (const Projectile& p : game.Projectiles()) {
+        float x = Lerp(p.prevX, p.x, alpha), y = Lerp(p.prevY, p.y, alpha);
+        uint8_t frame = kFrameBeam;
+        bool mirror = p.vx < 0;
+        if (p.missile) {
+            frame = p.vx == 0 ? kFrameMissileUp : kFrameMissileH;
+        } else if (samus.Has(PU_WAVE_BEAM)) {
+            frame = kFrameWaveBeam;
+        }
+        uint32_t tint = (!p.missile && samus.Has(PU_ICE_BEAM)) ? 0x9AF0FFFF : 0xFFFFFFFF;
+        DrawSprite(g, mRom->ObjectFrame(frame), x, y, mirror, 0, tint, kShotZ);
+    }
+    for (const Bomb& b : game.Bombs()) {
+        DrawSprite(g, mRom->ObjectFrame((b.fuse / 4) % 2 ? kFrameBomb0 : kFrameBomb1), b.x, b.y, false, 0, 0xFFFFFFFF,
+                   kShotZ);
+    }
+
+    // Flat colour sprites: effects, enemy shots, pickups
+    SetColorState(g);
+    {
+        std::vector<Quad> flats;
+        for (const Effect& e : game.Effects()) {
+            float t = (float)e.age / e.life;
+            AddFlat(flats, e.x, e.y, 2.0f + 8.0f * t, kShotZ, e.color);
+        }
+        for (const EnemyShot& p : game.EnemyShots()) {
+            AddFlat(flats, Lerp(p.prevX, p.x, alpha), Lerp(p.prevY, p.y, alpha), 2.5f, kShotZ, 0xFF8030FF);
+        }
+        for (const Pickup& p : game.Pickups()) {
+            if (p.life < 90 && (p.life / 4) % 2) {
+                continue;
             }
+            uint32_t c = p.missile ? 0x40D040FF : ((tick / 4) % 2 ? 0xF0D040FF : 0xF04020FF);
+            AddFlat(flats, p.x, p.y, 3.0f, kShotZ, c);
         }
-        int texTop = f.originY - kSamusTexH / 2;
-        float worldTop = samus.y - (bottom + 1 - texTop);
-        float x0 = samus.x - kSamusTexW / 2.0f;
-        std::vector<Quad> layers;
-        for (int layer = 0; layer < 5; layer++) {
-            float z = -4.0f + layer * 2.0f;
-            uint8_t shade = layer == 4 ? 255 : 150;
-            Quad q;
-            SetVtx(q.v[0], x0, -(worldTop + kSamusTexH), z, 0, kSamusTexH, 0xFFFFFFFF, shade);
-            SetVtx(q.v[1], x0 + kSamusTexW, -(worldTop + kSamusTexH), z, kSamusTexW, kSamusTexH, 0xFFFFFFFF, shade);
-            SetVtx(q.v[2], x0 + kSamusTexW, -worldTop, z, kSamusTexW, 0, 0xFFFFFFFF, shade);
-            SetVtx(q.v[3], x0, -worldTop, z, 0, 0, 0xFFFFFFFF, shade);
-            layers.push_back(q);
-        }
-        EmitTexturedQuads(g, tex, kSamusTexW, kSamusTexH, layers, mFrameVtx);
+        EmitColorQuads(g, flats);
     }
 
-    // Untextured objects
-    gDPPipeSync(g++);
-    gDPSetCombineMode(g++, G_CC_SHADE, G_CC_SHADE);
-    gDPSetRenderMode(g++, G_RM_AA_ZB_OPA_SURF, G_RM_AA_ZB_OPA_SURF2);
+    // Environment objects (3D): doors and elevator platforms
     {
         std::vector<Quad> boxes;
-        float pulse = 0.5f + 0.5f * std::sin(game.FrameCount() * 0.15f);
-        float viewL = samus.x - 420, viewR = samus.x + 420, viewT = samus.y - 300, viewB = samus.y + 300;
-        auto visible = [&](float x, float y) { return x > viewL && x < viewR && y > viewT && y < viewB; };
-
         for (const DoorState& d : game.Doors()) {
             if (d.open || !visible((float)d.x0, (float)d.y0)) {
                 continue;
@@ -450,50 +585,21 @@ Gfx* Renderer::BuildFrame(const Game& game) {
             float cx = (d.x0 + d.x1) * 0.5f;
             AddBox(boxes, cx - 5, (float)d.y0, -10, cx + 5, (float)d.y1, 10, c);
         }
-        for (const ItemState& it : game.Items()) {
-            float x = (float)it.item.worldPxX, y = (float)it.item.worldPxY;
-            if (it.taken || !visible(x, y)) {
-                continue;
-            }
-            float s = 5.0f + pulse * 1.5f;
-            AddBox(boxes, x - s, y - s - 2, -s, x + s, y + s - 2, s, kItemColor[it.item.type]);
-            AddBox(boxes, x - 8, y + 4, -8, x + 8, y + 8, 8, 0x606070FF); // pedestal
-        }
-        for (size_t i = 0; i < game.Elevators().size(); i++) {
-            const ElevatorState& e = game.Elevators()[i];
+        for (const ElevatorState& e : game.Elevators()) {
             float y = (float)e.platY;
             float x0 = (float)e.platX0, x1 = (float)e.platX1;
             if (game.Riding() && std::fabs((x0 + x1) * 0.5f - samus.x) < 1 &&
                 std::fabs(e.platY - samus.y) < kScreenPxH * 1.5f) {
-                y = samus.y;
+                y = Lerp(samus.prevY, samus.y, alpha);
             }
             if (visible(x0, y)) {
                 AddBox(boxes, x0, y, -14, x1, y + 6, 14, 0xD08030FF);
             }
         }
-        for (const Projectile& p : game.Projectiles()) {
-            if (p.missile) {
-                bool vertical = p.vx == 0;
-                AddBox(boxes, p.x - (vertical ? 2 : 6), p.y - (vertical ? 6 : 2), -2, p.x + (vertical ? 2 : 6),
-                       p.y + (vertical ? 6 : 2), 2, 0xF0F0F0FF);
-            } else {
-                uint32_t c = samus.Has(PU_ICE_BEAM) ? 0x80F0FFFF : samus.Has(PU_WAVE_BEAM) ? 0xE060FFFF : 0xFFE060FF;
-                AddBox(boxes, p.x - 3, p.y - 2, -2, p.x + 3, p.y + 2, 2, c);
-            }
-        }
-        for (const Bomb& b : game.Bombs()) {
-            float s = 3.0f + (b.fuse % 10 < 5 ? 1.0f : 0.0f);
-            AddBox(boxes, b.x - s, b.y - s, -s, b.x + s, b.y + s, s, 0x303030FF);
-        }
-        for (const Effect& e : game.Effects()) {
-            float t = (float)e.age / e.life;
-            float s = 2.0f + 8.0f * t;
-            AddBox(boxes, e.x - s, e.y - s, -s, e.x + s, e.y + s, s, e.color);
-        }
         EmitColorQuads(g, boxes);
     }
 
-    // Fade to black (elevators)
+    // Fade to black (elevators, death)
     if (game.Fade() > 0.0f) {
         gDPPipeSync(g++);
         gDPSetRenderMode(g++, G_RM_XLU_SURF, G_RM_XLU_SURF2);
@@ -501,11 +607,11 @@ Gfx* Renderer::BuildFrame(const Game& game) {
         std::vector<Quad> fade;
         Quad q;
         uint32_t c = (uint32_t)(game.Fade() * 255.0f) & 0xFF;
-        float z = 150.0f;
-        SetVtx(q.v[0], eye.x - 400, eye.y - 400, z, 0, 0, c, 255);
-        SetVtx(q.v[1], eye.x + 400, eye.y - 400, z, 0, 0, c, 255);
-        SetVtx(q.v[2], eye.x + 400, eye.y + 400, z, 0, 0, c, 255);
-        SetVtx(q.v[3], eye.x - 400, eye.y + 400, z, 0, 0, c, 255);
+        float z = dist * 0.5f;
+        SetVtx(q.v[0], eye.x - 2000, eye.y - 2000, z, 0, 0, c, 255);
+        SetVtx(q.v[1], eye.x + 2000, eye.y - 2000, z, 0, 0, c, 255);
+        SetVtx(q.v[2], eye.x + 2000, eye.y + 2000, z, 0, 0, c, 255);
+        SetVtx(q.v[3], eye.x - 2000, eye.y + 2000, z, 0, 0, c, 255);
         fade.push_back(q);
         EmitColorQuads(g, fade);
     }

@@ -1,5 +1,6 @@
 #include "Hud.h"
 
+#include <algorithm>
 #include <cfloat>
 #include <cstdio>
 #include <imgui.h>
@@ -56,7 +57,7 @@ void Hud::Draw() {
         ShadowText(dl, small, ImVec2(x, y), IM_COL32(120, 200, 255, 255), tankStr.c_str());
         y += small * 1.1f;
     }
-    snprintf(buf, sizeof(buf), "EN..%02d", s.energy % 100);
+    snprintf(buf, sizeof(buf), "EN..%02d", std::max(0, s.energy) % 100);
     ShadowText(dl, big, ImVec2(x, y), white, buf);
     if (s.maxMissiles > 0) {
         snprintf(buf, sizeof(buf), "%sMISSILES %03d", s.missileMode ? "> " : "  ", s.missiles);
@@ -65,6 +66,10 @@ void Hud::Draw() {
 
     if (mGame->MessageTimer() > 0) {
         CenteredText(dl, big, vp->Pos.y + vp->Size.y * 0.18f, IM_COL32(255, 230, 120, 255), mGame->Message().c_str());
+    }
+    if (mGame->FrameCount() < 360) {
+        CenteredText(dl, small, vp->Pos.y + vp->Size.y - small * 2.5f, IM_COL32(200, 200, 200, 255),
+                     "Press F1 for the menu (graphics, controls, frame rate)");
     }
     if (mGame->Paused()) {
         CenteredText(dl, big * 1.5f, vp->Pos.y + vp->Size.y * 0.42f, white, "PAUSE");
