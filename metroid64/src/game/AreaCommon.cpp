@@ -4,6 +4,7 @@
 #include "game/AreaCommon.h"
 
 #include "game/Area.h"
+#include "game/Collision.h"
 #include "game/EnemyRam.h"
 #include "game/Enemies.h"
 #include "game/Engine.h"
@@ -27,10 +28,19 @@ uint16_t Ptr(uint8_t zp) {
     return (uint16_t)(Mem(zp) | (Mem((uint8_t)(zp + 1)) << 8));
 }
 
-// $E770 / $E77B / $E8F1 / $E8FC (bank 7, not translated here): is the background free above / below /
-// left of / right of the enemy? Return the carry (set: free).
+// $E770 / $E77B / $E8F1 / $E8FC (bank 7, Collision.cpp): is the background free above / below / left of /
+// right of the enemy? Return the carry (set: free).
 bool BgCheck(uint16_t addr) {
-    return Original(addr).c;
+    switch (addr) {
+        case 0xE770:
+            return EnemyCheckMoveUp();
+        case 0xE77B:
+            return EnemyCheckMoveDown();
+        case 0xE8F1:
+            return EnemyCheckMoveLeft();
+        default:
+            return EnemyCheckMoveRight();
+    }
 }
 } // namespace
 
@@ -719,7 +729,7 @@ void DoorTiles(uint8_t x, uint8_t tile) {
     Mem(0x02) = 0x50;
     Mem(0x03) = Read((uint16_t)(kDoorXTbl + ((x >> 4) & 0x01)));
     Mem(0x0B) = ObjectHi[x];
-    Original(0xE96A); // MakeCartRAMPtr (bank 7)
+    MakeCartRAMPtr();
     for (uint8_t y = 0; y != 0xC0; y += 0x20) {
         Write((uint16_t)(Ptr(0x04) + y), tile);
     }

@@ -4,12 +4,14 @@
 #include "game/Enemies.h"
 
 #include "game/Area.h"
+#include "game/Collision.h"
 #include "game/Constants.h"
 #include "game/EnemyRam.h"
 #include "game/Engine.h"
 #include "game/Objects.h"
 #include "game/Original.h"
 #include "game/Ram.h"
+#include "game/Room.h"
 #include "game/Samus.h"
 
 #include <cstdlib>
@@ -85,21 +87,9 @@ void Negate00() {
     Mem(0x01) = Sbc(0, Mem(0x01), c);
 }
 
-// $E792 (bank 7): enemy x's position into $08 (y), $09 (x), $0B (name table).
+// $E792 (bank 7, Collision.cpp): enemy x's position into $08 (y), $09 (x), $0B (name table).
 void GetEnemyPosition(uint8_t x) {
-    Mem(0x09) = EnXRoomPos[x];
-    Mem(0x08) = EnYRoomPos[x];
-    Mem(0x0B) = EnNameTable[x];
-}
-
-// $E094 UpdateEnemyAnim (bank 7, not translated yet).
-void UpdateEnemyAnim(uint8_t delay) {
-    Original(0xE094, { delay, PageIndex, 0 });
-}
-
-// $E96A MakeCartRAMPtr (bank 7, not translated yet).
-void MakeCartRAMPtr() {
-    Original(0xE96A);
+    EnemyCoordsToTemp(x);
 }
 
 // $80B0 (area banks): the enemy's entry in the table at $977B, times 2. Returns A; Y = EnDataIndex.
@@ -109,24 +99,9 @@ uint8_t EnemyType80B0(uint8_t x) {
 
 } // namespace
 
-// --- $F034 Crash detection ---------------------------------------------------------------------------
+// --- $F270-$F344 Crash detection pieces (SamusEnemyCollisions $F034 is in Room.cpp) ---------------------------------------------------------------------------
 
 namespace {
-
-// $F149: object y (Samus) against the object 0 coordinates, with radii 4 and 8.
-bool CrashCheckF149(uint8_t y) {
-    GetObject1CoordData(y);
-    AddObject1YRadius(0x04, y); // $F1D2
-    AddObject1XRadius(0x08, y);
-    return CheckObjectDistance();
-}
-
-// $F140: enemy x against object y.
-bool CrashCheckF140(uint8_t x, uint8_t y) {
-    DistFromEn0ToObj1(x, y);
-    GetObject1CoordData(y);
-    return CheckObjectDistance();
-}
 
 uint8_t F340() {
     return Mem(0x10) ^ 0x03;
@@ -277,138 +252,36 @@ static void CrashF311(uint8_t y, bool carry) {
     ClearHealthChangeF323();
 }
 
+void CrashDoorF277(uint8_t y, bool carry) {
+    if (!carry) {
+        F279(y);
+    }
+}
+void CrashEnemySamusF282(uint8_t x, uint8_t y, bool carry) {
+    CrashEnemySamus(x, y, carry);
+}
+void CrashMemuSamusF2B4(uint8_t x, bool carry) {
+    CrashMemuSamus(x, carry);
+}
+void CrashEnemyBulletF2CA(uint8_t x, uint8_t y, bool carry) {
+    CrashEnemyBullet(x, y, carry);
+}
+void CrashSamusObjectF2ED(uint8_t x, uint8_t y, bool carry) {
+    CrashSamusEnemyObject(x, y, carry);
+}
+void CrashBlastF311(uint8_t y, bool carry) {
+    CrashF311(y, carry);
+}
+void CrashMemuBulletF32A(uint8_t x, uint8_t y, bool carry) {
+    CrashMemuBullet(x, y, carry);
+}
+
 void ClearHealthChangeF323() {
     HealthLoChange = 0;
     HealthHiChange = 0;
 }
 
-void SamusEnemyCollisions() {
-    if (Shadow(0xF034, [] { SamusEnemyCollisions(); })) {
-        return ;
-    }
-    if (UseOrig("F034")) {
-        Original(0xF034);
-        return ;
-    }
-    Mem(0x73) = 0xFF;
-    ObjHitBy = 0xFF;
-    // Memus against Samus and her projectiles.
-    for (int xi = 0x18; xi >= 0; xi -= 8) {
-        uint8_t x = (uint8_t)xi;
-        uint8_t s = MemuStatus[x];
-        if (s == 0 || s == 0x03) {
-            continue;
-        }
-        GetMemu0CoordData(x);
-        if (!IsSamusDead() && SamusBlink == 0) {
-            bool c = CrashCheckF149(0);
-            CrashMemuSamus(x, c);
-        }
-        uint8_t y = 0xD0;
-        do {
-            uint8_t a = ObjAction[y];
-            if (a != 0 && (a < wa_BulletExplode || a == 0x07 || a == wa_BombExplode || a == wa_Missile)) {
-                bool c = CrashCheckF149(y);
-                CrashMemuBullet(x, y, c);
-            }
-            y += 0x10;
-        } while (y != 0);
-    }
-    // Samus against doors.
-    for (uint8_t x = 0xB0; x & 0x80; x -= 0x10) {
-        if (ObjAction[x] != 0x02) {
-            continue;
-        }
-        if (IsSamusDead()) {
-            break;
-        }
-        bool c = AreObjectsTouching(x, 0);
-        if (!c) {
-            F279(0); // $F277
-        }
-    }
-    // Enemies against projectiles and Samus.
-    for (uint8_t x = 0x50;; x -= 0x10) {
-        uint8_t s = Enstatus[x];
-        if (s != 0 && s != 0x03) {
-            GetEnemy0CoordData(x);
-            if (Enstatus[x] != 0x05) {
-                uint8_t y = 0xD0;
-                do {
-                    uint8_t a = ObjAction[y];
-                    if (a != 0 && (a < wa_BulletExplode || a == 0x07 || a == wa_BombExplode || a == wa_Missile)) {
-                        bool c = CrashCheckF140(x, y);
-                        CrashEnemyBullet(x, y, c);
-                    }
-                    y += 0x10;
-                } while (y != 0);
-            }
-            if (SamusBlink == 0 && !IsSamusDead()) {
-                bool c = CrashCheckF140(x, 0);
-                CrashEnemySamus(x, 0, c);
-            }
-        }
-        if (x == 0) {
-            break;
-        }
-    }
-    // Samus against enemy projectiles.
-    GetObject0CoordData(0);
-    for (uint8_t y = 0x60; y != 0xC0; y += 0x10) {
-        uint8_t s = Enstatus[y];
-        if (s == 0 || s == 0x05 || SamusBlink != 0 || IsSamusDead()) {
-            continue;
-        }
-        DistFromObj0ToEn1(0, y);
-        GetEnemy1CoordData(y);
-        bool c = CheckObjectDistance();
-        CrashSamusEnemyObject(0, y, c);
-    }
-    // Samus against bomb blasts.
-    if (!IsSamusDead()) {
-        GetObject1CoordData(0);
-        for (uint8_t x = 0xF0; x != 0xC0; x -= 0x10) {
-            uint8_t a = ObjAction[x];
-            if (a == 0x07 || a == 0x0A) {
-                bool c = AreObjectsTouching2(x, 0);
-                CrashF311(0, c);
-            }
-        }
-    }
-    SubtractHealth();
-}
-
-// --- $F152-$F1FA Coordinates and distances -------------------------------------------------------------
-
-void GetEnemy0CoordData(uint8_t x) {
-    Mem(0x07) = EnYRoomPos[x];
-    Mem(0x09) = EnXRoomPos[x];
-    Mem(0x0B) = (EnNameTable[x] ^ PPUCNT0ZP) & 0x01;
-}
-
-void GetEnemy1CoordData(uint8_t y) {
-    Mem(0x06) = EnYRoomPos[y];
-    Mem(0x08) = EnXRoomPos[y];
-    Mem(0x0A) = (EnNameTable[y] ^ PPUCNT0ZP) & 0x01;
-}
-
-void GetObject0CoordData(uint8_t x) {
-    Mem(0x07) = ObjectY[x];
-    Mem(0x09) = ObjectX[x];
-    Mem(0x0B) = (ObjectHi[x] ^ PPUCNT0ZP) & 0x01;
-}
-
-void GetObject1CoordData(uint8_t y) {
-    Mem(0x06) = ObjectY[y];
-    Mem(0x08) = ObjectX[y];
-    Mem(0x0A) = (ObjectHi[y] ^ PPUCNT0ZP) & 0x01;
-}
-
-void GetMemu0CoordData(uint8_t x) {
-    Mem(0x07) = MemuY[x];
-    Mem(0x09) = MemuX[x];
-    Mem(0x0B) = (MemuHi[x] ^ PPUCNT0ZP) & 0x01;
-}
+// --- $F1A7-$F1FA Distances -------------------------------------------------------------
 
 void DistFromObj0ToObj1(uint8_t x, uint8_t y) {
     AddObject1YRadius(ObjRadY[x], y);
@@ -492,12 +365,12 @@ bool CheckObjectDistance() {
     return Mem(0x00) >= Mem(0x05);
 }
 
-bool AreObjectsTouching(uint8_t x, uint8_t y) {
+bool TouchCheckDC7F(uint8_t x, uint8_t y) {
     GetObject1CoordData(y);
-    return AreObjectsTouching2(x, y);
+    return TouchCheckDC82(x, y);
 }
 
-bool AreObjectsTouching2(uint8_t x, uint8_t y) {
+bool TouchCheckDC82(uint8_t x, uint8_t y) {
     GetObject0CoordData(x);
     DistFromObj0ToObj1(x, y);
     return CheckObjectDistance();
@@ -1499,8 +1372,8 @@ void DoOneSpawn(uint8_t y) {
     if (--EnDelay[x] != 0) {
         return;
     }
-    if (GetEnemyType(SpawnType[y], x)) {
-        return;
+    if (!GetEnemyType(x, SpawnType[y])) {
+        return; // Kraid/Ridley dead: the original pops DoOneSpawn's return address
     }
     y = PageIndex;
     EnYRoomPos[x] = SpawnY[y];
@@ -1531,9 +1404,6 @@ void EnemyRestartEB6E(uint8_t x) {
     ResetEnemyHitPoints(x);
 }
 
-void UpdateEnemyAnimE094(uint8_t delay) {
-    UpdateEnemyAnim(delay);
-}
 
 void UpdateObjectsFAF2() {
     if (Shadow(0xFAF2, [] { UpdateObjectsFAF2(); })) {
@@ -1552,20 +1422,6 @@ void UpdateObjectsFAF2() {
         }
     }
     DoOneSpawn(0x00);
-}
-
-bool GetEnemyType(uint8_t a, uint8_t x) {
-    EnSpecialAttribs[x] = a & 0xC0;
-    if (a & 0x40) {
-        // Kraid or Ridley: not when already dead.
-        uint8_t y = (InArea & 0x06) >> 1;
-        if (MaxMissiles[y] != 0) {
-            return true;
-        }
-        KrdRdlyPresent = 0x01;
-    }
-    EnDataIndex[x] = a & 0x3F;
-    return false;
 }
 
 // --- $FB88 Turning animations --------------------------------------------------------------------------
@@ -1646,7 +1502,7 @@ void DoOnePiece(uint8_t x) {
     if (SamusBlink != 0) {
         return;
     }
-    if (AreObjectsTouching(0x40, 0)) {
+    if (TouchCheckDC7F(0x40, 0)) {
         return;
     }
     if (!IsScrewAttackActive()) {

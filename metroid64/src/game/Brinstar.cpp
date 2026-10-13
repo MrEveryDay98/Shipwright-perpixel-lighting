@@ -5,6 +5,7 @@
 #include "game/EnemyRam.h"
 #include "game/Enemies.h"
 #include "game/Engine.h"
+#include "game/Objects.h"
 #include "game/Ram.h"
 
 namespace Game {
@@ -163,7 +164,7 @@ void CrawlerAI(uint8_t x) {
             CrawlerCorner(PageIndex);
         }
     }
-    UpdateEnemyAnimE094(0x03);
+    UpdateEnemyAnim(0x03);
     EnemyDraw();
 }
 
@@ -355,7 +356,7 @@ void Enemy9AI(uint8_t x) {
             Enstatus[x] = 0x03;
         }
     }
-    UpdateEnemyAnimE094(0x01);
+    UpdateEnemyAnim(0x01);
     EnemyDraw();
 }
 

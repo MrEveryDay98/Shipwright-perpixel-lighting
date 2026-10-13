@@ -26,3 +26,6 @@ metroid64.json
 logs/
 imgui.ini
 build-lockstep/
+
+# Agent worktrees
+.claude/worktrees/

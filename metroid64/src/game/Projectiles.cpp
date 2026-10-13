@@ -198,15 +198,12 @@ bool MoveProjectile() {
     Regs r = AreaHook(0x95C0, { tile });
     tile = r.a;
     if (tile == 0x4E) {
-        return Original(0xE81E, r).c; // LE81E
+        return DoorTileHit();
     }
     if (!IsBlastableRange(tile)) {
         return false; // a wall
     }
-    Regs in = r;
-    in.a = tile;
-    in.c = false;
-    return Original(0xE9C2, in).c; // IsBlastTile
+    return IsBlastTile(tile, r.x, false);
 }
 
 // $D624: moves the object at PageIndex by its speeds. Returns the carry: clear (and the projectile
@@ -215,7 +212,7 @@ bool MoveObjectByTiles() {
     uint8_t x = PageIndex;
     Mem(0x05) = ObjHorzSpeed[x];
     Mem(0x04) = ObjVertSpeed[x];
-    Regs r = Original(0xE8BE, { 0, x, 0 });
+    Regs r = { ObjCoordsToTemp(x), x, 0 };
     r = Original(0xFD8F, r);
     if (!r.c) {
         ObjAction[PageIndex] = 0; // the original reaches this through KillIfOffScreen's tail
@@ -297,7 +294,7 @@ void BombBlastTiles() {
     switch (step) {
         case 1:
             break; // the bomb's own tile
-        case 2: // above
+        case 2:    // above
             TileOffsetUp(0x40);
             if ((Mem(0x05) & 0x03) == 0x03 && Mem(0x04) >= 0xC0) {
                 if (otherTable) {
@@ -345,7 +342,7 @@ void BombBlastTiles() {
 void BlastTileAt04(uint8_t x) {
     uint8_t tile = Read(Ptr04());
     if (IsBlastableRange(tile) && tile < 0xA0) {
-        Original(0xE9C2, { tile, x, 0, false }); // IsBlastTile
+        BlastTile(tile, x);
     }
 }
 
@@ -372,7 +369,7 @@ void GetObjCoords() {
     Mem(0x02) = ObjectY[x];
     Mem(0x03) = ObjectX[x];
     Mem(0x0B) = ObjectHi[x];
-    Original(0xE96A, { 0, x, 0 }); // MakeCartRAMPtr
+    MakeCartRAMPtr();
 }
 
 // --- $D7B3 UpdateElevator ------------------------------------------------------------------------------
@@ -529,7 +526,7 @@ void ElevatorChangeArea() {
         MainRoutine = 0x07;
         AtEnding++;
         Mem(0x33) = 0;
-        SwitchPending = 1; // bank 0
+        SwitchPending = 1;   // bank 0
         TitleRoutine = 0x1D; // the ending
         return;
     }
@@ -608,13 +605,14 @@ uint8_t ToggleScroll() {
 void SamusOnElevatorOrEnemy() {
     SamusOnElevator = 0;
     OnFrozenEnemy = 0;
-    Regs r = Original(0xF186, { 0, 0x50, 0 });
+    GetObject1CoordData(0x00);
+    Regs r{ 0, 0x50, 0 };
     uint8_t x = 0x50;
     for (;;) {
         bool next = true;
         if (Enstatus[x] == 0x04) { // frozen
-            r = Original(0xF152, { 0, x, r.y });
-            r = Original(0xF1BF, r);
+            GetEnemy0CoordData(x);
+            r = Original(0xF1BF, { 0, x, r.y });
             r = Original(0xF1FA, r);
             if (!r.c && SamusOnTop()) {
                 OnFrozenEnemy++;
@@ -655,12 +653,6 @@ bool SamusOnTop() {
 
 // --- Not translated yet --------------------------------------------------------------------------------
 
-void ScrollLeft() {
-    Original(0xE6A7);
-}
-void ScrollRight() {
-    Original(0xE6D2);
-}
 void WaitNMIPass_() {
     WaitNMIPass();
 }

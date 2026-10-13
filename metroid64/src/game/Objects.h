@@ -25,5 +25,6 @@ void NoItemDrop();
 void MiniBossKilled();
 uint8_t AddToMaxMissiles(uint8_t n);
 bool DrawEnemy();
+void UpdateEnemyAnim(uint8_t delay);
 
 } // namespace Game

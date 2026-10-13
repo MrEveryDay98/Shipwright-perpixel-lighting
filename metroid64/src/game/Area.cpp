@@ -68,6 +68,9 @@ Regs AreaHook(uint16_t addr, Regs in) {
     if (Shadow(addr, [&] { AreaHook(addr, in); }, in)) {
         return out; // DEBUG (registers not compared)
     }
+    if (getenv("METROID64_AREAORIG")) { // DEBUG
+        return Original(addr, in);
+    }
     if (CommonHook(addr, in, out)) {
         return out;
     }

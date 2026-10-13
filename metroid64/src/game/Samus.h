@@ -66,12 +66,7 @@ void SamusDead2();
 bool SamusElevator();
 void DoorEnemyCleanup();
 void ToggleSamusHi();
-bool CheckMoveUp();
-void ScrollDown();
-void ScrollUp();
-uint8_t GetNameTable();
 uint8_t BitScan(uint8_t a);
-void LavaAndMoveCheck();
 void ClearHealthChange();
 
 } // namespace Game

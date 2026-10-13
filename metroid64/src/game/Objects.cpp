@@ -7,6 +7,7 @@
 #include "game/Enemies.h"
 #include "game/Engine.h"
 #include "game/Original.h"
+#include "game/Present.h"
 #include "game/Ram.h"
 #include "game/Samus.h"
 
@@ -185,7 +186,17 @@ uint8_t AddToMaxMissiles(uint8_t n) {
 
 // Draws the enemy at PageIndex. Returns true when its explosion ended: the original then leaves the
 // routine that called DrawEnemy (see EnemyExplosionDone).
+static bool DrawEnemyFrame();
+
+// Draws the enemy at PageIndex (its sprites are tagged for the presentation).
 bool DrawEnemy() {
+    uint8_t from = SpritePagePos, slot = PageIndex;
+    bool done = DrawEnemyFrame();
+    Present::TagSprites(from, Present::Owner::Enemy, slot);
+    return done;
+}
+
+static bool DrawEnemyFrame() {
     uint8_t x = PageIndex;
     if (EnAnimFrame[x] == 0xF7) {
         ClearObjectCntrl();
@@ -197,7 +208,8 @@ bool DrawEnemy() {
     // Frame pointers: two tables ($41 and $43), the second for frames $80 and up.
     uint8_t frame = EnAnimFrame[x];
     uint8_t y = (uint8_t)(frame << 1);
-    uint16_t table = (frame & 0x80) ? (uint16_t)(Mem(0x43) | (Mem(0x44) << 8)) : (uint16_t)(Mem(0x41) | (Mem(0x42) << 8));
+    uint16_t table =
+        (frame & 0x80) ? (uint16_t)(Mem(0x43) | (Mem(0x44) << 8)) : (uint16_t)(Mem(0x41) | (Mem(0x42) << 8));
     Mem(0x00) = Read((uint16_t)(table + y));
     Mem(0x01) = Read((uint16_t)(table + (uint8_t)(y + 1)));
     uint8_t place = GetSpriteCntrlData();
@@ -468,6 +480,28 @@ void SpriteFlipBitsOveride(uint8_t y) {
     ObjectCntrl = (uint8_t)(ObjectCntrl >> 1);
     Mem(0x05) = (uint8_t)((Read((uint16_t)(Ptr00() + y)) & 0xC0) | ObjectCntrl);
     ObjectCntrl |= 0x80;
+}
+
+// --- $E094 UpdateEnemyAnim ----------------------------------------------------------------------------
+
+// Steps the animation of the enemy at PageIndex once its delay runs out; delay is the new delay. The
+// enemy's animation data is at (EnemyAnimPtr), $FF marking the end of a sequence.
+void UpdateEnemyAnim(uint8_t delay) {
+    uint8_t x = PageIndex;
+    if (Enstatus[x] == 0x05) {
+        return; // dying
+    }
+    if (EnAnimDelay[x] != 0 && --EnAnimDelay[x] != 0) {
+        return;
+    }
+    EnAnimDelay[x] = delay;
+    uint8_t y = EnAnimIndex[x];
+    uint8_t frame;
+    while ((frame = Read((uint16_t)(EnemyAnimPtr.Word() + y))) == 0xFF) {
+        y = EnResetAnimIndex[x];
+    }
+    EnAnimFrame[x] = frame;
+    EnAnimIndex[x] = (uint8_t)(y + 1);
 }
 
 } // namespace Game

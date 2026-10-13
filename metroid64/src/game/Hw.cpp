@@ -1,4 +1,5 @@
 #include "game/Hw.h"
+#include "game/Present.h"
 
 #include "game/Memory.h"
 
@@ -123,6 +124,9 @@ void OamAddr(uint8_t v) {
 void OamDma(uint8_t page) {
     for (int i = 0; i < 256; i++) {
         gVideo.oam[(gVideo.oamAddr + i) & 0xFF] = Read((uint16_t)((page << 8) | i));
+    }
+    if (page == 0x02) {
+        Present::OnSpriteDma();
     }
 }
 

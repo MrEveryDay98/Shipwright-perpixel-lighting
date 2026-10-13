@@ -19,16 +19,19 @@ void UpdateSpinners();       // $FBDD
 // $FE1B. Returns true when the original leaves UpdateWorld here: the last tile slot (0) is reached by
 // falling through, so when its animation ends UpdateTileAnim's pop takes UpdateWorld's return address.
 bool UpdateTiles();
-void SamusEnemyCollisions(); // $F034 crash detection
 void UpdateObjectsFAF2();    // $FAF2 enemies spawned by the room (e.g. pipe bugs, Kraid/Ridley)
 void UpdateObjectsFDE3();    // $FDE3 escape timer / Zebetite item history
 
-// --- Coordinates and distances (results in $04-$0B, see $F1FA) ---
-void GetEnemy0CoordData(uint8_t x);   // $F152
-void GetEnemy1CoordData(uint8_t y);   // $F162
-void GetObject0CoordData(uint8_t x);  // $F172
-void GetObject1CoordData(uint8_t y);  // $F186
-void GetMemu0CoordData(uint8_t x);    // $F19A
+// --- Crash detection pieces ($F034 SamusEnemyCollisions itself is in Room.cpp). carry: $F1FA's result.
+void CrashDoorF277(uint8_t y, bool carry);                    // $F277
+void CrashEnemySamusF282(uint8_t x, uint8_t y, bool carry);   // $F282
+void CrashMemuSamusF2B4(uint8_t x, bool carry);               // $F2B4
+void CrashEnemyBulletF2CA(uint8_t x, uint8_t y, bool carry);  // $F2CA
+void CrashSamusObjectF2ED(uint8_t x, uint8_t y, bool carry);  // $F2ED
+void CrashBlastF311(uint8_t y, bool carry);                   // $F311
+void CrashMemuBulletF32A(uint8_t x, uint8_t y, bool carry);   // $F32A
+
+// --- Distances (coordinates from Room.h's GetObject0CoordData etc.; results in $04-$0B, see $F1FA) ---
 void DistFromObj0ToObj1(uint8_t x, uint8_t y); // $F1A7
 void DistFromObj0ToEn1(uint8_t x, uint8_t y);  // $F1B3
 void DistFromEn0ToObj1(uint8_t x, uint8_t y);  // $F1BF
@@ -40,8 +43,8 @@ void AddEnemy1YRadius(uint8_t a, uint8_t y);   // $F1E7
 // clear when they touch. Leaves the direction bits in $10 and the distances in $00/$11/$0F.
 bool CheckObjectDistance();
 // $DC7F / $DC82 (bank 7, made of the routines above): object x against object y.
-bool AreObjectsTouching(uint8_t x, uint8_t y);
-bool AreObjectsTouching2(uint8_t x, uint8_t y);
+bool TouchCheckDC7F(uint8_t x, uint8_t y);
+bool TouchCheckDC82(uint8_t x, uint8_t y);
 
 // --- Enemy helpers reached from the area banks ---
 void DoOneEnemy(uint8_t x);             // $F351
@@ -67,10 +70,7 @@ void SetEnemyBits(uint8_t x, uint8_t a);         // $F744: $0405 |= a
 uint8_t EnemyDataF74B(uint8_t x);                // $F74B: returns A (and Y = EnDataIndex)
 void KillObject(uint8_t x);                      // $FA18
 void EnemyRestartEB6E(uint8_t x);                // $EB6E (area $802A)
-void UpdateEnemyAnimE094(uint8_t delay);         // $E094 UpdateEnemyAnim (area $800C; still Original)
 void ClearHealthChangeF323();                    // $F323 (same as Samus.h ClearHealthChange)
 bool DrawTileBlast();                            // $FEDC (area $803F): returns the carry
-// $EB28 GetEnemyType (bank 7): returns true when the original pops its caller (Kraid/Ridley dead).
-bool GetEnemyType(uint8_t a, uint8_t x);
 
 } // namespace Game

@@ -3,9 +3,14 @@
 // Routines of bank 7 (the game engine), named as in the community disassembly.
 
 #include "game/Area.h"
+#include "game/Collision.h"
 #include "game/Enemies.h"
+#include "game/Hud.h"
+#include "game/Items.h"
+#include "game/Scroll.h"
 #include "game/Original.h"
 #include "game/Projectiles.h"
+#include "game/Room.h"
 #include "game/Sound.h"
 #include "game/Title.h"
 
@@ -32,6 +37,7 @@ void AddYToPtr00(uint8_t y);
 void AddYToPtr02(uint8_t y);
 void ProcessPPUStr();
 void SetPPUInc(bool by32);
+bool WritePPUByte(uint8_t& x, uint8_t value);
 bool NextPPUByte(uint8_t& x);
 void EndPPUString(uint8_t x);
 void EraseTile();
@@ -74,9 +80,6 @@ void IsEngineRunning(uint8_t area);
 void SwitchBank(uint8_t area);
 void ChooseEnding();
 void ClearScreenData();
-void GetRoomNum();
-void SetupRoom();
-void ScrollDoor();
 void UpdateWorld();
 void SelectSamusPal();
 void CheckMissileToggle();
@@ -109,9 +112,6 @@ uint8_t PowerUpMusic();
 uint8_t IntroMusic();
 uint8_t MotherBrainMusic();
 uint8_t TourianMusic();
-void UpdateStatues();
-void DisplayBar();
-void UpdateItems();
 void EraseAllSprites();
 void PrepVertMirror();
 void CheckPalWrite();

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Emulator.h"
+#include "GameView.h"
 #include "Gbi.h"
 #include "Mat4.h"
 #include "Model.h"
@@ -22,7 +22,7 @@ class Renderer {
     void Init();
     // Builds this frame's display list. alpha (0-1) interpolates between the previous and current
     // emulated frame. Valid until the next call.
-    Gfx* BuildFrame(const Emulator& emu, float alpha);
+    Gfx* BuildFrame(const GameView& emu, float alpha);
 
     void DrawModel(Gfx*& g, const Gfx* dl, const Mat4& model);
     void DrawSkeleton(Gfx*& g, const Skeleton& skel, SkeletonPose& pose, const Mat4& model,
@@ -43,18 +43,18 @@ class Renderer {
         std::vector<Gfx> dl;
     };
 
-    const uint8_t* TileTexture(const Emulator& emu, uint16_t patternAddr, const uint8_t* palette4, bool transparent);
-    bool TileBlank(const Emulator& emu, uint16_t patternAddr) const;
-    void BuildChunk(const Emulator& emu, Chunk& chunk, uint16_t ntBase, int cx, int cy);
+    const uint8_t* TileTexture(const GameView& emu, uint16_t patternAddr, const uint8_t* palette4, bool transparent);
+    bool TileBlank(const GameView& emu, uint16_t patternAddr) const;
+    void BuildChunk(const GameView& emu, Chunk& chunk, uint16_t ntBase, int cx, int cy);
     void EmitTexturedQuads(Gfx*& g, const uint8_t* tex, int size, const std::vector<Quad>& quads,
                            std::vector<Vtx>& store);
     void SetTexturedState(Gfx*& g, bool zbuffer);
     Mtx* AllocMtx(const Mat4& m);
 
-    void DrawPlayField(Gfx*& g, const Emulator& emu);
-    void DrawSprites(Gfx*& g, const Emulator& emu, bool hudPass, bool hideSamus);
-    void DrawSamusModel(Gfx*& g, const Emulator& emu, const Model& model, float alpha);
-    void Draw2DFrame(Gfx*& g, const Emulator& emu);
+    void DrawPlayField(Gfx*& g, const GameView& emu);
+    void DrawSprites(Gfx*& g, const GameView& emu, bool hudPass, bool hideSamus);
+    void DrawSamusModel(Gfx*& g, const GameView& emu, const Model& model, float alpha);
+    void Draw2DFrame(Gfx*& g, const GameView& emu);
     void BeginOverlay(Gfx*& g);
 
     ModelLibrary mModels;

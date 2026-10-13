@@ -8,8 +8,11 @@
 #include "game/Game.h"
 #include "game/Area.h"
 #include "game/Constants.h"
+#include "game/Hud.h"
 #include "game/Hw.h"
+#include "game/Items.h"
 #include "game/Original.h"
+#include "game/Present.h"
 #include "game/Ram.h"
 #include "game/Objects.h"
 #include "game/Projectiles.h"
@@ -428,7 +431,7 @@ void SetPPUInc(bool by32) {
 
 // Appends a byte to the PPU string. Returns false when the string is full: the original then ends the
 // string and abandons the routine that was building it.
-static bool WritePPUByte(uint8_t& x, uint8_t value) {
+bool WritePPUByte(uint8_t& x, uint8_t value) {
     PPUDataString[x] = value;
     return NextPPUByte(x);
 }
@@ -924,7 +927,7 @@ void MoreInit() {
     x++;
     SpareMem30 = x;
     x++;
-    ScrollDir = x; // left
+    ScrollDir = x;          // left
     MapPosX = Read(0x95D7); // Samus's start position on the map
     MapPosY = Read(0x95D8);
     PalToggle = Read(0x95DA);
@@ -1157,27 +1160,50 @@ void ClearScreenData() {
 // --- $CB29 UpdateWorld: one frame of the game world --------------------------------------------------
 
 void UpdateWorld() {
+    using Present::Owner;
     SpritePagePos = 0; // sprites are built from $0200 up
-    UpdateEnemies();
+    uint8_t p = SpritePagePos;
+    UpdateEnemies(); // DrawEnemy tags each enemy's sprites
+    p = SpritePagePos;
     UpdateProjectiles();
+    Present::TagSprites(p, Owner::Projectile);
+    p = SpritePagePos;
     UpdateSamus();
+    Present::TagSprites(p, Owner::Samus);
+    p = SpritePagePos;
     AreaRoutine();
     UpdateElevator();
     UpdateStatues();
     DestroyEnemyObjects(); // $FA9D
     UpdateMellows();       // $FC65
-    UpdateObjectsF93B();   // $F93B
+    if (UpdateObjectsF93B()) { // $F93B: the original left UpdateWorld (see Enemies.h)
+        Present::TagSprites(p, Owner::Other);
+        return;
+    }
     UpdateSpinners();      // $FBDD
     SamusEnterDoor();
+    Present::TagSprites(p, Owner::Other);
+    p = SpritePagePos;
     DrawDoors(); // $8B79
-    UpdateTiles();
+    Present::TagSprites(p, Owner::Scenery);
+    p = SpritePagePos;
+    if (UpdateTiles()) { // the original left UpdateWorld (see Enemies.h)
+        Present::TagSprites(p, Owner::Other);
+        return;
+    }
     SamusEnemyCollisions(); // $F034
+    Present::TagSprites(p, Owner::Other);
+    p = SpritePagePos;
     DisplayBar();
+    Present::TagSprites(p, Owner::Hud);
+    p = SpritePagePos;
     UpdateObjectsFAF2(); // $FAF2
     CheckMissileToggle();
     UpdateItems();
     UpdateObjectsFDE3(); // $FDE3
+    Present::TagSprites(p, Owner::Other);
     // Hide the sprites not used this frame.
+    Present::UntagRest();
     uint8_t x = SpritePagePos;
     do {
         SpriteRAM[x] = 0xF4;
@@ -1302,29 +1328,5 @@ void CheckMissileToggle() {
     MissileToggle ^= 0x01;
     SelectSamusPal();
 }
-
-// --- Not translated yet ---------------------------------------------------------------------------
-
-void UpdateStatues() {
-    Original(0xD9D4);
-}
-void DisplayBar() {
-    Original(0xE0C1);
-}
-void UpdateItems() {
-    Original(0xDB37);
-}
-
-void GetRoomNum() {
-    Original(0xE720);
-}
-void SetupRoom() {
-    Original(0xEA2B);
-}
-void ScrollDoor() {
-    Original(0xE1F1);
-}
-
-
 
 } // namespace Game
