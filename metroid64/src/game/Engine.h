@@ -3,6 +3,7 @@
 // Routines of bank 7 (the game engine), named as in the community disassembly.
 
 #include "game/Area.h"
+#include "game/Collision.h"
 #include "game/Enemies.h"
 #include "game/Hud.h"
 #include "game/Items.h"
@@ -78,8 +79,6 @@ void IsEngineRunning(uint8_t area);
 void SwitchBank(uint8_t area);
 void ChooseEnding();
 void ClearScreenData();
-bool GetRoomNum();
-void SwitchNameTable();
 bool CheckMoveDown();
 bool CheckMoveLeft();
 bool CheckMoveRight();

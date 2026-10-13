@@ -67,7 +67,6 @@ bool SamusElevator();
 void DoorEnemyCleanup();
 void ToggleSamusHi();
 bool CheckMoveUp();
-uint8_t GetNameTable();
 uint8_t BitScan(uint8_t a);
 void ClearHealthChange();
 

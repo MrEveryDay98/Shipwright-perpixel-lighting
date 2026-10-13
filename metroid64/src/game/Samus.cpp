@@ -375,6 +375,7 @@ void SubtractHealth() {
     Mem(0x03) = HealthHi;
     HealthHi = Base10Subtract(HealthHiChange, carry);
     if (((HealthLo & 0xF0) | HealthHi) != 0 && carry) {
+        ClearHealthChange(); // Samus survives
         return;
     }
     HealthLo = 0;
@@ -1051,9 +1052,6 @@ uint8_t BitScan(uint8_t a) {
 
 bool CheckMoveUp() {
     return Original(0xE7A2).c;
-}
-uint8_t GetNameTable() {
-    return Original(0xEB85).a;
 }
 
 void ClearHealthChange() {

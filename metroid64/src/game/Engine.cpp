@@ -1307,12 +1307,6 @@ void CheckMissileToggle() {
 
 // --- Not translated yet ---------------------------------------------------------------------------
 
-bool GetRoomNum() {
-    return Original(0xE720).c;
-}
-void SwitchNameTable() {
-    Original(0xE9B7);
-}
 bool CheckMoveDown() {
     return Original(0xE7AD).c;
 }
