@@ -3,6 +3,8 @@
 
 #include "game/Engine.h"
 
+#include "game/Enemies.h"
+
 #include "game/Game.h"
 #include "game/Area.h"
 #include "game/Constants.h"
@@ -1303,41 +1305,14 @@ void CheckMissileToggle() {
 
 // --- Not translated yet ---------------------------------------------------------------------------
 
-void UpdateEnemies() {
-    Original(0xF345);
-}
 void UpdateStatues() {
     Original(0xD9D4);
-}
-void DestroyEnemyObjects() {
-    Original(0xFA9D);
-}
-void UpdateMellows() {
-    Original(0xFC65);
-}
-void UpdateObjectsF93B() {
-    Original(0xF93B);
-}
-void UpdateSpinners() {
-    Original(0xFBDD);
-}
-void UpdateTiles() {
-    Original(0xFE1B);
-}
-void SamusEnemyCollisions() {
-    Original(0xF034);
 }
 void DisplayBar() {
     Original(0xE0C1);
 }
-void UpdateObjectsFAF2() {
-    Original(0xFAF2);
-}
 void UpdateItems() {
     Original(0xDB37);
-}
-void UpdateObjectsFDE3() {
-    Original(0xFDE3);
 }
 
 void GetRoomNum() {

@@ -3,6 +3,7 @@
 // Routines of bank 7 (the game engine), named as in the community disassembly.
 
 #include "game/Area.h"
+#include "game/Enemies.h"
 #include "game/Original.h"
 #include "game/Projectiles.h"
 #include "game/Sound.h"
@@ -108,18 +109,9 @@ uint8_t PowerUpMusic();
 uint8_t IntroMusic();
 uint8_t MotherBrainMusic();
 uint8_t TourianMusic();
-void UpdateEnemies();
 void UpdateStatues();
-void DestroyEnemyObjects();
-void UpdateMellows();
-void UpdateObjectsF93B();
-void UpdateSpinners();
-void UpdateTiles();
-void SamusEnemyCollisions();
 void DisplayBar();
-void UpdateObjectsFAF2();
 void UpdateItems();
-void UpdateObjectsFDE3();
 void EraseAllSprites();
 void PrepVertMirror();
 void CheckPalWrite();
