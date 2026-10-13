@@ -470,4 +470,26 @@ void SpriteFlipBitsOveride(uint8_t y) {
     ObjectCntrl |= 0x80;
 }
 
+// --- $E094 UpdateEnemyAnim ----------------------------------------------------------------------------
+
+// Steps the animation of the enemy at PageIndex once its delay runs out; delay is the new delay. The
+// enemy's animation data is at (EnemyAnimPtr), $FF marking the end of a sequence.
+void UpdateEnemyAnim(uint8_t delay) {
+    uint8_t x = PageIndex;
+    if (Enstatus[x] == 0x05) {
+        return; // dying
+    }
+    if (EnAnimDelay[x] != 0 && --EnAnimDelay[x] != 0) {
+        return;
+    }
+    EnAnimDelay[x] = delay;
+    uint8_t y = EnAnimIndex[x];
+    uint8_t frame;
+    while ((frame = Read((uint16_t)(EnemyAnimPtr.Word() + y))) == 0xFF) {
+        y = EnResetAnimIndex[x];
+    }
+    EnAnimFrame[x] = frame;
+    EnAnimIndex[x] = (uint8_t)(y + 1);
+}
+
 } // namespace Game
