@@ -28,7 +28,8 @@ You can provide the ROM in any of these ways:
 - put it next to the executable as `metroid.nes` (any `.nes` file in that folder is tried).
 
 Giving a ROM again (or a new Metroid64 version that changes the data format) remakes `metroid.o2r`. The data
-is XML inside the archive (`metroid/data/<area>/...`); a mod can replace any of those files.
+is XML inside the archive (world map, rooms, structures and more); a mod can replace any of those files.
+See [docs/DATA.md](docs/DATA.md).
 
 ## Building
 

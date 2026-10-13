@@ -1,8 +1,10 @@
 #include "game/data/Data.h"
 
 #include "game/Memory.h"
+#include "game/data/Image.h"
 
 #include <cstdio>
+#include <algorithm>
 #include <cstring>
 #include <tinyxml2.h>
 
@@ -33,10 +35,6 @@ uint32_t Crc32(const uint8_t* data, size_t len) {
         }
     }
     return ~crc;
-}
-
-uint16_t BankBase(int bank) {
-    return bank == 7 ? 0xC000 : 0x8000;
 }
 
 int HexDigit(char c) {
@@ -71,14 +69,34 @@ bool Extract(const std::vector<uint8_t>& ines, std::map<std::string, std::string
         return false;
     }
     const uint8_t* prg = &ines[start];
+    // Typed resources first; the generic blocks keep whatever they don't cover.
+    std::vector<uint8_t> covered(kPrgSize, 0);
+    ExtractLevel(prg, files, covered);
     for (const AssetEntry& a : kAssets) {
-        Block b;
-        b.bank = a.bank;
-        b.address = a.address;
-        b.name = a.name;
-        size_t off = (size_t)a.bank * 0x4000 + (a.address - BankBase(a.bank));
-        b.bytes.assign(prg + off, prg + off + a.length);
-        files[std::string("metroid/data/") + BankFolder(a.bank) + "/" + a.name] = WriteBlock(b);
+        size_t base = (size_t)a.bank * 0x4000 + (a.address - BankBase(a.bank));
+        size_t i = 0;
+        while (i < a.length) {
+            if (covered[base + i]) {
+                i++;
+                continue;
+            }
+            size_t j = i;
+            while (j < a.length && !covered[base + j]) {
+                j++;
+            }
+            Block b;
+            b.bank = a.bank;
+            b.address = (uint16_t)(a.address + i);
+            b.name = a.name;
+            if (i != 0) {
+                char suffix[16];
+                snprintf(suffix, sizeof(suffix), "_%X", (unsigned)i);
+                b.name += suffix;
+            }
+            b.bytes.assign(prg + base + i, prg + base + j);
+            files[std::string("metroid/data/") + BankFolder(a.bank) + "/" + b.name] = WriteBlock(b);
+            i = j;
+        }
     }
     char version[64];
     snprintf(version, sizeof(version), "<Version Version=\"0\" Data=\"%d\"/>\n", kDataVersion);
@@ -136,13 +154,59 @@ bool ReadBlock(const tinyxml2::XMLElement* root, Block& out, std::string& error)
     return true;
 }
 
-void Install(const std::vector<Block>& blocks) {
-    std::vector<uint8_t> prg(kPrgSize, 0);
-    for (const Block& b : blocks) {
-        size_t off = (size_t)b.bank * 0x4000 + (b.address - BankBase(b.bank));
-        std::copy(b.bytes.begin(), b.bytes.end(), prg.begin() + off);
+const char* const kResourceTypes[] = { "DataBlock", "WorldMap", "Room", "Structure", "Macros", nullptr };
+
+bool Assets::Read(const tinyxml2::XMLElement* root, std::string& error) {
+    if (root != nullptr && strcmp(root->Name(), "DataBlock") == 0) {
+        Block b;
+        if (!ReadBlock(root, b, error)) {
+            return false;
+        }
+        blocks.push_back(std::move(b));
+        return true;
     }
-    SetRomImage(std::move(prg));
+    return ReadLevelResource(root, level, error);
+}
+
+void Assets::Merge(const Assets& other) {
+    blocks.insert(blocks.end(), other.blocks.begin(), other.blocks.end());
+    if (other.level.haveWorld) {
+        level.world = other.level.world;
+        level.haveWorld = true;
+    }
+    for (const auto& [bank, rooms] : other.level.rooms) {
+        for (const auto& [n, r] : rooms) {
+            level.rooms[bank][n] = r;
+        }
+    }
+    for (const auto& [bank, structs] : other.level.structures) {
+        for (const auto& [n, st] : structs) {
+            level.structures[bank][n] = st;
+        }
+    }
+    for (const auto& [bank, m] : other.level.macros) {
+        level.macros[bank] = m;
+    }
+}
+
+bool Install(const Assets& assets, std::string& error) {
+    Image image;
+    // Same result whatever order the resources came in: blocks by bank and address.
+    std::vector<const Block*> blocks;
+    for (const Block& b : assets.blocks) {
+        blocks.push_back(&b);
+    }
+    std::sort(blocks.begin(), blocks.end(), [](const Block* a, const Block* b) {
+        return a->bank != b->bank ? a->bank < b->bank : a->address < b->address;
+    });
+    for (const Block* b : blocks) {
+        image.Put(b->bank, b->address, b->bytes);
+    }
+    if (!AssembleLevel(assets.level, image, error)) {
+        return false;
+    }
+    SetRomImage(std::move(image.Prg()));
+    return true;
 }
 
 bool InstallFromRom(const std::vector<uint8_t>& ines, std::string& error) {
@@ -150,9 +214,9 @@ bool InstallFromRom(const std::vector<uint8_t>& ines, std::string& error) {
     if (!Extract(ines, files, error)) {
         return false;
     }
-    std::vector<Block> blocks;
+    Assets assets;
     for (const auto& [path, text] : files) {
-        if (path.rfind("metroid/data/", 0) != 0) {
+        if (path == "metroid/version") {
             continue;
         }
         tinyxml2::XMLDocument doc;
@@ -160,14 +224,12 @@ bool InstallFromRom(const std::vector<uint8_t>& ines, std::string& error) {
             error = "XML error in " + path;
             return false;
         }
-        Block b;
-        if (!ReadBlock(doc.FirstChildElement(), b, error)) {
+        if (!assets.Read(doc.FirstChildElement(), error)) {
+            error = path + ": " + error;
             return false;
         }
-        blocks.push_back(std::move(b));
     }
-    Install(blocks);
-    return true;
+    return Install(assets, error);
 }
 
 } // namespace Game::Data

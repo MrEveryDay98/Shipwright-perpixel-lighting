@@ -16,32 +16,32 @@ namespace Metroid {
 
 namespace {
 
-constexpr uint32_t kDataBlockType = 0x4F444254; // ODBT
 constexpr const char* kAppShortName = "metroid64";
 
-class DataBlock : public Ship::Resource<Game::Data::Block> {
+// Any of the game's data resources (game/data): the piece it holds, ready to merge into the rest.
+class GameDataResource : public Ship::Resource<Game::Data::Assets> {
   public:
     using Resource::Resource;
-    Game::Data::Block block;
-    Game::Data::Block* GetPointer() override {
-        return &block;
+    Game::Data::Assets assets;
+    Game::Data::Assets* GetPointer() override {
+        return &assets;
     }
     size_t GetPointerSize() override {
-        return block.bytes.size();
+        return sizeof(assets);
     }
 };
 
-class ResourceFactoryXMLDataBlockV0 : public Ship::ResourceFactoryXML {
+class ResourceFactoryXMLGameDataV0 : public Ship::ResourceFactoryXML {
   public:
     std::shared_ptr<Ship::IResource> ReadResource(std::shared_ptr<Ship::File> file,
                                                   std::shared_ptr<Ship::ResourceInitData> initData) override {
         if (!FileHasValidFormatAndReader(file, initData)) {
             return nullptr;
         }
-        auto res = std::make_shared<DataBlock>(initData);
+        auto res = std::make_shared<GameDataResource>(initData);
         auto root = std::get<std::shared_ptr<tinyxml2::XMLDocument>>(file->Reader)->FirstChildElement();
         std::string error;
-        if (!Game::Data::ReadBlock(root, res->block, error)) {
+        if (!res->assets.Read(root, error)) {
             SPDLOG_ERROR("{}: {}", initData->Path, error);
             return nullptr;
         }
@@ -106,8 +106,11 @@ void AddArchiveBeforeMods(const std::string& path) {
 
 void RegisterGameDataResourceFactories() {
     auto loader = Ship::Context::GetRawInstance()->GetResourceManager()->GetResourceLoader();
-    loader->RegisterResourceFactory(std::make_shared<ResourceFactoryXMLDataBlockV0>(), RESOURCE_FORMAT_XML, "DataBlock",
-                                    kDataBlockType, 0);
+    // One resource type per kind of data, all read by game/data ('M','D' + a number).
+    for (uint32_t i = 0; Game::Data::kResourceTypes[i] != nullptr; i++) {
+        loader->RegisterResourceFactory(std::make_shared<ResourceFactoryXMLGameDataV0>(), RESOURCE_FORMAT_XML,
+                                        Game::Data::kResourceTypes[i], 0x4D440000 + i, 0);
+    }
 }
 
 std::string GameDataArchivePath() {
@@ -156,25 +159,24 @@ bool ExtractGameData(const std::string& romPath, std::string& error) {
 
 bool LoadGameData(std::string& error) {
     auto resources = Ship::Context::GetRawInstance()->GetResourceManager();
-    auto paths = Archives()->ListFiles("metroid/data/*");
-    std::vector<Game::Data::Block> blocks;
+    auto paths = Archives()->ListFiles("metroid/*");
+    Game::Data::Assets assets;
     for (const std::string& path : *paths) {
-        auto res = std::dynamic_pointer_cast<DataBlock>(resources->LoadResource(path));
+        if (path == "metroid/version") {
+            continue;
+        }
+        auto res = std::dynamic_pointer_cast<GameDataResource>(resources->LoadResource(path));
         if (res == nullptr) {
             error = "Could not load " + path;
             return false;
         }
-        blocks.push_back(res->block);
+        assets.Merge(res->assets);
     }
-    if (blocks.empty()) {
+    if (assets.blocks.empty()) {
         error = "No game data in the archives";
         return false;
     }
-    // Same order every time (ListFiles comes from a hash map): by bank and address.
-    std::sort(blocks.begin(), blocks.end(),
-              [](const auto& a, const auto& b) { return a.bank != b.bank ? a.bank < b.bank : a.address < b.address; });
-    Game::Data::Install(blocks);
-    return true;
+    return Game::Data::Install(assets, error);
 }
 
 } // namespace Metroid

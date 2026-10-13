@@ -7,6 +7,8 @@
 //
 // Independent of libultraship: the app wraps these in resources, the lockstep tool uses them directly.
 
+#include "game/data/Level.h"
+
 #include <cstdint>
 #include <map>
 #include <string>
@@ -19,7 +21,7 @@ class XMLElement;
 namespace Game::Data {
 
 // Version of the extracted data. Bump it when the extraction changes, so old archives are redone.
-constexpr int kDataVersion = 1;
+constexpr int kDataVersion = 2;
 
 // A run of bytes at its original place in the ROM. Untyped data is kept this way until it gets a
 // resource type of its own.
@@ -43,8 +45,22 @@ bool ReadBlock(const tinyxml2::XMLElement* root, Block& out, std::string& error)
 // The DataBlock resource file for a block.
 std::string WriteBlock(const Block& block);
 
-// Builds the data the game reads from the blocks (later blocks win where they overlap).
-void Install(const std::vector<Block>& blocks);
+// All the game's data resources, read from their XML.
+struct Assets {
+    std::vector<Block> blocks;
+    Level level;
+
+    // Reads any data resource (by its root element). False if it isn't one, or is malformed.
+    bool Read(const tinyxml2::XMLElement* root, std::string& error);
+    void Merge(const Assets& other);
+};
+
+// Resource type names (XML root elements) of the game's data.
+extern const char* const kResourceTypes[];
+
+// Builds the data the game reads from the resources. False, with a reason, if it can't be built (a mod
+// that doesn't fit, for instance).
+bool Install(const Assets& assets, std::string& error);
 
 // Lockstep and tools: extract, write the XML, read it back and install it, all in memory.
 bool InstallFromRom(const std::vector<uint8_t>& ines, std::string& error);
