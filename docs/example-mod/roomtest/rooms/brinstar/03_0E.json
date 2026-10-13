@@ -1,0 +1,11 @@
+{
+ "keep_tiles": false,
+ "animations": {
+  "Idle": {
+   "fps": 1,
+   "frames": [
+    "rooms/brinstar/start/dl"
+   ]
+  }
+ }
+}

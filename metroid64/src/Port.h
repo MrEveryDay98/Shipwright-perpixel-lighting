@@ -34,6 +34,7 @@ class Port : public GameView {
         return mFrame;
     }
     void RenderFrame(uint32_t* out) const override;
+    RoomInfo RoomOnPage(int page) const override;
     std::vector<int16_t>& AudioSamples() override {
         return mApu.Samples();
     }

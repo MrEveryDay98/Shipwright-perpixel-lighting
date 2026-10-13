@@ -27,4 +27,16 @@ void UntagRest();
 // The sprite DMA copied sprite RAM to the screen.
 void OnSpriteDma();
 
+// Which room of the world map is drawn in each half of the name tables: room RAM A ($6000, name table
+// page 0) and B ($6400, page 1). Custom geometry for a room replaces its tiles while it is on screen.
+struct RoomTag {
+    bool valid = false;
+    uint8_t bank = 0; // area bank: 1 Brinstar, 2 Norfair, 3 Tourian, 4 Kraid, 5 Ridley
+    uint8_t mapX = 0, mapY = 0;
+    uint8_t room = 0; // room number in the area's room table
+};
+extern RoomTag gRooms[2];
+// SetupRoom started drawing RoomNumber (at MapPosX/MapPosY) into the room RAM CartRAMPtr points to.
+void OnRoomDrawn();
+
 } // namespace Game::Present

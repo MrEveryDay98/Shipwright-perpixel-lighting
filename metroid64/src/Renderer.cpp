@@ -338,6 +338,20 @@ void Renderer::DrawPlayField(Gfx*& g, const GameView& emu) {
     for (int ly = 0; ly < periodY / 240; ly++) {
         for (int lx = 0; lx < periodX / 256; lx++) {
             int page = mirroring == 0 ? 0 : mirroring == 1 ? 1 : mirroring == 2 ? lx : ly;
+            // A room with custom geometry: draw its model at the page's position.
+            RoomInfo room = emu.RoomOnPage(page);
+            const Model* roomModel = room.valid ? mModels.Room(room.bank, room.mapX, room.mapY, room.room) : nullptr;
+            if (roomModel != nullptr) {
+                ModelInstance m;
+                m.anim = "Idle";
+                m.time = (float)emu.FrameCount() / 60.0f;
+                m.x = (float)(WrapInto(lx * 256 + 128 - scrollX, kScreenW / 2 - periodX / 2, periodX) - 128);
+                m.y = (float)(WrapInto(ly * 240 + 120 - scrollY, kScreenH / 2 - periodY / 2, periodY) - 120);
+                roomModel->Draw(*this, g, m);
+                if (!roomModel->KeepTiles()) {
+                    continue;
+                }
+            }
             for (int cy = 0; cy < 4; cy++) {
                 for (int cx = 0; cx < 4; cx++) {
                     Chunk& chunk = mChunks[page * 16 + cy * 4 + cx];
@@ -365,8 +379,7 @@ void Renderer::DrawPlayField(Gfx*& g, const GameView& emu) {
                     int chunkH = cy == 3 ? 48 : 64;
                     int px = lx * 256 + cx * kChunkPx, py = ly * 240 + cy * kChunkPx;
                     // Offset of the chunk's centre from the screen's centre, wrapped to the nearest copy.
-                    int dx = WrapInto(px + kChunkPx / 2 - scrollX, kScreenW / 2 - periodX / 2, periodX) -
-                             kChunkPx / 2;
+                    int dx = WrapInto(px + kChunkPx / 2 - scrollX, kScreenW / 2 - periodX / 2, periodX) - kChunkPx / 2;
                     int dy = WrapInto(py + chunkH / 2 - scrollY, kScreenH / 2 - periodY / 2, periodY) - chunkH / 2;
                     Mtx* m = AllocMtx(Translate((float)dx, (float)-dy, 0));
                     if (m == nullptr) {
