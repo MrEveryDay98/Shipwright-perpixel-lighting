@@ -10,7 +10,6 @@ void UpdateMellows(); // $FC65
 void UpdateObjectsF93B(); // $F93B
 void UpdateSpinners(); // $FBDD
 void UpdateTiles(); // $FE1B
-void SamusEnemyCollisions(); // $F034
 void UpdateObjectsFAF2(); // $FAF2
 void UpdateObjectsFDE3(); // $FDE3
 

@@ -1305,10 +1305,4 @@ void CheckMissileToggle() {
     SelectSamusPal();
 }
 
-// --- Not translated yet ---------------------------------------------------------------------------
-
-void SetupRoom() {
-    Original(0xEA2B);
-}
-
 } // namespace Game

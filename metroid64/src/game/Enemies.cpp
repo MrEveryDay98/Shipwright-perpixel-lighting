@@ -29,9 +29,6 @@ void UpdateSpinners() {
 void UpdateTiles() {
     Original(0xFE1B);
 }
-void SamusEnemyCollisions() {
-    Original(0xF034);
-}
 void UpdateObjectsFAF2() {
     Original(0xFAF2);
 }

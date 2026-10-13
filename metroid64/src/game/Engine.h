@@ -10,6 +10,7 @@
 #include "game/Scroll.h"
 #include "game/Original.h"
 #include "game/Projectiles.h"
+#include "game/Room.h"
 #include "game/Sound.h"
 #include "game/Title.h"
 
@@ -79,7 +80,6 @@ void IsEngineRunning(uint8_t area);
 void SwitchBank(uint8_t area);
 void ChooseEnding();
 void ClearScreenData();
-void SetupRoom();
 void UpdateWorld();
 void SelectSamusPal();
 void CheckMissileToggle();

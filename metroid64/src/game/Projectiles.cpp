@@ -605,13 +605,14 @@ uint8_t ToggleScroll() {
 void SamusOnElevatorOrEnemy() {
     SamusOnElevator = 0;
     OnFrozenEnemy = 0;
-    Regs r = Original(0xF186, { 0, 0x50, 0 });
+    GetObject1CoordData(0x00);
+    Regs r{ 0, 0x50, 0 };
     uint8_t x = 0x50;
     for (;;) {
         bool next = true;
         if (Enstatus[x] == 0x04) { // frozen
-            r = Original(0xF152, { 0, x, r.y });
-            r = Original(0xF1BF, r);
+            GetEnemy0CoordData(x);
+            r = Original(0xF1BF, { 0, x, r.y });
             r = Original(0xF1FA, r);
             if (!r.c && SamusOnTop()) {
                 OnFrozenEnemy++;
