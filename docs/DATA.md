@@ -320,20 +320,143 @@ code. The `DrumBeat0`-`3` entries are the music's drum beats (no $400D byte).
 `MissilePickupTable`, `IceBeamTable`, `WaveBeamPeriodTable`, `WaveBeamVolumeTable` (the comment in each
 says which register). Sound effects and their tables keep their size and address.
 
+## Enemies: `metroid/enemies/<area>`
+
+```xml
+<Enemies Version="0" Area="brinstar" MoveSetArea="30">
+    <Enemy Type="00" HitPoints="08" Delay="08" Timer="01" Distance="00" Flags="01" Flags2="64"
+           ExplodeAnim="27 27" RunAnim="05 05" TurnAnim="05 05" TurnAnimRewind="00" MoveSet="00" Moves="01 02"/>
+    ...
+    <Move Number="00" Script0="00" Script1="01" AccelY="127" AccelX="0" SpeedY="-10" SpeedX="0"/>
+    ...
+    <Projectile Type="00" Anim="00 00" OffsetX="12 -12" OffsetY="-12"/>
+    <FireballPath Number="00" Script="14"/>
+    <Script Number="02" Address="97F5" Size="75">
+        <Step Count="02" Y="-7" X="2"/>
+        ...
+        <ResetCount/>
+        <Restart/>
+    </Script>
+</Enemies>
+```
+
+The 16 enemy types of an area (the type is what rooms and special items give as `Type`) and how they move:
+the tables at `$960B`-`$97AE` of the area bank. Each attribute is one table, named after what the code
+(`Enemies.cpp`, `AreaCommon.cpp`, `Objects.cpp`) does with it. Pairs are by direction: first for direction 0
+(facing right, or down for enemies that move vertically: `$0405` bit 0, or bit 2 when bit 7 is set), then
+direction 1 (left, or up). Animations are indexes into the area's enemy animations (`metroid/sprites/<area>/
+enemies`). Signed values (accelerations, speeds, offsets, steps) are decimal, the rest hex.
+
+- `HitPoints` (`EnemyHitPointTbl`, `$962B`): doubled for tough enemies (rooms' `Tough="1"`). An enemy
+  with `FF` hit points isn't hurt by weapons (they clang).
+- `Delay` (`EnemyInitDelayTbl`, `$96BB`): how many frames a resting enemy waits before it picks a move (it
+  also waits while `Distance` keeps it asleep). Reloaded when the enemy rests again.
+- `Timer` (`$969B`): reloaded into `$040D`. A counter that, when it runs out, turns the enemy toward Samus
+  (see `Flags`); also how long the enemy stays frozen (counted every 8 frames).
+- `Distance` (`$96AB`): bits 0-6: how close Samus must be (in 16-pixel units, along x, or y for vertical
+  movers), 0: always. Bit 7 set: farther away the enemy doesn't wake up (`$0405` bit 3); clear: it doesn't
+  fire (`$0405` bit 4).
+- `Flags` (`$968B`, a neutral name: several uses): bit 7 turns it toward Samus horizontally when `Timer`
+  runs out; bit 1: it keeps doing so once moving; bit 4: touching it doesn't hurt Samus; bit 5: it doesn't
+  turn around when blocked; bits 2-3 pick the sound when hit (`0C`: the Metroid's, `08`: the big enemy's,
+  else the normal one); bit 0: lets it leave pickup `89` when it dies. Bit 6 isn't read by this code.
+- `Flags2` (`$977B`, neutral too): bit 7 makes it a vertical mover (`$0405` bit 7); bit 6 makes it move by
+  acceleration (the move's `Accel`/`Speed`) instead of by script; bits 0 and 1: it turns around when blocked
+  horizontally / vertically; bits 2-3 go to `$6B03` (bit 3: script commands check the background above,
+  else below; both clear: no check); bit 4: only missiles hurt it (other weapons just make the Metroid-hit
+  sound), freezing sets its hit points to 5, it is frozen again after being stunned, and the code at `$DCFC`
+  stores this bit in the dead enemy's `EnDataIndex`.
+- `ExplodeAnim` (`$960B`), `RunAnim` (`$963B`), `TurnAnim` (`$965B`): the animations when it dies, moves,
+  turns. `TurnAnimRewind` (`$967B`): bits 0-6: the turn animation starts that many entries before
+  `TurnAnim` (it loops from `TurnAnim`); bit 7 isn't read by this code.
+- `Moves` (`$96CB` and the move sets at `$97D1`): the moves it picks from at random when it starts moving
+  (1, 2, 4, 8... of them). `MoveSet` is where the set was (offset from `$97D1`); leave it. A type whose
+  `MoveSet` doesn't lead to a set has no `Moves` and keeps its byte as it is. Sets live in the
+  `MoveSetArea` bytes from `$97D1`; sets that are the same are stored once. Bigger sets take the place of
+  the scripts that follow (those move to free space), but the game can't reach past `$97D1` + 255.
+
+`Move` (moves 00-13): `Script0`, `Script1` (`$96DB`, pointers by direction) are the movement scripts of
+enemies that move by script; `AccelY`, `AccelX`, `SpeedY`, `SpeedX` (`$972B`, `$973F`, `$9753`, `$9767`) the
+start values of enemies that move by acceleration (`Flags2` bit 6).
+
+`Projectile` (types 0-3, what the area code fires): `Anim` (`$978B`), `OffsetX` (`$979B`, by direction),
+`OffsetY` (`$97A3`): its animation and where it starts from the enemy. `FireballPath` 0-3 (`$97A7`): the
+paths of the fireballs (a `Script` with `Path="1"`, only steps and `Restart`).
+
+A `Script` is the list of steps an enemy follows while it moves (one step per movement update, normally
+once a frame):
+
+- `Step Count Y X`: move Y and X pixels per update (-7 to 7; `-0` keeps a sign bit that does nothing),
+  Count times. Count is below `F0` in movement scripts.
+- `Restart` (`FF`, or `Code="F0"`-`F9`): back to the first step. `Stop` (`FA`): stop moving. `Hold` (`FB`):
+  stay on this step without moving. `ResetCount` (`FD`): set `$6B01` (a count of the pixels moved) to 0.
+- `RepeatWhileFree` (`FC`): repeat the previous step while the background next to the enemy is free (above
+  or below, by `$6B03`; with `$6B03` 0, forever), then go on. `RepeatWhileFreeThenStop` (`FE`): the same,
+  but then stop (turning around first if `Flags` bit 5 is set).
+
+Scripts several moves share are one `Script`; a changed or bigger script goes back where it was if it
+fits, else into free space, and the pointers follow. Tourian's types are mostly driven by its own code; its
+tables are there all the same.
+
+## Sprites: `metroid/sprites/objects`, `metroid/sprites/<area>/enemies`
+
+```xml
+<Sprites Version="0" Kind="objects" Banks="1 2 3 4 5" AnimTable="8572" AnimSize="153" FrameTable="860B"
+         Frames="106" PlaceTable="86DF" Placements="15">
+    <Animation Index="0E">17 18 19 1A</Animation>
+    <Frame Number="00" Address="87CB" Size="18" Placement="0" Palette="0" FlipX="1" RadiusY="0F" RadiusX="04">
+        <Sprite Tile="00"/>
+        <Attributes Value="20"/>
+        <Skip/>
+        <Offset Y="-8" X="0"/>
+        ...
+    </Frame>
+    <Frame Number="01" SameAs="00"/>
+    <Placement Number="00" Address="8701" Size="30">-16,-8 -16,0 -8,-16 ...</Placement>
+    <Placement Number="07" Address="875D" Size="24">*0,*0 *1,*1 ... -12,-8 -12,0 ...</Placement>
+</Sprites>
+```
+
+How objects and enemies are drawn. `objects` are Samus, her shots, bombs, missiles and the doors: the same
+tables in the five area banks (`ObjectAnimIdxTbl` `$8572`, `FramePtrTable` `$860B`, `PlacePtrTable`
+`$86DF`), so one resource goes into all of them. `<area>/enemies` are the area's
+`EnemyAnimIndexTbl`, `EnemyFramePtrTbl1` (frames 00-7F), `EnemyFramePtrTbl2` (frames 80 and up) and
+`EnemyPlacePtrTbl`.
+
+- `Animation Index`: a run of frame numbers ending with `FF` (`Open="1"`: without it). The game starts an
+  animation at an index (or, for turns, a few entries before) and, at the end, goes back to where it
+  started. Frame `F7` draws nothing. Indexes are what the code and the enemy tables use, so the runs stay
+  where they are; the objects' table can't grow, an enemy table can (up to 256 bytes) and moves.
+- `Frame`: `Placement` (0-F) picks the placement table, `Palette` (0-3) the sprite palette, `FlipX`/`FlipY`
+  mirror the frame (its placement offsets too); `RadiusY`/`RadiusX`: the object's half-size (visibility,
+  collisions). Then, in order: `Sprite Tile` draws an 8x8 tile at the next placement entry; `Skip` passes
+  over one; `Offset Y X` moves the rest of the frame; `Attributes Value` sets the sprite attribute byte of
+  the next sprites (bit 7 flip y, bit 6 flip x, bit 5 behind the background, bits 0-1 palette); before
+  that, sprites have the frame's flips and palette and bit 5 set. `SameAs`: the frame is the same bytes as
+  another (changing that one changes both); give it content of its own to change it alone.
+- `Placement`: y,x offsets in pixels from the object's position, one per sprite. `*n` (byte `8n`) is a
+  piece of an explosion: it flies out over time (bits 1-3: the speed set, bit 0: left or right) from the
+  offset 6 entries further on. Placement tables overlap in the original (one starts inside another); each
+  lists the entries its frames use, and they are put back sharing the bytes when unchanged.
+
+`Address`/`Size` and the root's tables are where things were: leave them. Frames and placement tables that
+grow go into free space; an enemy pointer table that gets more entries moves too (with its `AreaPointers`
+entry), the objects' tables (at fixed addresses) can't grow.
+
 ## Everything else: `metroid/data/<bank>/<name>`
 
 Data without a type of its own yet is kept as the bytes of a table, named after the disassembly's label:
 
 ```xml
-<DataBlock Version="0" Bank="1" Address="A271" Name="Palette00">
-    3F 00 20 0F 22 12 1C ...
+<DataBlock Version="0" Bank="7" Address="DE35" Name="ItemDropTbl">
+    ...
 </DataBlock>
 ```
 
 A block goes back exactly where it came from, so a mod can change its bytes but not its size. Folders:
 `title` (bank 0: title, passwords, ending), `brinstar`, `norfair`, `tourian`, `kraid`, `ridley` (the area
-banks: enemy data), `graphics` (bank 6) and `engine` (bank 7). Enemy data and the remaining
-small tables are getting types of their own next.
+banks), `graphics` (bank 6) and `engine` (bank 7). What is left here is small tables: engine and title
+settings, the password tables, the title and ending sprites, and tables that hold code addresses.
 
 ## How it fits together
 

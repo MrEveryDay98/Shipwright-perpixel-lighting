@@ -79,6 +79,8 @@ bool Extract(const std::vector<uint8_t>& ines, std::map<std::string, std::string
     ExtractPpu(prg, files, covered);
     ExtractGraphics(prg, files, covered);
     ExtractAudio(prg, files, covered);
+    ExtractEnemies(prg, files, covered);
+    ExtractSprites(prg, files, covered);
     for (const AssetEntry& a : kAssets) {
         size_t base = (size_t)a.bank * 0x4000 + (a.address - BankBase(a.bank));
         size_t i = 0;
@@ -165,7 +167,9 @@ const char* const kResourceTypes[] = { "DataBlock", "WorldMap", "Room", "Structu
                                        "Palettes", "Screen", "AreaInfo", "Graphics",
                                        // Audio
                                        "Song", "SoundEffect", "SoundEffectTable", "NoteTable", "NoteLengths",
-                                       "VolumeEnvelopes", nullptr };
+                                       "VolumeEnvelopes",
+                                       // Enemies and sprites
+                                       "Enemies", "Sprites", nullptr };
 
 bool Assets::Read(const tinyxml2::XMLElement* root, const FileLoader& load, std::string& error) {
     if (root != nullptr && strcmp(root->Name(), "DataBlock") == 0) {
@@ -189,6 +193,12 @@ bool Assets::Read(const tinyxml2::XMLElement* root, const FileLoader& load, std:
     }
     if (IsAudioResource(root)) {
         return ReadAudioResource(root, audio, error);
+    }
+    if (root != nullptr && strcmp(root->Name(), "Enemies") == 0) {
+        return ReadEnemiesResource(root, enemies, error);
+    }
+    if (root != nullptr && strcmp(root->Name(), "Sprites") == 0) {
+        return ReadSpritesResource(root, sprites, error);
     }
     return ReadLevelResource(root, level, error);
 }
@@ -228,6 +238,12 @@ void Assets::Merge(const Assets& other) {
         graphics[where] = g;
     }
     audio.Merge(other.audio);
+    for (const auto& [bank, e] : other.enemies.areas) {
+        enemies.areas[bank] = e;
+    }
+    for (const auto& [key, s] : other.sprites.sets) {
+        sprites.sets[key] = s;
+    }
 }
 
 bool Install(const Assets& assets, std::string& error) {
@@ -244,7 +260,8 @@ bool Install(const Assets& assets, std::string& error) {
         image.Put(b->bank, b->address, b->bytes);
     }
     if (!AssembleLevel(assets.level, image, error) || !AssemblePpu(assets.ppu, image, error) ||
-        !AssembleGraphics(assets.graphics, image, error)) {
+        !AssembleGraphics(assets.graphics, image, error) || !AssembleEnemies(assets.enemies, image, error) ||
+        !AssembleSprites(assets.sprites, image, error)) {
         return false;
     }
     if (!AssembleAudio(assets.audio, image, error)) {

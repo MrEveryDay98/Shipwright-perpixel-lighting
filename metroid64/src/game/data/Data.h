@@ -11,6 +11,8 @@
 #include "game/data/Audio.h"
 #include "game/data/Level.h"
 #include "game/data/Ppu.h"
+#include "game/data/Enemies.h"
+#include "game/data/Sprites.h"
 
 #include <cstdint>
 #include <map>
@@ -24,7 +26,7 @@ class XMLElement;
 namespace Game::Data {
 
 // Version of the extracted data. Bump it when the extraction changes, so old archives are redone.
-constexpr int kDataVersion = 8;
+constexpr int kDataVersion = 9;
 
 // A run of bytes at its original place in the ROM. Untyped data is kept this way until it gets a
 // resource type of its own.
@@ -59,6 +61,8 @@ struct Assets {
     PpuAssets ppu;
     std::map<std::pair<int, int>, Graphics> graphics; // [(bank, address)]
     Audio audio;
+    EnemyAssets enemies;
+    SpriteAssets sprites;
 
     // Reads any data resource (by its root element). False if it isn't one, or is malformed. `load` gives
     // the files resources refer to (the graphics' images).
