@@ -7,6 +7,8 @@
 //     --frames <n>               frames to compare after the sync point
 //     --random <seed>            random inputs after the scripted ones
 //     --ram-h <path>             Ram.h, for naming differing addresses
+//     --poke <addr=val,...>      written into both games' memory before every frame (e.g. items,
+//                                health), so random play can reach more of the game
 
 #include "game/Game.h"
 #include "game/Hw.h"
@@ -230,6 +232,7 @@ int main(int argc, char** argv) {
     Script script;
     int sync = 300, frames = 600;
     long seed = -1;
+    std::vector<std::pair<uint16_t, uint8_t>> pokes;
     const char* ramH = "metroid64/src/game/Ram.h";
     for (int i = 2; i + 1 < argc; i += 2) {
         std::string opt = argv[i];
@@ -243,6 +246,17 @@ int main(int argc, char** argv) {
             seed = atol(argv[i + 1]);
         } else if (opt == "--ram-h") {
             ramH = argv[i + 1];
+        } else if (opt == "--poke") {
+            for (const char* p = argv[i + 1]; *p;) {
+                uint16_t a = (uint16_t)strtol(p, nullptr, 16);
+                const char* eq = strchr(p, '=');
+                if (!eq) {
+                    break;
+                }
+                pokes.emplace_back(a, (uint8_t)strtol(eq + 1, nullptr, 16));
+                const char* comma = strchr(eq, ',');
+                p = comma ? comma + 1 : eq + strlen(eq);
+            }
         }
     }
     auto names = LoadNames(ramH);
@@ -301,7 +315,14 @@ int main(int argc, char** argv) {
     int portFrameButtons = 0;
     Game::SetNmiHook([&](int nmiIndex) { Game::Hw::gPads[0] = buttonsAt(portFrameButtons + nmiIndex); });
     int compared = 0, resyncs = 0;
+    auto applyPokes = [&]() {
+        for (const auto& [a, v] : pokes) {
+            emu.Write(a, v);
+            Game::Mem(a) = v;
+        }
+    };
     for (int n = 0; n < frames; n++) {
+        applyPokes();
         portFrameButtons = frame;
         gEmuApu.clear();
         gPortApu.clear();
@@ -315,6 +336,7 @@ int main(int argc, char** argv) {
         lag = !InWaitLoop(emu);
         if (lag) {
             while (!InWaitLoop(emu)) {
+                applyPokes();
                 emu.SetButtons(buttonsAt(frame));
                 emu.RunFrame();
                 frame++;
