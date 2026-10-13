@@ -1,5 +1,7 @@
 #pragma once
 
+// (Not named Math.h: on case-insensitive filesystems that would shadow the C library <math.h>.)
+
 #include <cmath>
 #include <libultraship/libultraship.h>
 

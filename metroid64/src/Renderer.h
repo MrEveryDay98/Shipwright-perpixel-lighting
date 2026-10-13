@@ -2,7 +2,7 @@
 
 #include "Game.h"
 #include "Gbi.h"
-#include "Math.h"
+#include "Mat4.h"
 
 #include <array>
 #include <memory>
