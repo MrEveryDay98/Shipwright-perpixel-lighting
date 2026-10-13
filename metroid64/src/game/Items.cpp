@@ -2,6 +2,8 @@
 
 #include "game/Items.h"
 
+#include "game/Enemies.h"
+
 #include "game/Constants.h"
 #include "game/Engine.h"
 #include "game/Objects.h"
@@ -259,7 +261,7 @@ void CreateItemID() {
 
 // $DC7F: returns the carry: clear when objects x and y overlap.
 bool AreObjectsTouching(uint8_t x, uint8_t y) {
-    return Original(0xDC7F, { 0, x, y }).c;
+    return TouchCheckDC7F(x, y);
 }
 
 } // namespace Game

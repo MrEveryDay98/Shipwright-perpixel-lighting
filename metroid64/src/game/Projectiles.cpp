@@ -606,19 +606,17 @@ void SamusOnElevatorOrEnemy() {
     SamusOnElevator = 0;
     OnFrozenEnemy = 0;
     GetObject1CoordData(0x00);
-    Regs r{ 0, 0x50, 0 };
+    uint8_t y = 0x00;
     uint8_t x = 0x50;
     for (;;) {
         bool next = true;
         if (Enstatus[x] == 0x04) { // frozen
             GetEnemy0CoordData(x);
-            r = Original(0xF1BF, { 0, x, r.y });
-            r = Original(0xF1FA, r);
-            if (!r.c && SamusOnTop(r.y)) {
+            DistFromEn0ToObj1(x, y);
+            if (!CheckObjectDistance() && SamusOnTop(y)) {
                 OnFrozenEnemy++;
                 next = false;
             }
-            x = r.x;
         }
         if (!next) {
             break;
@@ -631,11 +629,10 @@ void SamusOnElevatorOrEnemy() {
     if (ElevatorStatus == 0) {
         return;
     }
-    r = Original(0xDC82, { 0, 0x20, 0 });
-    if (r.c) {
+    if (TouchCheckDC82(0x20, y)) {
         return;
     }
-    if (SamusOnTop(r.y)) {
+    if (SamusOnTop(y)) {
         SamusOnElevator++;
     }
 }
