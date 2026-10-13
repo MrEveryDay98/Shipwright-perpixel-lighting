@@ -6,7 +6,9 @@ file(GLOB_RECURSE METROID64_SOURCES CONFIGURE_DEPENDS
 add_executable(metroid64 ${METROID64_SOURCES})
 target_include_directories(metroid64 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_compile_definitions(metroid64 PRIVATE F3DEX_GBI_2)
-target_link_libraries(metroid64 PRIVATE libultraship)
+# zlib: the graphics resources' PNG images (game/data/Png.cpp).
+find_package(ZLIB REQUIRED)
+target_link_libraries(metroid64 PRIVATE libultraship ZLIB::ZLIB)
 set_target_properties(metroid64 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/metroid64)
 
 if(MSVC)

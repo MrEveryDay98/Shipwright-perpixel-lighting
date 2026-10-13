@@ -85,6 +85,72 @@ loaded. Items:
 - `Enemy Index Type X Y` (`Index`: the enemy slot), `Memus`, `Elevator Info`, `Door Info`, `Palette`.
 - Tourian: `Cannon Index Info`, `MotherBrain`, `Zebetite Index`, `Rinka Index`.
 
+## Graphics: `metroid/graphics/<name>` and `metroid/graphics/<name>.png`
+
+The tiles the game copies into the pattern tables, one resource per block the graphics loaders use (the
+`GFXInfo` table at `$C6E0`, read by `LoadGFX` in `Engine.cpp`). The resource says where the block goes and
+names its image:
+
+```xml
+<Graphics Version="0" Bank="6" Address="8000" Name="GFXSuitedSamus" Tiles="154" Image="metroid/graphics/GFXSuitedSamus.png"/>
+```
+
+The image is a PNG of the tiles, 16 per row (128 pixels wide, 8 pixels high per row of tiles), left to right
+then top to bottom; slots after the last tile are ignored. Each pixel is a tile pixel's 2-bit value: the
+extractor writes 2-bit indexed PNGs whose palette is four greys (index 0 black, 1 dark grey, 2 light grey,
+3 white), so the indices are the values. Which colours they become in the game depends on the palette the
+game draws the tile with (value 0 is transparent in sprites).
+
+To change the graphics, edit the PNG (in a mod: the same path, `metroid/graphics/<name>.png`; the
+`<Graphics>` file only needs to be in the mod if it changes) with any image editor. Saved back as:
+
+- an indexed PNG with at most 4 palette entries: the index is the value (keep the palette order);
+- anything else (greyscale, RGB, RGBA, indexed with a bigger palette, any bit depth): the nearest of the
+  four greys (0, 55, AA, FF; a colour counts as the average of its red, green and blue), and fully
+  transparent pixels are 0.
+
+Interlaced PNGs aren't read.
+
+- `Bank`, `Address`: where the block was in the ROM. They identify the block: the `GFXInfo` entries that
+  load from there load this resource. Leave them.
+- `Tiles` (decimal, 1-512): how many tiles the block has. Unchanged, the block goes back where it was. With
+  more tiles, put them in the image too: the block is placed in free space (in its bank if there is room,
+  else in any of banks 0-6) and the `GFXInfo` entries that loaded the whole block load all of it from there.
+  With fewer, those entries load fewer. Entries that load only the first part of a block (the font is loaded
+  partly in places) keep their length. The tiles are copied to the same place in the pattern tables as
+  before, so more tiles overwrite the tiles after them there (which the game may load from another block),
+  and must not run past the end of the pattern tables (`$2000`): that is refused.
+
+The blocks, with the disassembly's labels for bank 6 and names after its comments for the others:
+
+| Name | Bank | Address | Tiles | Loaded |
+|------|------|---------|-------|--------|
+| `GFXSuitedSamus` | 6 | 8000 | 154 | title, game start |
+| `GFXIntroEnd` | 6 | 89A0 | 16 | title, game start |
+| `GFXMetroidTitle` | 6 | 8BE0 | 80 | title |
+| `GFXSuitlesSamus` | 6 | 90E0 | 123 | game start without the suit |
+| `GFXExPoint` | 6 | 9890 | 1 | Tourian |
+| `GFXBlankTiles` | 6 | 9980 | 4 | with every set |
+| `GFXBrinstar1` | 6 | 9DA0 | 21 | Brinstar |
+| `GFXBrinstar2` | 6 | 9EF0 | 128 | every area |
+| `GFXNorfair1`, `GFXNorfair2` | 6 | A6F0, A950 | 38, 7 | Norfair |
+| `GFXTourian1` | 6 | A9C0 | 46 | Tourian, Kraid, Ridley |
+| `GFXTourian2`, `GFXMthrBrnRoom` | 6 | ACA0, B2A0 | 96, 9 | Tourian |
+| `GFXTourian3` | 6 | B330 | 12 | Kraid |
+| `GFXTourian4` | 6 | B3F0 | 12 | Ridley |
+| `GFXFont` | 6 | B4C0 | 64 | title, password screen, game start, Tourian (part of it) |
+| `GFXTheEndFont` | 1 | 8D60 | 64 | ending |
+| `GFXBrinstarEnemies` | 1 | 9160 | 64 | Brinstar |
+| `GFXNorfairEnemies`, `GFXTourianEnemies` | 2 | 8D60, 9160 | 64 | Norfair, Tourian |
+| `GFXKraidEnemies`, `GFXRidleyEnemies` | 3 | 8D60, 9160 | 64 | Kraid, Ridley |
+| `GFXSamusEnd` | 4 | 8D60 | 82 | ending |
+| `GFXMiscBank4` | 4 | 9360 | 32 | Kraid |
+| `GFXMiscBank5` | 5 | 8D60 | 69 | Brinstar, Norfair, Kraid, Ridley |
+| `GFXJapaneseFont` | 5 | 91B0 | 48 | Tourian |
+
+Bytes next to these blocks that the loaders don't copy (unused tiles, the title's star data) stay in data
+blocks.
+
 ## Everything else: `metroid/data/<bank>/<name>`
 
 Data without a type of its own yet is kept as the bytes of a table, named after the disassembly's label:
@@ -97,8 +163,8 @@ Data without a type of its own yet is kept as the bytes of a table, named after 
 
 A block goes back exactly where it came from, so a mod can change its bytes but not its size. Folders:
 `title` (bank 0: title, passwords, ending), `brinstar`, `norfair`, `tourian`, `kraid`, `ridley` (the area
-banks: palettes, enemy data, music), `graphics` (bank 6) and `engine` (bank 7). Palettes, graphics, enemy
-data, music and text are getting types of their own next.
+banks: palettes, enemy data, music), `graphics` (bank 6) and `engine` (bank 7). Palettes, enemy data, music
+and text are getting types of their own next.
 
 ## How it fits together
 

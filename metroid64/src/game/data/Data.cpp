@@ -52,6 +52,10 @@ int HexDigit(char c) {
 
 } // namespace
 
+bool IsImageFile(const std::string& path) {
+    return path.size() >= 4 && path.compare(path.size() - 4, 4, ".png") == 0;
+}
+
 const char* BankFolder(int bank) {
     static const char* const kFolders[8] = { "title", "brinstar", "norfair",  "tourian",
                                              "kraid", "ridley",   "graphics", "engine" };
@@ -72,6 +76,7 @@ bool Extract(const std::vector<uint8_t>& ines, std::map<std::string, std::string
     // Typed resources first; the generic blocks keep whatever they don't cover.
     std::vector<uint8_t> covered(kPrgSize, 0);
     ExtractLevel(prg, files, covered);
+    ExtractGraphics(prg, files, covered);
     for (const AssetEntry& a : kAssets) {
         size_t base = (size_t)a.bank * 0x4000 + (a.address - BankBase(a.bank));
         size_t i = 0;
@@ -154,17 +159,24 @@ bool ReadBlock(const tinyxml2::XMLElement* root, Block& out, std::string& error)
     return true;
 }
 
-const char* const kResourceTypes[] = {
-    "DataBlock", "WorldMap", "Room", "Structure", "Macros", "SpecialItems", nullptr
-};
+const char* const kResourceTypes[] = { "DataBlock", "WorldMap",     "Room",     "Structure",
+                                       "Macros",    "SpecialItems", "Graphics", nullptr };
 
-bool Assets::Read(const tinyxml2::XMLElement* root, std::string& error) {
+bool Assets::Read(const tinyxml2::XMLElement* root, const FileLoader& load, std::string& error) {
     if (root != nullptr && strcmp(root->Name(), "DataBlock") == 0) {
         Block b;
         if (!ReadBlock(root, b, error)) {
             return false;
         }
         blocks.push_back(std::move(b));
+        return true;
+    }
+    if (root != nullptr && strcmp(root->Name(), "Graphics") == 0) {
+        Graphics g;
+        if (!ReadGraphics(root, load, g, error)) {
+            return false;
+        }
+        graphics[{ g.bank, g.address }] = std::move(g);
         return true;
     }
     return ReadLevelResource(root, level, error);
@@ -192,6 +204,9 @@ void Assets::Merge(const Assets& other) {
     for (const auto& [bank, t] : other.level.specialItems) {
         level.specialItems[bank] = t;
     }
+    for (const auto& [where, g] : other.graphics) {
+        graphics[where] = g;
+    }
 }
 
 bool Install(const Assets& assets, std::string& error) {
@@ -207,7 +222,7 @@ bool Install(const Assets& assets, std::string& error) {
     for (const Block* b : blocks) {
         image.Put(b->bank, b->address, b->bytes);
     }
-    if (!AssembleLevel(assets.level, image, error)) {
+    if (!AssembleLevel(assets.level, image, error) || !AssembleGraphics(assets.graphics, image, error)) {
         return false;
     }
     SetRomImage(std::move(image.Prg()));
@@ -220,8 +235,16 @@ bool InstallFromRom(const std::vector<uint8_t>& ines, std::string& error) {
         return false;
     }
     Assets assets;
+    FileLoader load = [&](const std::string& path, std::string& contents) {
+        auto f = files.find(path);
+        if (f == files.end()) {
+            return false;
+        }
+        contents = f->second;
+        return true;
+    };
     for (const auto& [path, text] : files) {
-        if (path == "metroid/version") {
+        if (path == "metroid/version" || IsImageFile(path)) {
             continue;
         }
         tinyxml2::XMLDocument doc;
@@ -229,7 +252,7 @@ bool InstallFromRom(const std::vector<uint8_t>& ines, std::string& error) {
             error = "XML error in " + path;
             return false;
         }
-        if (!assets.Read(doc.FirstChildElement(), error)) {
+        if (!assets.Read(doc.FirstChildElement(), load, error)) {
             error = path + ": " + error;
             return false;
         }

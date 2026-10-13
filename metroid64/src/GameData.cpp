@@ -31,6 +31,20 @@ class GameDataResource : public Ship::Resource<Game::Data::Assets> {
     }
 };
 
+std::shared_ptr<Ship::ArchiveManager> Archives() {
+    return Ship::Context::GetRawInstance()->GetResourceManager()->GetArchiveManager();
+}
+
+// A file a resource refers to (a graphics resource's PNG), from the archives: a mod's copy wins.
+bool LoadArchiveFile(const std::string& path, std::string& contents) {
+    auto file = Archives()->LoadFile(path);
+    if (file == nullptr || !file->IsLoaded || file->Buffer == nullptr) {
+        return false;
+    }
+    contents.assign(file->Buffer->begin() + file->BufferOffset, file->Buffer->end());
+    return true;
+}
+
 class ResourceFactoryXMLGameDataV0 : public Ship::ResourceFactoryXML {
   public:
     std::shared_ptr<Ship::IResource> ReadResource(std::shared_ptr<Ship::File> file,
@@ -41,17 +55,13 @@ class ResourceFactoryXMLGameDataV0 : public Ship::ResourceFactoryXML {
         auto res = std::make_shared<GameDataResource>(initData);
         auto root = std::get<std::shared_ptr<tinyxml2::XMLDocument>>(file->Reader)->FirstChildElement();
         std::string error;
-        if (!res->assets.Read(root, error)) {
+        if (!res->assets.Read(root, LoadArchiveFile, error)) {
             SPDLOG_ERROR("{}: {}", initData->Path, error);
             return nullptr;
         }
         return res;
     }
 };
-
-std::shared_ptr<Ship::ArchiveManager> Archives() {
-    return Ship::Context::GetRawInstance()->GetResourceManager()->GetArchiveManager();
-}
 
 // Writes the files into a new zip in one pass.
 bool WriteArchive(const std::string& path, const std::map<std::string, std::string>& files, std::string& error) {
@@ -162,8 +172,8 @@ bool LoadGameData(std::string& error) {
     auto paths = Archives()->ListFiles("metroid/*");
     Game::Data::Assets assets;
     for (const std::string& path : *paths) {
-        if (path == "metroid/version") {
-            continue;
+        if (path == "metroid/version" || Game::Data::IsImageFile(path)) {
+            continue; // not resources (the images are read by the Graphics resources)
         }
         auto res = std::dynamic_pointer_cast<GameDataResource>(resources->LoadResource(path));
         if (res == nullptr) {
