@@ -5,6 +5,7 @@
 #define SDL_MAIN_HANDLED
 
 #include "Emulator.h"
+#include "Port.h"
 #include "Hud.h"
 #include "Menu.h"
 #include "Renderer.h"
@@ -42,7 +43,7 @@ constexpr const char* kAppShortName = "metroid64";
 constexpr const char* kRomPathConfigKey = "Metroid64.RomPath";
 constexpr double kTickSeconds = 1.0 / 60.0;
 
-std::unique_ptr<Metroid::Emulator> sEmu;
+std::unique_ptr<Metroid::GameView> sEmu;
 Metroid::Renderer sRenderer;
 std::shared_ptr<Metroid::Hud> sHud;
 bool sPlaying = false;
@@ -50,7 +51,15 @@ bool sFrozen = false;
 
 bool TryLoadRom(const std::string& path) {
     std::string error;
-    auto emu = std::make_unique<Metroid::Emulator>();
+    // The native port, or (for comparison while the port is being finished) the original on the emulator.
+    const char* engine = getenv("METROID64_ENGINE");
+    bool native = engine ? strcmp(engine, "port") == 0 : CVarGetInteger(Metroid::kCVarNativePort, 0) != 0;
+    std::unique_ptr<Metroid::GameView> emu;
+    if (native) {
+        emu = std::make_unique<Metroid::Port>();
+    } else {
+        emu = std::make_unique<Metroid::Emulator>();
+    }
     if (!emu->LoadRomFile(path, error)) {
         SPDLOG_WARN("ROM {} rejected: {}", path, error);
         sHud->SetRomError(error);

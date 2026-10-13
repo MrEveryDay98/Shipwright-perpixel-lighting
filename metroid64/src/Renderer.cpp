@@ -1,5 +1,7 @@
 #include "Renderer.h"
 
+#include "nes/Nes.h"
+
 #include "Menu.h"
 
 #include <algorithm>
@@ -100,7 +102,7 @@ void Renderer::Init() {
 
 // --- Textures ---------------------------------------------------------------------------------
 
-bool Renderer::TileBlank(const Emulator& emu, uint16_t patternAddr) const {
+bool Renderer::TileBlank(const GameView& emu, uint16_t patternAddr) const {
     const uint8_t* p = emu.Chr() + (patternAddr & 0x1FFF);
     for (int i = 0; i < 16; i++) {
         if (p[i]) {
@@ -110,7 +112,7 @@ bool Renderer::TileBlank(const Emulator& emu, uint16_t patternAddr) const {
     return true;
 }
 
-const uint8_t* Renderer::TileTexture(const Emulator& emu, uint16_t patternAddr, const uint8_t* palette4,
+const uint8_t* Renderer::TileTexture(const GameView& emu, uint16_t patternAddr, const uint8_t* palette4,
                                      bool transparent) {
     // Keyed by content: CHR is RAM in Metroid, so a tile number alone doesn't identify a picture.
     const uint8_t* p = emu.Chr() + (patternAddr & 0x1FFF);
@@ -224,7 +226,7 @@ void Renderer::DrawSkeleton(Gfx*& g, const Skeleton& skel, SkeletonPose& pose, c
 
 // --- Play field -------------------------------------------------------------------------------
 
-void Renderer::BuildChunk(const Emulator& emu, Chunk& chunk, uint16_t ntBase, int cx, int cy) {
+void Renderer::BuildChunk(const GameView& emu, Chunk& chunk, uint16_t ntBase, int cx, int cy) {
     chunk.vtx.clear();
     chunk.dl.clear();
     chunk.valid = true;
@@ -318,7 +320,7 @@ void Renderer::BuildChunk(const Emulator& emu, Chunk& chunk, uint16_t ntBase, in
     chunk.dl.resize(g - chunk.dl.data());
 }
 
-void Renderer::DrawPlayField(Gfx*& g, const Emulator& emu) {
+void Renderer::DrawPlayField(Gfx*& g, const GameView& emu) {
     // Anything that changes how tiles look invalidates every chunk.
     const uint16_t patBase = (emu.PpuCtrl() & 0x10) ? 0x1000 : 0x0000;
     uint64_t gfx = Fnv(0xCBF29CE484222325ull, emu.Chr() + patBase, 0x1000);
@@ -381,7 +383,7 @@ void Renderer::DrawPlayField(Gfx*& g, const Emulator& emu) {
 
 // --- Sprites ----------------------------------------------------------------------------------
 
-void Renderer::DrawSprites(Gfx*& g, const Emulator& emu, bool hudPass, bool hideSamus) {
+void Renderer::DrawSprites(Gfx*& g, const GameView& emu, bool hudPass, bool hideSamus) {
     const uint8_t* oam = emu.Oam();
     const uint8_t* pal = emu.Palette();
     const auto& tags = emu.SpriteTags();
@@ -443,7 +445,7 @@ void Renderer::DrawSprites(Gfx*& g, const Emulator& emu, bool hudPass, bool hide
     }
 }
 
-void Renderer::DrawSamusModel(Gfx*& g, const Emulator& emu, const Model& model, float alpha) {
+void Renderer::DrawSamusModel(Gfx*& g, const GameView& emu, const Model& model, float alpha) {
     uint8_t anim = emu.Peek(Ram::kSamusAnimReset);
     if (anim != mSamusAnim) {
         mSamusAnim = anim;
@@ -466,7 +468,7 @@ void Renderer::BeginOverlay(Gfx*& g) {
     SetTexturedState(g, false);
 }
 
-void Renderer::Draw2DFrame(Gfx*& g, const Emulator& emu) {
+void Renderer::Draw2DFrame(Gfx*& g, const GameView& emu) {
     emu.RenderFrame(mFramePixels.data());
     BeginOverlay(g);
     gDPPipeSync(g++);
@@ -502,7 +504,7 @@ void Renderer::Draw2DFrame(Gfx*& g, const Emulator& emu) {
 
 // --- Frame --------------------------------------------------------------------------------------
 
-Gfx* Renderer::BuildFrame(const Emulator& emu, float alpha) {
+Gfx* Renderer::BuildFrame(const GameView& emu, float alpha) {
     mFrameVtx.clear();
     mFrameMtx.clear();
     Gfx* g = mFrameDl.data();

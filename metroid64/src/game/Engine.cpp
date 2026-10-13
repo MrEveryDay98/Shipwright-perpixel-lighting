@@ -12,6 +12,7 @@
 #include "game/Hw.h"
 #include "game/Items.h"
 #include "game/Original.h"
+#include "game/Present.h"
 #include "game/Ram.h"
 #include "game/Objects.h"
 #include "game/Projectiles.h"
@@ -1159,10 +1160,17 @@ void ClearScreenData() {
 // --- $CB29 UpdateWorld: one frame of the game world --------------------------------------------------
 
 void UpdateWorld() {
+    using Present::Owner;
     SpritePagePos = 0; // sprites are built from $0200 up
-    UpdateEnemies();
+    uint8_t p = SpritePagePos;
+    UpdateEnemies(); // DrawEnemy tags each enemy's sprites
+    p = SpritePagePos;
     UpdateProjectiles();
+    Present::TagSprites(p, Owner::Projectile);
+    p = SpritePagePos;
     UpdateSamus();
+    Present::TagSprites(p, Owner::Samus);
+    p = SpritePagePos;
     AreaRoutine();
     UpdateElevator();
     UpdateStatues();
@@ -1171,15 +1179,25 @@ void UpdateWorld() {
     UpdateObjectsF93B();   // $F93B
     UpdateSpinners();      // $FBDD
     SamusEnterDoor();
+    Present::TagSprites(p, Owner::Other);
+    p = SpritePagePos;
     DrawDoors(); // $8B79
+    Present::TagSprites(p, Owner::Scenery);
+    p = SpritePagePos;
     UpdateTiles();
     SamusEnemyCollisions(); // $F034
+    Present::TagSprites(p, Owner::Other);
+    p = SpritePagePos;
     DisplayBar();
+    Present::TagSprites(p, Owner::Hud);
+    p = SpritePagePos;
     UpdateObjectsFAF2(); // $FAF2
     CheckMissileToggle();
     UpdateItems();
     UpdateObjectsFDE3(); // $FDE3
+    Present::TagSprites(p, Owner::Other);
     // Hide the sprites not used this frame.
+    Present::UntagRest();
     uint8_t x = SpritePagePos;
     do {
         SpriteRAM[x] = 0xF4;

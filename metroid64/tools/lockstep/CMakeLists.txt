@@ -6,6 +6,7 @@ add_executable(lockstep
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/nes/Cpu6502.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/nes/Nes.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/nes/Apu.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/Picture.cpp
     ${LOCKSTEP_GAME_SOURCES}
 )
 target_include_directories(lockstep PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../src)

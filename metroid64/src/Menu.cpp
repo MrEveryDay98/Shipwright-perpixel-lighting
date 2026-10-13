@@ -225,6 +225,8 @@ void Menu::DrawDeveloperMenu() {
     if (ImGui::MenuItem("Console")) {
         ToggleWindow("Console");
     }
+    CVarCheckbox("Run the native port (unfinished)", kCVarNativePort, false);
+    ImGui::TextDisabled("Applies when the ROM is next loaded. Off: the original on the emulator.");
     ImGui::EndMenu();
 }
 

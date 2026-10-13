@@ -13,10 +13,13 @@
 //     --password <area,gear,missiles[,suitless]>   (hex) starts the game from a password made with the
 //                                port's own password code: area $10-$14, all items collected none.
 //                                Replaces --script; --sync defaults to 30
+//     --picture                  also compares the picture the app draws from the port's video memory with
+//                                the emulated PPU's, every compared frame
 //     --check-lag                also compares at the frames where the original lagged and prints the
 //                                differences without failing (a few are expected: the original ran extra
 //                                NMIs, so joypad, sound and sprite bytes differ)
 
+#include "Picture.h"
 #include "game/Game.h"
 #include "game/Hw.h"
 #include "game/Memory.h"
@@ -321,10 +324,16 @@ int main(int argc, char** argv) {
     const char* password = nullptr;
     bool syncGiven = false;
     bool checkLag = false;
+    bool picture = false;
     for (int i = 2; i < argc; i += 2) {
         std::string opt = argv[i];
         if (opt == "--check-lag") {
             checkLag = true;
+            i--;
+            continue;
+        }
+        if (opt == "--picture") {
+            picture = true;
             i--;
             continue;
         }
@@ -455,7 +464,20 @@ int main(int argc, char** argv) {
             resyncs++;
             continue;
         }
-        if (Compare(emu, names, frame) > 0 || !CompareApu(frame)) {
+        bool pictureOk = true;
+        if (picture) {
+            static uint32_t a[256 * 240], b[256 * 240];
+            emu.RenderFrame(a);
+            Metroid::RenderPicture(Game::Hw::gVideo, b);
+            for (int i = 0; i < 256 * 240 && pictureOk; i++) {
+                if (a[i] != b[i]) {
+                    printf("frame %d: picture differs at x %d y %d (emulator %08X, port %08X)\n", frame, i % 256,
+                           i / 256, a[i], b[i]);
+                    pictureOk = false;
+                }
+            }
+        }
+        if (Compare(emu, names, frame) > 0 || !CompareApu(frame) || !pictureOk) {
             printf("FAILED after %d compared frames (%d resyncs). GameMode %02X MainRoutine %02X\n", compared, resyncs,
                    emu.Ram()[0x1D], emu.Ram()[0x1E]);
             Dump("original", emu, dump);

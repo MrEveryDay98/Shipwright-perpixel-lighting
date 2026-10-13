@@ -7,6 +7,7 @@
 #include "game/Enemies.h"
 #include "game/Engine.h"
 #include "game/Original.h"
+#include "game/Present.h"
 #include "game/Ram.h"
 #include "game/Samus.h"
 
@@ -185,7 +186,17 @@ uint8_t AddToMaxMissiles(uint8_t n) {
 
 // Draws the enemy at PageIndex. Returns true when its explosion ended: the original then leaves the
 // routine that called DrawEnemy (see EnemyExplosionDone).
+static bool DrawEnemyFrame();
+
+// Draws the enemy at PageIndex (its sprites are tagged for the presentation).
 bool DrawEnemy() {
+    uint8_t from = SpritePagePos, slot = PageIndex;
+    bool done = DrawEnemyFrame();
+    Present::TagSprites(from, Present::Owner::Enemy, slot);
+    return done;
+}
+
+static bool DrawEnemyFrame() {
     uint8_t x = PageIndex;
     if (EnAnimFrame[x] == 0xF7) {
         ClearObjectCntrl();
@@ -197,7 +208,8 @@ bool DrawEnemy() {
     // Frame pointers: two tables ($41 and $43), the second for frames $80 and up.
     uint8_t frame = EnAnimFrame[x];
     uint8_t y = (uint8_t)(frame << 1);
-    uint16_t table = (frame & 0x80) ? (uint16_t)(Mem(0x43) | (Mem(0x44) << 8)) : (uint16_t)(Mem(0x41) | (Mem(0x42) << 8));
+    uint16_t table =
+        (frame & 0x80) ? (uint16_t)(Mem(0x43) | (Mem(0x44) << 8)) : (uint16_t)(Mem(0x41) | (Mem(0x42) << 8));
     Mem(0x00) = Read((uint16_t)(table + y));
     Mem(0x01) = Read((uint16_t)(table + (uint8_t)(y + 1)));
     uint8_t place = GetSpriteCntrlData();

@@ -30,6 +30,9 @@ struct Video {
 
     // The nametable byte for a PPU address in $2000-$2FFF, after mirroring.
     uint8_t& Nametable(uint16_t ppuAddr);
+    uint8_t Nametable(uint16_t ppuAddr) const {
+        return const_cast<Video*>(this)->Nametable(ppuAddr);
+    }
 };
 
 extern Video gVideo;
