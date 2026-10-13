@@ -1,35 +1,36 @@
 #pragma once
 
-// Bank 7 from $F1A7 (plus the crash detection from $F034): enemies, enemy/object collisions,
-// enemy-spawned objects and tile regrowth.
+// Bank 7 from $F1A7: enemies, enemy/object collisions, enemy-spawned objects and tile regrowth (plus
+// $EB6E, a few lines of the room code the area banks call). Variables without a name in the community
+// disassembly are in EnemyRam.h.
 
 #include <cstdint>
 
 namespace Game {
 
 // --- Called from the game engine every frame (UpdateWorld) ---
-void UpdateEnemies();        // $F345
-void DestroyEnemyObjects();  // $FA9D enemy explosion pieces
-void UpdateMellows();        // $FC65 Mellows / Memus
+void UpdateEnemies();       // $F345
+void DestroyEnemyObjects(); // $FA9D enemy explosion pieces (DrawEnemy's pop just ends it early)
+void UpdateMellows();       // $FC65 Mellows / Memus
 // $F93B enemy projectiles. Returns true when the original leaves UpdateWorld here: the last slot
 // ($60) is reached by falling through, so when its explosion ends DrawEnemy's pop takes UpdateWorld's
 // return address (the caller must then return at once).
 bool UpdateObjectsF93B();
-void UpdateSpinners();       // $FBDD
+void UpdateSpinners(); // $FBDD
 // $FE1B. Returns true when the original leaves UpdateWorld here: the last tile slot (0) is reached by
 // falling through, so when its animation ends UpdateTileAnim's pop takes UpdateWorld's return address.
 bool UpdateTiles();
-void UpdateObjectsFAF2();    // $FAF2 enemies spawned by the room (e.g. pipe bugs, Kraid/Ridley)
-void UpdateObjectsFDE3();    // $FDE3 escape timer / Zebetite item history
+void UpdateObjectsFAF2(); // $FAF2 enemies spawned by the room (e.g. pipe bugs, Kraid/Ridley)
+void UpdateObjectsFDE3(); // $FDE3 escape timer / Zebetite item history
 
 // --- Crash detection pieces ($F034 SamusEnemyCollisions itself is in Room.cpp). carry: $F1FA's result.
-void CrashDoorF277(uint8_t y, bool carry);                    // $F277
-void CrashEnemySamusF282(uint8_t x, uint8_t y, bool carry);   // $F282
-void CrashMemuSamusF2B4(uint8_t x, bool carry);               // $F2B4
-void CrashEnemyBulletF2CA(uint8_t x, uint8_t y, bool carry);  // $F2CA
-void CrashSamusObjectF2ED(uint8_t x, uint8_t y, bool carry);  // $F2ED
-void CrashBlastF311(uint8_t y, bool carry);                   // $F311
-void CrashMemuBulletF32A(uint8_t x, uint8_t y, bool carry);   // $F32A
+void CrashDoorF277(uint8_t y, bool carry);                   // $F277
+void CrashEnemySamusF282(uint8_t x, uint8_t y, bool carry);  // $F282
+void CrashMemuSamusF2B4(uint8_t x, bool carry);              // $F2B4
+void CrashEnemyBulletF2CA(uint8_t x, uint8_t y, bool carry); // $F2CA
+void CrashSamusObjectF2ED(uint8_t x, uint8_t y, bool carry); // $F2ED
+void CrashBlastF311(uint8_t y, bool carry);                  // $F311
+void CrashMemuBulletF32A(uint8_t x, uint8_t y, bool carry);  // $F32A
 
 // --- Distances (coordinates from Room.h's GetObject0CoordData etc.; results in $04-$0B, see $F1FA) ---
 void DistFromObj0ToObj1(uint8_t x, uint8_t y); // $F1A7
@@ -47,10 +48,10 @@ bool TouchCheckDC7F(uint8_t x, uint8_t y);
 bool TouchCheckDC82(uint8_t x, uint8_t y);
 
 // --- Enemy helpers reached from the area banks ---
-void DoOneEnemy(uint8_t x);             // $F351
-void EnemyAnimDraw(uint8_t a);           // $F410 (area $8000); a = animation delay
-void EnemyAnimDrawOnly(uint8_t a);       // $F438 (area $8003)
-void EnemyDraw();                       // $F416 (area $8006)
+void DoOneEnemy(uint8_t x);                      // $F351
+void EnemyAnimDraw(uint8_t a);                   // $F410 (area $8000); a = animation delay
+void EnemyAnimDrawOnly(uint8_t a);               // $F438 (area $8003)
+void EnemyDraw();                                // $F416 (area $8006)
 uint8_t EnemyFrameCarry(uint8_t x, bool& carry); // $F852 (area $8009): returns A and the carry
 uint8_t SetEnemyAnim(uint8_t x, uint8_t a);      // $F68D (area $800F): returns A (0)
 void SetEnemyAnimIndex(uint8_t x, uint8_t a);    // $F690

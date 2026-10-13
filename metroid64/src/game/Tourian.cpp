@@ -9,8 +9,6 @@
 #include "game/Objects.h"
 #include "game/Ram.h"
 #include "game/Samus.h"
-#include <cstdio>
-#include <cstdlib>
 
 namespace Game {
 
@@ -19,34 +17,34 @@ using namespace Vars;
 namespace {
 
 // Tourian's variables.
-inline constexpr Var CannonIndex{0x0097};   // Cannon being updated (offset into $6BF4).
-inline constexpr Var MBrainNameTable{0x009D};
-inline constexpr Var MBrainHitFlag{0x009E}; // Set by a missile hitting Mother Brain ($95C0 hook).
-inline constexpr Var MBrainTimer{0x009F};
-inline constexpr Var MBrainEyeDelay{0x009A};
-inline constexpr Var MBrainBrainDelay{0x009B};
-inline constexpr Var MBrainEye{0x009C};
-inline constexpr Var RinkaSpawn{0x008B};    // Two Rinka spawners at $8B and $8E: status, name table, index.
-inline constexpr Var MetroidState{0x77F8};  // One byte per Metroid (slot / 16): latched on Samus etc.
-inline constexpr Var MetroidMaxSpeed{0x77F6};
-inline constexpr Var MetroidAccel{0x77F2};
-inline constexpr Var MetroidBounce{0x77F0};
-inline constexpr Var CannonStatus{0x6BF4};  // 16 cannons, 8 bytes each.
-inline constexpr Var CannonY{0x6BF5};
-inline constexpr Var CannonX{0x6BF6};
-inline constexpr Var CannonHi{0x6BF7};
-inline constexpr Var CannonType{0x6BF8};
-inline constexpr Var CannonFrame{0x6BF9};
-inline constexpr Var CannonDelay{0x6BFA};
-inline constexpr Var CannonStep{0x6BFB};
-inline constexpr Var EscapeShown{0x010D};
-inline constexpr Var EscapeHi{0x010C};
-inline constexpr Var ZebStatus{0x0758};     // Five Zebetites, 8 bytes each.
-inline constexpr Var ZebWRAMLo{0x0759};
-inline constexpr Var ZebWRAMHi{0x075A};
-inline constexpr Var ZebDamage{0x075B};
-inline constexpr Var ZebTimer{0x075C};
-inline constexpr Var ZebHit{0x075D};
+inline constexpr Var CannonIndex{ 0x0097 }; // Cannon being updated (offset into $6BF4).
+inline constexpr Var MBrainNameTable{ 0x009D };
+inline constexpr Var MBrainHitFlag{ 0x009E }; // Set by a missile hitting Mother Brain ($95C0 hook).
+inline constexpr Var MBrainTimer{ 0x009F };
+inline constexpr Var MBrainEyeDelay{ 0x009A };
+inline constexpr Var MBrainBrainDelay{ 0x009B };
+inline constexpr Var MBrainEye{ 0x009C };
+inline constexpr Var RinkaSpawn{ 0x008B };   // Two Rinka spawners at $8B and $8E: status, name table, index.
+inline constexpr Var MetroidState{ 0x77F8 }; // One byte per Metroid (slot / 16): latched on Samus etc.
+inline constexpr Var MetroidMaxSpeed{ 0x77F6 };
+inline constexpr Var MetroidAccel{ 0x77F2 };
+inline constexpr Var MetroidBounce{ 0x77F0 };
+inline constexpr Var CannonStatus{ 0x6BF4 }; // 16 cannons, 8 bytes each.
+inline constexpr Var CannonY{ 0x6BF5 };
+inline constexpr Var CannonX{ 0x6BF6 };
+inline constexpr Var CannonHi{ 0x6BF7 };
+inline constexpr Var CannonType{ 0x6BF8 };
+inline constexpr Var CannonFrame{ 0x6BF9 };
+inline constexpr Var CannonDelay{ 0x6BFA };
+inline constexpr Var CannonStep{ 0x6BFB };
+inline constexpr Var EscapeShown{ 0x010D };
+inline constexpr Var EscapeHi{ 0x010C };
+inline constexpr Var ZebStatus{ 0x0758 }; // Five Zebetites, 8 bytes each.
+inline constexpr Var ZebWRAMLo{ 0x0759 };
+inline constexpr Var ZebWRAMHi{ 0x075A };
+inline constexpr Var ZebDamage{ 0x075B };
+inline constexpr Var ZebTimer{ 0x075C };
+inline constexpr Var ZebHit{ 0x075D };
 
 constexpr uint16_t kMetroidStepTbl = 0x99D7;
 constexpr uint16_t kCannonDelayTbl = 0x9D8F;
@@ -244,8 +242,8 @@ void MetroidAI(uint8_t x) {
     if (Enstatus[x] == 0x03) {
         MetroidState[x >> 4] = 0;
     }
-    uint8_t all = MetroidState[0] | MetroidState[1] | MetroidState[2] | MetroidState[3] | MetroidState[4] |
-                  MetroidState[5];
+    uint8_t all =
+        MetroidState[0] | MetroidState[1] | MetroidState[2] | MetroidState[3] | MetroidState[4] | MetroidState[5];
     y = 0;
     if ((all & 0x0C) == 0x0C && (HealthLo | HealthHi) != 0) {
         HealthHiChange = 0;

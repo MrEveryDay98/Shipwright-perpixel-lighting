@@ -164,5 +164,4 @@ void CrawlerAI(uint8_t x, uint16_t animTbl, uint8_t bottom, uint8_t onlyDelay) {
     EnemyDraw();
 }
 
-
 } // namespace Game

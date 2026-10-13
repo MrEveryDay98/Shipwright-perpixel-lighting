@@ -1,5 +1,4 @@
-// Bank 7 from $F034: crash detection, enemies, enemy/object collisions, enemy-spawned objects and tile
-// regrowth.
+// Bank 7 from $F1A7: enemies, enemy/object collisions, enemy-spawned objects and tile regrowth.
 
 #include "game/Enemies.h"
 
@@ -14,22 +13,10 @@
 #include "game/Room.h"
 #include "game/Samus.h"
 
-#include <cstdlib>
-#include <cstring>
-#include <cstdio>
-#include "game/Hw.h"
-#include "game/DebugShadow.h"
-
 namespace Game {
 
 using namespace Vars;
 using namespace Const;
-
-// DEBUG: METROID64_ORIG="F345,FA9D" runs those entry points through Original() (bisecting).
-static bool UseOrig(const char* a) {
-    static const char* env = getenv("METROID64_ORIG");
-    return env && strstr(env, a);
-}
 
 namespace {
 
@@ -70,11 +57,11 @@ constexpr uint16_t kTable19 = 0xFE79;
 constexpr uint16_t kTileBlastAnim = 0xFF86;
 
 // $0728-$072F: room enemies waiting to appear (8 bytes each).
-inline constexpr Var SpawnType{0x0728};
-inline constexpr Var SpawnSlot{0x0729};
-inline constexpr Var SpawnY{0x072A};
-inline constexpr Var SpawnX{0x072B};
-inline constexpr Var SpawnHi{0x072C};
+inline constexpr Var SpawnType{ 0x0728 };
+inline constexpr Var SpawnSlot{ 0x0729 };
+inline constexpr Var SpawnY{ 0x072A };
+inline constexpr Var SpawnX{ 0x072B };
+inline constexpr Var SpawnHi{ 0x072C };
 
 uint16_t Ptr(uint8_t zp) {
     return (uint16_t)(Mem(zp) | (Mem((uint8_t)(zp + 1)) << 8));
@@ -99,7 +86,8 @@ uint8_t EnemyType80B0(uint8_t x) {
 
 } // namespace
 
-// --- $F270-$F344 Crash detection pieces (SamusEnemyCollisions $F034 is in Room.cpp) ---------------------------------------------------------------------------
+// --- $F270-$F344 Crash detection pieces (SamusEnemyCollisions $F034 is in Room.cpp)
+// ---------------------------------------------------------------------------
 
 namespace {
 
@@ -379,19 +367,6 @@ bool TouchCheckDC82(uint8_t x, uint8_t y) {
 // --- $F345 UpdateEnemies -----------------------------------------------------------------------------
 
 void UpdateEnemies() {
-    if (getenv("METROID64_WHERE")) {
-        static int n = 0;
-        if (n++ % 300 == 0) {
-            printf("  where: bank %d InArea %02X MapPos %02X,%02X enemies %02X:%02X %02X:%02X %02X:%02X %02X:%02X %02X:%02X %02X:%02X\n", Hw::gPrgBank, (int)InArea, (int)MapPosX, (int)MapPosY, Enstatus[0], EnDataIndex[0], Enstatus[0x10], EnDataIndex[0x10], Enstatus[0x20], EnDataIndex[0x20], Enstatus[0x30], EnDataIndex[0x30], Enstatus[0x40], EnDataIndex[0x40], Enstatus[0x50], EnDataIndex[0x50]);
-        }
-    }
-    if (Shadow(0xF345, [] { UpdateEnemies(); })) {
-        return ;
-    }
-    if (UseOrig("F345")) {
-        Original(0xF345);
-        return ;
-    }
     uint8_t x = 0x50;
     for (;;) {
         DoOneEnemy(x);
@@ -456,9 +431,6 @@ void EnemyAI(uint8_t x) {
 } // namespace
 
 void DoOneEnemy(uint8_t x) {
-    if (Shadow(0xF351, [x] { DoOneEnemy(x); }, { 0, x, 0 })) {
-        return;
-    }
     PageIndex = x;
     uint8_t y = Enstatus[x];
     if (y != 0 && y < 0x03) {
@@ -1235,13 +1207,6 @@ bool DoOneEnemyObject(uint8_t x) {
 } // namespace
 
 bool UpdateObjectsF93B() {
-    if (Shadow(0xF93B, [] { UpdateObjectsF93B(); })) {
-        return false;
-    }
-    if (UseOrig("F93B")) {
-        Original(0xF93B);
-        return false;
-    }
     uint8_t x = 0xB0;
     for (;;) {
         if (DoOneEnemyObject(x)) {
@@ -1304,13 +1269,6 @@ void EnemyStorePosition(uint8_t x) {
 // --- $FA9D Explosion pieces -------------------------------------------------------------------------
 
 void DestroyEnemyObjects() {
-    if (Shadow(0xFA9D, [] { DestroyEnemyObjects(); })) {
-        return ;
-    }
-    if (UseOrig("FA9D")) {
-        Original(0xFA9D);
-        return ;
-    }
     uint8_t x = 0xC0;
     do {
         PageIndex = x;
@@ -1404,15 +1362,7 @@ void EnemyRestartEB6E(uint8_t x) {
     ResetEnemyHitPoints(x);
 }
 
-
 void UpdateObjectsFAF2() {
-    if (Shadow(0xFAF2, [] { UpdateObjectsFAF2(); })) {
-        return ;
-    }
-    if (UseOrig("FAF2")) {
-        Original(0xFAF2);
-        return ;
-    }
     uint8_t y = 0x18;
     for (;;) {
         DoOneSpawn(y);
@@ -1515,13 +1465,6 @@ void DoOnePiece(uint8_t x) {
 } // namespace
 
 void UpdateSpinners() {
-    if (Shadow(0xFBDD, [] { UpdateSpinners(); })) {
-        return ;
-    }
-    if (UseOrig("FBDD")) {
-        Original(0xFBDD);
-        return ;
-    }
     PageIndex = 0x40;
     for (uint8_t x = 0x0C; x != 0; x -= 4) {
         DoOnePiece(x);
@@ -1642,13 +1585,6 @@ bool DoOneMemu(uint8_t x) {
 } // namespace
 
 void UpdateMellows() {
-    if (Shadow(0xFC65, [] { UpdateMellows(); })) {
-        return ;
-    }
-    if (UseOrig("FC65")) {
-        Original(0xFC65);
-        return ;
-    }
     if (Mem(0x6BE4) == 0) {
         return;
     }
@@ -1747,13 +1683,6 @@ void FE05(uint8_t x) {
 } // namespace
 
 void UpdateObjectsFDE3() {
-    if (Shadow(0xFDE3, [] { UpdateObjectsFDE3(); })) {
-        return ;
-    }
-    if (UseOrig("FDE3")) {
-        Original(0xFDE3);
-        return ;
-    }
     if (EndTimerHi == 0x99) {
         bool c = false;
         uint8_t a = Sbc(0x99, EndTimerLo, c);
@@ -1880,13 +1809,6 @@ bool DoOneTile(uint8_t x) {
 } // namespace
 
 bool UpdateTiles() {
-    if (Shadow(0xFE1B, [] { UpdateTiles(); })) {
-        return false;
-    }
-    if (UseOrig("FE1B")) {
-        Original(0xFE1B);
-        return false;
-    }
     uint8_t x = 0xC0;
     for (;;) {
         if (DoOneTile(x)) {
@@ -1927,7 +1849,7 @@ bool DrawTileBlast() {
         Mem(0x01) |= 0x0C;
     }
     Mem(0x01) &= 0x2F;
-    Original(0xC328); // the PPU string (bank 7)
+    EraseTile(); // $C328: the PPU string
     return false;
 }
 
