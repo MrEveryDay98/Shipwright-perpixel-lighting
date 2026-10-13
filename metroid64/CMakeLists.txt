@@ -10,7 +10,8 @@ target_link_libraries(metroid64 PRIVATE libultraship)
 set_target_properties(metroid64 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/metroid64)
 
 if(MSVC)
-    target_compile_definitions(metroid64 PRIVATE _USE_MATH_DEFINES)
+    # NOMINMAX: windows.h (via libultraship) would otherwise turn std::min/std::max into macros.
+    target_compile_definitions(metroid64 PRIVATE _USE_MATH_DEFINES NOMINMAX)
     # Windowed app without a console, still entering through the standard main().
     set_target_properties(metroid64 PROPERTIES WIN32_EXECUTABLE TRUE)
     target_link_options(metroid64 PRIVATE /ENTRY:mainCRTStartup)
