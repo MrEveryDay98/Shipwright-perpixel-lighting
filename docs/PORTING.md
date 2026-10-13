@@ -16,7 +16,8 @@ it on an emulated NES next to the port and checks that both behave identically, 
 - **One routine, one function**, named after the disassembly label, with its address in a comment.
 - **Faithful, then readable.** The C++ must do exactly what the routine does, including RAM it writes as a
   side effect (temporaries at `$00-$0F` included: later routines read them). Use C++ control flow, not
-  goto-per-instruction; keep the original's quirks and bugs.
+  goto-per-instruction; keep the original's quirks and bugs. The one exception: a byte at `$00-$0F` that a
+  routine only uses to save a register and restore it before returning may be left out.
 
 ## How a routine is translated
 

@@ -8,6 +8,8 @@
 #include "game/Hw.h"
 #include "game/Original.h"
 #include "game/Ram.h"
+#include "game/Objects.h"
+#include "game/Samus.h"
 
 #include <initializer_list>
 
@@ -1100,7 +1102,7 @@ void SamusIntro() {
     SetSamusAnim(an_SamusFront);
     SpritePagePos = 0;
     PageIndex = 0;
-    AnimDrawObject();
+    AnimDrawObject(0x00);
 }
 
 // --- $CA18 IsEngineRunning / SwitchBank -----------------------------------------------------------
@@ -1305,9 +1307,6 @@ void UpdateEnemies() {
 void UpdateProjectiles() {
     Original(0xD4BF);
 }
-void UpdateSamus() {
-    Original(0xCC0D);
-}
 void AreaRoutine() {
     Original(0x95C3);
 }
@@ -1365,12 +1364,6 @@ void SetupRoom() {
 }
 void ScrollDoor() {
     Original(0xE1F1);
-}
-void SetSamusAnim(uint8_t anim) {
-    Original(0xCF6B, { anim });
-}
-void AnimDrawObject() {
-    Original(0xDE47);
 }
 
 void StartMusic() {
