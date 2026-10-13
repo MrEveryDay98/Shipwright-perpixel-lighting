@@ -918,7 +918,7 @@ bool SamusDoor() {
             } else {
                 // Out of the door: the new room is set up.
                 DoorEnemyCleanup();
-                Original(0xED65);
+                ClearOffScreenObjects();
                 AreaHook(0x95AB, {});
                 uint8_t music = ItemRmMusicSts;
                 bool setItemMusic = false;
