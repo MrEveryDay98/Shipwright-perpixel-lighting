@@ -3,6 +3,7 @@
 // Routines of bank 7 (the game engine), named as in the community disassembly.
 
 #include "game/Original.h"
+#include "game/Projectiles.h"
 #include "game/Sound.h"
 #include "game/Title.h"
 
@@ -46,7 +47,6 @@ void NmiOn();
 void SetTimer(uint8_t tenths, uint8_t nextRoutine);
 void SetPPUMirror(uint8_t mirrorCntrl);
 void PrepPPUMirror();
-void StartMusic();
 void InitBank0();
 void InitBank1();
 void InitBank2();
@@ -109,9 +109,7 @@ uint8_t IntroMusic();
 uint8_t MotherBrainMusic();
 uint8_t TourianMusic();
 void UpdateEnemies();
-void UpdateProjectiles();
 void AreaRoutine();
-void UpdateElevator();
 void UpdateStatues();
 void DestroyEnemyObjects();
 void UpdateMellows();

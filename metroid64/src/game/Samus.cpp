@@ -6,6 +6,7 @@
 #include "game/Engine.h"
 #include "game/Hw.h"
 #include "game/Objects.h"
+#include "game/Projectiles.h"
 #include "game/Original.h"
 #include "game/Ram.h"
 
@@ -637,7 +638,7 @@ bool SamusRoll() {
             Mem(0x05) = r.x;
             Mem(0x04) = 0xF5;
             r = Original(0xFD8F, r);
-            Original(0xD638, r);
+            StoreObjectCoords(r.x);
             StopHorzMovement();
             AnimIndex--;
             StopVertMovement();
@@ -842,7 +843,7 @@ uint8_t PlaceProjectile(uint8_t y) {
     r.x = r.y;
     r = Original(0xFD8F, r);
     r.y = r.x;
-    Original(0xD638, r);
+    StoreObjectCoords(r.x);
     return r.y;
 }
 

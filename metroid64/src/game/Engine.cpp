@@ -9,6 +9,7 @@
 #include "game/Original.h"
 #include "game/Ram.h"
 #include "game/Objects.h"
+#include "game/Projectiles.h"
 #include "game/Samus.h"
 
 #include <initializer_list>
@@ -1304,14 +1305,8 @@ void CheckMissileToggle() {
 void UpdateEnemies() {
     Original(0xF345);
 }
-void UpdateProjectiles() {
-    Original(0xD4BF);
-}
 void AreaRoutine() {
     Original(0x95C3);
-}
-void UpdateElevator() {
-    Original(0xD7B3);
 }
 void UpdateStatues() {
     Original(0xD9D4);
@@ -1366,9 +1361,6 @@ void ScrollDoor() {
     Original(0xE1F1);
 }
 
-void StartMusic() {
-    Original(0xD92C);
-}
 
 
 } // namespace Game
