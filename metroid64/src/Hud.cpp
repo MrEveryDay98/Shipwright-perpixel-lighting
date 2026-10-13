@@ -1,5 +1,6 @@
 #include "Hud.h"
 
+#include <cfloat>
 #include <cstdio>
 #include <imgui.h>
 

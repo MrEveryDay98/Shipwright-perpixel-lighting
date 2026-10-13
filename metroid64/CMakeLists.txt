@@ -11,6 +11,9 @@ set_target_properties(metroid64 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINA
 
 if(MSVC)
     target_compile_definitions(metroid64 PRIVATE _USE_MATH_DEFINES)
+    # Windowed app without a console, still entering through the standard main().
+    set_target_properties(metroid64 PROPERTIES WIN32_EXECUTABLE TRUE)
+    target_link_options(metroid64 PRIVATE /ENTRY:mainCRTStartup)
     set_target_properties(metroid64 PROPERTIES
         MSVC_RUNTIME_LIBRARY "$<IF:$<CONFIG:Debug>,MultiThreadedDebug,MultiThreaded>")
 endif()

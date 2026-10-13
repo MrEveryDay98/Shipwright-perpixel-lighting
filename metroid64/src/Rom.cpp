@@ -2,6 +2,7 @@
 
 #include <cstring>
 #include <fstream>
+#include <iterator>
 
 namespace Metroid {
 

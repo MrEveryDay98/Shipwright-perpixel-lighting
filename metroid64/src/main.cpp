@@ -1,5 +1,8 @@
 // Metroid64: a 2.5D remake of NES Metroid running on libultraship (Shipwright's engine).
 
+// We provide our own main(); stop SDL from renaming it to SDL_main on Windows.
+#define SDL_MAIN_HANDLED
+
 #include "Game.h"
 #include "Hud.h"
 #include "Renderer.h"

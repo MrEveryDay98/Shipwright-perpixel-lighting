@@ -3,24 +3,67 @@ name: Build Metroid64
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - name: Install Ninja
+        run: choco install ninja -y
+      - name: Restore vcpkg cache
+        id: vcpkg-cache
+        uses: actions/cache/restore@v5
+        with:
+          key: ${{ runner.os }}-vcpkg-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-vcpkg-
+          path: vcpkg
+      - name: Set up MSVC
+        uses: TheMrMilchmann/setup-msvc-dev@v4
+        with:
+          arch: x64
+      - name: Build
+        env:
+          VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_MAKE_PROGRAM=ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release --parallel
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force metroid64-windows | Out-Null
+          Copy-Item build/metroid64/metroid64.exe, build/metroid64/metroid64.o2r, README.md metroid64-windows/
+      - name: Upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: metroid64-windows
+          path: metroid64-windows
+      - name: Save vcpkg cache
+        if: always()
+        uses: actions/cache/save@v5
+        with:
+          key: ${{ steps.vcpkg-cache.outputs.cache-primary-key }}
+          path: vcpkg
+
   linux:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y g++ ninja-build $(cat linux-build-deps/apt.txt)
-      - name: Configure
-        run: cmake -H. -Bbuild -GNinja -DCMAKE_BUILD_TYPE=Release
       - name: Build
-        run: cmake --build build -j
+        run: |
+          cmake -H. -Bbuild -GNinja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j
       - name: Upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: metroid64-linux
           path: |
