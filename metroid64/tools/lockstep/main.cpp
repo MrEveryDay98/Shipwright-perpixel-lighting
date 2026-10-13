@@ -39,6 +39,10 @@
 #include <string>
 #include <vector>
 
+namespace Game {
+extern std::map<uint16_t, int> gOriginalCalls;
+}
+
 namespace {
 
 struct Script {
@@ -309,6 +313,18 @@ Script PasswordScript(const char* spec) {
     return sc;
 }
 
+// Lists the untranslated routines the port still ran through the original.
+void ReportOriginalCalls() {
+    if (Game::gOriginalCalls.empty()) {
+        return;
+    }
+    printf("original routines run:");
+    for (const auto& [addr, n] : Game::gOriginalCalls) {
+        printf(" $%04X x%d", addr, n);
+    }
+    printf("\n");
+}
+
 int main(int argc, char** argv) {
     if (argc < 2) {
         fprintf(stderr, "usage: lockstep <rom> [--script s] [--sync n] [--frames n] [--random seed] [--ram-h path] "
@@ -481,6 +497,7 @@ int main(int argc, char** argv) {
             printf("FAILED after %d compared frames (%d resyncs). GameMode %02X MainRoutine %02X\n", compared, resyncs,
                    emu.Ram()[0x1D], emu.Ram()[0x1E]);
             Dump("original", emu, dump);
+            ReportOriginalCalls();
             return 1;
         }
         compared++;
@@ -489,5 +506,6 @@ int main(int argc, char** argv) {
            "%02X)\n",
            compared, resyncs, frame, emu.Ram()[0x1D], emu.Ram()[0x1E]);
     Dump("original", emu, dump);
+    ReportOriginalCalls();
     return 0;
 }

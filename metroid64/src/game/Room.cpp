@@ -8,6 +8,7 @@
 
 #include "game/Constants.h"
 #include "game/Engine.h"
+#include "game/Enemies.h"
 #include "game/Items.h"
 #include "game/Memory.h"
 #include "game/Original.h"
@@ -257,11 +258,11 @@ void SetEnemyPosition(uint8_t x, uint8_t pos) {
     Mem((uint16_t)(0x0404 + x)) = 0x00;
     uint8_t a = GetNameTable();
     EnNameTable[x] = a;
-    uint8_t y = EnDataIndex[x];
+    (void)a;
     bool carry;
     Mem((uint16_t)(0x0405 + x)) = Asl(Mem((uint16_t)(0x0405 + x)), carry);
-    Regs r = Original(0xFB7B, { a, x, y, carry });
-    Original(0xF85A, r);
+    EnemyInitDelay(x);
+    ResetEnemyHitPoints(x);
 }
 
 // $EB7A: non-zero when slot x holds an enemy that stays.
@@ -875,16 +876,13 @@ void SamusEnemyCollisions() {
             GetMemu0CoordData(x);
             if (!IsSamusDead() && SamusBlink == 0) {
                 r = MemuCollision(x, 0x00);
-                r = Original(0xF2B4, r);
-                x = r.x;
+                CrashMemuSamusF2B4(x, r.c);
             }
             for (y = 0xD0; y != 0; y = (uint8_t)(y + 0x10)) {
                 uint8_t action = ObjAction[y];
                 if (action != 0 && isHittingProjectile(action)) {
                     r = MemuCollision(x, y);
-                    r = Original(0xF32A, r);
-                    x = r.x;
-                    y = r.y;
+                    CrashMemuBulletF32A(x, y, r.c);
                 }
             }
         }
@@ -898,9 +896,7 @@ void SamusEnemyCollisions() {
             if (IsSamusDead()) {
                 break; // on to the enemies
             }
-            r = Original(0xDC7F, { 0, x, y }); // AreObjectsTouching
-            r = Original(0xF277, r);
-            x = r.x;
+            CrashDoorF277(y, TouchCheckDC7F(x, y));
         }
         x = (uint8_t)(x - 0x10);
     } while (x & 0x80);
@@ -915,17 +911,14 @@ void SamusEnemyCollisions() {
                     uint8_t action = ObjAction[y];
                     if (action != 0 && isHittingProjectile(action)) {
                         r = EnemyCollision(x, y);
-                        r = Original(0xF2CA, r);
-                        x = r.x;
-                        y = r.y;
+                        CrashEnemyBulletF2CA(x, y, r.c);
                     }
                 }
             }
             y = 0x00;
             if (SamusBlink == 0 && !IsSamusDead()) {
                 r = EnemyCollision(x, y);
-                r = Original(0xF282, r);
-                x = r.x;
+                CrashEnemySamusF282(x, y, r.c);
             }
         }
         x = (uint8_t)(x - 0x10);
@@ -936,12 +929,9 @@ void SamusEnemyCollisions() {
     for (y = 0x60; y != 0xC0; y = (uint8_t)(y + 0x10)) {
         uint8_t status = Enstatus[y];
         if (status != 0 && status != 0x05 && SamusBlink == 0 && !IsSamusDead()) {
-            r = Original(0xF1B3, { 0, x, y }); // DistFromObj0ToEn1
-            GetEnemy1CoordData(r.y);
-            r = Original(0xF1FA, { 0, r.x, r.y });
-            r = Original(0xF2ED, r);
-            x = r.x;
-            y = r.y;
+            DistFromObj0ToEn1(x, y);
+            GetEnemy1CoordData(y);
+            CrashSamusObjectF2ED(x, y, CheckObjectDistance());
         }
     }
     // Samus against bombs and explosions.
@@ -951,10 +941,7 @@ void SamusEnemyCollisions() {
         for (x = 0xF0; x != 0xC0; x = (uint8_t)(x - 0x10)) {
             uint8_t action = ObjAction[x];
             if (action == 0x07 || action == 0x0A) {
-                r = Original(0xDC82, { 0, x, y });
-                r = Original(0xF311, r);
-                x = r.x;
-                y = r.y;
+                CrashBlastF311(y, TouchCheckDC82(x, y));
             }
         }
     }
@@ -963,16 +950,21 @@ void SamusEnemyCollisions() {
 
 // $F140: distance check between enemy x and object y. Returns the registers and carry of $F1FA.
 Regs EnemyCollision(uint8_t x, uint8_t y) {
-    Regs r = Original(0xF1BF, { 0, x, y }); // DistFromEn0ToObj1
-    GetObject1CoordData(r.y);
-    return Original(0xF1FA, { 0, r.x, r.y });
+    DistFromEn0ToObj1(x, y);
+    GetObject1CoordData(y);
+    Regs r{ 0, x, y };
+    r.c = CheckObjectDistance();
+    return r;
 }
 
 // $F149: distance check between a Memu (coordinates already in $07/$09/$0B) and object y.
 Regs MemuCollision(uint8_t x, uint8_t y) {
     GetObject1CoordData(y);
-    Regs r = Original(0xF1D2, { 0, x, y });
-    return Original(0xF1FA, { 0, r.x, r.y });
+    AddObject1YRadius(0x04, y); // $F1D2
+    AddObject1XRadius(0x08, y);
+    Regs r{ 0, x, y };
+    r.c = CheckObjectDistance();
+    return r;
 }
 
 // $F152

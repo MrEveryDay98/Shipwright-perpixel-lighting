@@ -4,6 +4,7 @@
 
 #include "game/Constants.h"
 #include "game/Engine.h"
+#include "game/Enemies.h"
 #include "game/Hw.h"
 #include "game/Objects.h"
 #include "game/Projectiles.h"
@@ -638,7 +639,7 @@ bool SamusRoll() {
             Regs r = { ObjCoordsToTemp(0x00), 0x00, 0 };
             Mem(0x05) = r.x;
             Mem(0x04) = 0xF5;
-            r = Original(0xFD8F, r);
+            r.c = MoveObjectByDeltas();
             StoreObjectCoords(r.x);
             StopHorzMovement();
             AnimIndex--;
@@ -842,7 +843,7 @@ void SetProjectileAnim(uint8_t x, uint8_t anim) {
 uint8_t PlaceProjectile(uint8_t y) {
     Regs r = { ObjCoordsToTemp(0x00), 0x00, y };
     r.x = r.y;
-    r = Original(0xFD8F, r);
+    r.c = MoveObjectByDeltas();
     r.y = r.x;
     StoreObjectCoords(r.x);
     return r.y;
@@ -1049,7 +1050,7 @@ uint8_t BitScan(uint8_t a) {
 // --- Not translated yet ---
 
 void ClearHealthChange() {
-    Original(0xF323);
+    ClearHealthChangeF323();
 }
 
 } // namespace Game

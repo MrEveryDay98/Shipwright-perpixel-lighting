@@ -709,8 +709,7 @@ void SamusEnterDoor8B13() {
         if (ScrollY == 0) {
             // $8B6D: the room is already centred.
             SetDoorEntryInfo(x);
-            Regs r = Original(0xE21B); // VertRoomCentered (bank 7)
-            SamusInDoor(r.x);
+            SamusInDoor(VertRoomCentered());
             return;
         }
         if ((PPUCNT0ZP ^ ObjectHi) & 0x01) {
@@ -811,7 +810,7 @@ void DoOneDoor(uint8_t x) {
                         if ((uint8_t)(x << 3) & 0x80) {
                             y--;
                         }
-                        Original(0xDC1E, { y, x, y });
+                        GetItemXYPosFrom(y);
                         ObjAction[x] = 0x00;
                         DrawDoor(x);
                         break;

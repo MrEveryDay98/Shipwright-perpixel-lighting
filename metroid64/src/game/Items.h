@@ -17,7 +17,9 @@ void UpdateItems();
 void CheckOneItem(uint8_t x);
 void MissileEnergyPickup(uint8_t item);
 void GetItemXYPos();
+void GetItemXYPosFrom(uint8_t mapX);
 void AddItemToHistory();
+void StoreItemInHistory();
 void CreateItemID();
 bool AreObjectsTouching(uint8_t x, uint8_t y);
 

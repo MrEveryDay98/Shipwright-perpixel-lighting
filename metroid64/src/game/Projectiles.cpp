@@ -4,6 +4,7 @@
 
 #include "game/Constants.h"
 #include "game/Engine.h"
+#include "game/Enemies.h"
 #include "game/Objects.h"
 #include "game/Original.h"
 #include "game/Ram.h"
@@ -213,7 +214,7 @@ bool MoveObjectByTiles() {
     Mem(0x05) = ObjHorzSpeed[x];
     Mem(0x04) = ObjVertSpeed[x];
     Regs r = { ObjCoordsToTemp(x), x, 0 };
-    r = Original(0xFD8F, r);
+    r.c = MoveObjectByDeltas();
     if (!r.c) {
         ObjAction[PageIndex] = 0; // the original reaches this through KillIfOffScreen's tail
         return false;

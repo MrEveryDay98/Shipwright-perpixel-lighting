@@ -58,6 +58,7 @@ void SetEnemyAnimIndex(uint8_t x, uint8_t a);    // $F690
 void ClearEnemyAnimDelay(uint8_t x);             // $F693
 uint8_t EnemyDirIndex2(uint8_t x);               // $F83E (area $8012): returns Y
 uint8_t EnemyDirIndex(uint8_t x);                // $F844: returns Y
+void EnemyInitDelay(uint8_t x);                  // $FB7B: Y = EnDataIndex
 void ResetEnemyHitPoints(uint8_t x);             // $F85A (area $8015)
 void EnemyDirAnim(uint8_t x, uint8_t a);         // $FBB9 (area $8018)
 void EnemyTurnAnim();                            // $FB88 (area $801B)

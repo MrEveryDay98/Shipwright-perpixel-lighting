@@ -21,11 +21,11 @@ using namespace Vars;
 namespace {
 
 // Zero page pointers of the music player (no names in the defines).
-constexpr Var MusicDataPtrE6{0x00E6}; // Base address of the channel being processed.
-constexpr Var VolDataPtrEC{0x00EC};   // Volume envelope of the channel being processed.
+constexpr Var MusicDataPtrE6{ 0x00E6 }; // Base address of the channel being processed.
+constexpr Var VolDataPtrEC{ 0x00EC };   // Volume envelope of the channel being processed.
 
 // Table addresses (the same in every bank).
-constexpr uint16_t SFXDatTbl = 0xB200;           // Four APU register values per SFX.
+constexpr uint16_t SFXDatTbl = 0xB200; // Four APU register values per SFX.
 constexpr uint16_t SpitFlamesTbl = 0xB4FB;
 constexpr uint16_t BossHitSFXDataTbl = 0xB63C;
 constexpr uint16_t MslPickupSFXTbl = 0xB6A9;
@@ -1391,7 +1391,7 @@ void JumpToSFXRoutine() {
 
 void SoundEngine() {
     Hw::ApuWrite(0x4017, 0xC0); // APUCommonCntrl1: 5-step sequence, no frame interrupt
-    if (NoiseSFXFlag & 0x01) { // silence music
+    if (NoiseSFXFlag & 0x01) {  // silence music
         InitSoundAddresses();
         ClearSFXFlags();
         return;

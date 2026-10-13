@@ -7,6 +7,7 @@
 namespace Game {
 
 void ScrollDoor();
+uint8_t VertRoomCentered();
 bool IsSamusInLava();
 void LavaAndMoveCheck();
 void SamusMoveVertically();

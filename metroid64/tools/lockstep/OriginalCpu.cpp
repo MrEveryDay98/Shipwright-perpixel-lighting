@@ -5,6 +5,8 @@
 #include "game/Hw.h"
 #include "game/Memory.h"
 #include "game/Original.h"
+
+#include <map>
 #include "nes/Cpu6502.h"
 
 #include <cstdio>
@@ -131,7 +133,11 @@ int sDepth = 0;
 
 namespace Game {
 
+// How often each untranslated routine was run, for the end-of-run report.
+std::map<uint16_t, int> gOriginalCalls;
+
 Regs Original(uint16_t addr, Regs in) {
+    gOriginalCalls[addr]++;
     // A routine running here may wait for the NMI, whose port code may call back in here: keep the
     // outer routine's CPU state and give the inner one stack below it.
     struct Saved {

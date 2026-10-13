@@ -17,9 +17,9 @@ using namespace Vars;
 using namespace Const;
 
 namespace {
-// $FA18 KillObject lives in the enemy code (Enemies.cpp); X = the enemy slot.
+// $FA18 KillObject (Enemies.cpp) on the enemy at PageIndex.
 void KillObject() {
-    Original(0xFA18, { 0, PageIndex, 0 });
+    Game::KillObject(PageIndex);
 }
 constexpr uint16_t kObjectAnimIdxTbl = 0x8572; // in the area bank
 constexpr uint16_t kFramePtrTable = 0x860B;
@@ -91,11 +91,15 @@ uint8_t GetSpriteCntrlData() {
 // address here, so that caller is left (DrawEnemy returns true).
 void EnemyExplosionDone() {
     ClearObjectCntrl();
-    uint8_t x = PageIndex;
+    EnemyItemDrop(PageIndex);
+}
+
+// $DCFC: what the dead enemy x (the one at PageIndex) leaves behind.
+void EnemyItemDrop(uint8_t x) {
     if (InArea == 0x13) {
         uint8_t d = EnDataIndex[x];
         if (d == 0x04 || d == 0x02) {
-            KillObject(); // Tourian's Metroids leave nothing
+            Game::KillObject(x); // Tourian's Metroids leave nothing
             return;
         }
     }
@@ -103,7 +107,7 @@ void EnemyExplosionDone() {
         MiniBossKilled();
         return;
     }
-    Regs r = Original(0xF74B, { 0, x, 0 });
+    Regs r{ EnemyDataF74B(x), x, EnDataIndex[x] };
     GenByte00 = r.a;
     r = AreaHook(0x80B0, r);
     EnDataIndex[x] = r.a & 0x20;

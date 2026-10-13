@@ -266,10 +266,9 @@ void EnemyAI(uint8_t x) {
             Enemy9AI(x);
             break;
         default:
-            if (!sBank->kraid) {
-                Original(0x95E5, { 0, x, 0 }); // no routine (Brinstar's table holds $0000)
-            }
-            break; // Kraid's bank: $95CB, an RTS
+            // Kraid's bank: $95CB, an RTS. Brinstar's table holds $0000 for these types, so the original would
+            // run the zero page as code; Brinstar's rooms never place them, so nothing is done here.
+            break;
     }
 }
 

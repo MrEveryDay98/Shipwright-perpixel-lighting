@@ -107,7 +107,7 @@ bool DrawStatueTiles(uint8_t y) {
     Mem(0x05C9) = (uint8_t)((Mem(0x036C) << 2) | Read((uint16_t)(kTable1B + y)));
     Mem(0x05C3) = 0x09;
     PageIndex = 0xC0;
-    bool carry = Original(0xFEDC).c; // DrawTileBlast
+    bool carry = DrawTileBlast();
     PageIndex = 0x60;
     return carry;
 }
@@ -222,7 +222,12 @@ void MissileEnergyPickup(uint8_t item) {
 
 // $DC1C: the map position of the item ($08 its name table, $09 its type) for the item history.
 void GetItemXYPos() {
-    Mem(0x07) = MapPosX;
+    GetItemXYPosFrom(MapPosX);
+}
+
+// $DC1E: the same with the map x given (doors use the one their side of the screen is on).
+void GetItemXYPosFrom(uint8_t mapX) {
+    Mem(0x07) = mapX;
     Mem(0x06) = MapPosY;
     bool carry = ScrollDir & 0x01;
     bool vertical = (ScrollDir >> 1) == 0;
@@ -246,6 +251,11 @@ void GetItemXYPos() {
 
 void AddItemToHistory() {
     CreateItemID();
+    StoreItemInHistory();
+}
+
+// $DC54: appends the item ID in $06/$07.
+void StoreItemInHistory() {
     uint8_t y = NumUniqueItems;
     UnqItmHist[y] = Mem(0x06);
     UnqItmHist[y + 1] = Mem(0x07);

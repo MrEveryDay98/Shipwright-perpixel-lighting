@@ -20,6 +20,7 @@ uint8_t NegativeDisplacement(uint8_t a);
 uint8_t IsObjectVisible();
 void SpriteFlipBitsOveride(uint8_t y);
 void EnemyExplosionDone();
+void EnemyItemDrop(uint8_t x);
 void ChooseItemDrop(uint8_t a);
 void NoItemDrop();
 void MiniBossKilled();

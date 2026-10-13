@@ -50,19 +50,25 @@ void ScrollDoor() {
             } else {
                 ScrollUp();
             }
-            // VertRoomCentered
-            if (ScrollY != 0) {
-                return;
-            }
-            DoorOnNameTable3 = 0;
-            DoorOnNameTable0 = 0;
-            x = (ObjectX & 0x80) ? 0x01 : 0x02; // right hand door: scroll right
-            MirrorCntrl = ToggleScroll();
-            DoorStatus = x;
+            VertRoomCentered();
             return;
         default:
             return;
     }
+}
+
+// $E21B: once a vertical shaft is centred on the door, scrolling turns horizontal and Samus is carried out
+// through the door. Returns X (the new DoorStatus, or ScrollY while still centring).
+uint8_t VertRoomCentered() {
+    if (ScrollY != 0) {
+        return ScrollY;
+    }
+    DoorOnNameTable3 = 0;
+    DoorOnNameTable0 = 0;
+    uint8_t x = (ObjectX & 0x80) ? 0x01 : 0x02; // right hand door: scroll right
+    MirrorCntrl = ToggleScroll();
+    DoorStatus = x;
+    return x;
 }
 
 // --- $E25D Lava ------------------------------------------------------------------------------------------

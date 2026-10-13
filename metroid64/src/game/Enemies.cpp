@@ -736,7 +736,7 @@ void EnemyHitCheckF536(uint8_t x) {
     // $F611: killed.
     Enstatus[x] = 0x03;
     if (!boss && En040E[x] < 0x02) {
-        Original(0xDCFC, { 0x00, x, y }); // the enemy's item drop (bank 7)
+        EnemyItemDrop(x);
         x = PageIndex;
     }
     y = EnemyDirIndex(x);
@@ -1666,7 +1666,7 @@ bool MoveObjectByDeltas() {
 
 namespace {
 void AddUniqueItem() {
-    Original(0xDC54); // bank 7
+    StoreItemInHistory(); // $DC54
 }
 
 // $FE05: a Zebetite / item slot reaching 2 is noted in the unique item history.
@@ -1851,6 +1851,11 @@ bool DrawTileBlast() {
     Mem(0x01) &= 0x2F;
     EraseTile(); // $C328: the PPU string
     return false;
+}
+
+// $FB7B, for the room loader.
+void EnemyInitDelay(uint8_t x) {
+    FB7B(x, EnDataIndex[x]);
 }
 
 } // namespace Game

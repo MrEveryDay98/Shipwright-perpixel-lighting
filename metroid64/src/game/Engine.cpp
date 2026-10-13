@@ -1174,13 +1174,13 @@ void UpdateWorld() {
     AreaRoutine();
     UpdateElevator();
     UpdateStatues();
-    DestroyEnemyObjects(); // $FA9D
-    UpdateMellows();       // $FC65
+    DestroyEnemyObjects();     // $FA9D
+    UpdateMellows();           // $FC65
     if (UpdateObjectsF93B()) { // $F93B: the original left UpdateWorld (see Enemies.h)
         Present::TagSprites(p, Owner::Other);
         return;
     }
-    UpdateSpinners();      // $FBDD
+    UpdateSpinners(); // $FBDD
     SamusEnterDoor();
     Present::TagSprites(p, Owner::Other);
     p = SpritePagePos;
