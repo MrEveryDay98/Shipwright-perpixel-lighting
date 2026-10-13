@@ -6,6 +6,7 @@
 #include "game/Enemies.h"
 #include "game/Hud.h"
 #include "game/Items.h"
+#include "game/Scroll.h"
 #include "game/Original.h"
 #include "game/Projectiles.h"
 #include "game/Sound.h"
@@ -34,6 +35,7 @@ void AddYToPtr00(uint8_t y);
 void AddYToPtr02(uint8_t y);
 void ProcessPPUStr();
 void SetPPUInc(bool by32);
+bool WritePPUByte(uint8_t& x, uint8_t value);
 bool NextPPUByte(uint8_t& x);
 void EndPPUString(uint8_t x);
 void EraseTile();
@@ -76,9 +78,12 @@ void IsEngineRunning(uint8_t area);
 void SwitchBank(uint8_t area);
 void ChooseEnding();
 void ClearScreenData();
-void GetRoomNum();
+bool GetRoomNum();
+void SwitchNameTable();
+bool CheckMoveDown();
+bool CheckMoveLeft();
+bool CheckMoveRight();
 void SetupRoom();
-void ScrollDoor();
 void UpdateWorld();
 void SelectSamusPal();
 void CheckMissileToggle();

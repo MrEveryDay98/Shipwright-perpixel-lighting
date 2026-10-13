@@ -430,7 +430,7 @@ void SetPPUInc(bool by32) {
 
 // Appends a byte to the PPU string. Returns false when the string is full: the original then ends the
 // string and abandons the routine that was building it.
-static bool WritePPUByte(uint8_t& x, uint8_t value) {
+bool WritePPUByte(uint8_t& x, uint8_t value) {
     PPUDataString[x] = value;
     return NextPPUByte(x);
 }
@@ -1307,14 +1307,23 @@ void CheckMissileToggle() {
 
 // --- Not translated yet ---------------------------------------------------------------------------
 
-void GetRoomNum() {
-    Original(0xE720);
+bool GetRoomNum() {
+    return Original(0xE720).c;
+}
+void SwitchNameTable() {
+    Original(0xE9B7);
+}
+bool CheckMoveDown() {
+    return Original(0xE7AD).c;
+}
+bool CheckMoveLeft() {
+    return Original(0xE880).c;
+}
+bool CheckMoveRight() {
+    return Original(0xE88B).c;
 }
 void SetupRoom() {
     Original(0xEA2B);
-}
-void ScrollDoor() {
-    Original(0xE1F1);
 }
 
 } // namespace Game

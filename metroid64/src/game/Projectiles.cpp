@@ -297,7 +297,7 @@ void BombBlastTiles() {
     switch (step) {
         case 1:
             break; // the bomb's own tile
-        case 2: // above
+        case 2:    // above
             TileOffsetUp(0x40);
             if ((Mem(0x05) & 0x03) == 0x03 && Mem(0x04) >= 0xC0) {
                 if (otherTable) {
@@ -529,7 +529,7 @@ void ElevatorChangeArea() {
         MainRoutine = 0x07;
         AtEnding++;
         Mem(0x33) = 0;
-        SwitchPending = 1; // bank 0
+        SwitchPending = 1;   // bank 0
         TitleRoutine = 0x1D; // the ending
         return;
     }
@@ -655,12 +655,6 @@ bool SamusOnTop() {
 
 // --- Not translated yet --------------------------------------------------------------------------------
 
-void ScrollLeft() {
-    Original(0xE6A7);
-}
-void ScrollRight() {
-    Original(0xE6D2);
-}
 void WaitNMIPass_() {
     WaitNMIPass();
 }

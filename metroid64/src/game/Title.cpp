@@ -62,13 +62,6 @@ void PrepPPUProcess_(uint8_t lo, uint8_t hi) {
     ProcessPPUStr();
 }
 
-// $C36B WritePPUByte: appends a byte to the PPU string. False when the string is full: the original
-// then ends the string and returns from the routine that called it.
-static bool WritePPUByte(uint8_t& x, uint8_t value) {
-    PPUDataString[x] = value;
-    return NextPPUByte(x);
-}
-
 // --- $8027 Title routines -------------------------------------------------------------------------
 
 static void ClearSpareMem();

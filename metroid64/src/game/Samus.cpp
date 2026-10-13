@@ -772,7 +772,7 @@ void FireHorizontal() {
         InitProjectile(y);
         SetWaveBeam(y, SamusDir);
         SetIceBeam(y);
-        Mem((uint16_t)(0x030F + y)) = 0x0C; // frames the shot lasts
+        Mem((uint16_t)(0x030F + y)) = 0x0C;      // frames the shot lasts
         static const uint16_t kTable99 = 0xD273; // bullet speeds
         ObjHorzSpeed[y] = Read((uint16_t)(kTable99 + SamusDir));
         ObjVertSpeed[y] = 0;
@@ -1052,19 +1052,10 @@ uint8_t BitScan(uint8_t a) {
 bool CheckMoveUp() {
     return Original(0xE7A2).c;
 }
-void ScrollDown() {
-    Original(0xE519);
-}
-void ScrollUp() {
-    Original(0xE4F1);
-}
 uint8_t GetNameTable() {
     return Original(0xEB85).a;
 }
 
-void LavaAndMoveCheck() {
-    Original(0xE269);
-}
 void ClearHealthChange() {
     Original(0xF323);
 }
