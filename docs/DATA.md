@@ -85,6 +85,23 @@ loaded. Items:
 - `Enemy Index Type X Y` (`Index`: the enemy slot), `Memus`, `Elevator Info`, `Door Info`, `Palette`.
 - Tourian: `Cannon Index Info`, `MotherBrain`, `Zebetite Index`, `Rinka Index`.
 
+## Palettes: `metroid/palettes/<area>`
+
+```xml
+<Palettes Version="0" Area="brinstar" Table="9560" Count="28">
+    <Palette Number="00" Address="A271" Size="36">
+        <Write Address="3F00">0F 22 12 1C 0F 22 12 1C ...</Write>
+    </Palette>
+</Palettes>
+```
+
+The palettes the game switches between in an area (the room's palette, flashes, Samus's suits...): palette
+N is what the game loads when `PalDataPending` is N+1. Each is a list of writes to video memory:
+`3F00`-`3F0F` are the four background palettes, `3F10`-`3F1F` the four sprite palettes, four NES colour
+numbers each. `<Fill Address Count Value/>` writes one value Count times; `Vertical="1"` steps down a column
+of the name table instead of across. A write holds at most 3F bytes. Palettes that are the same are stored
+once.
+
 ## Everything else: `metroid/data/<bank>/<name>`
 
 Data without a type of its own yet is kept as the bytes of a table, named after the disassembly's label:
@@ -97,7 +114,7 @@ Data without a type of its own yet is kept as the bytes of a table, named after 
 
 A block goes back exactly where it came from, so a mod can change its bytes but not its size. Folders:
 `title` (bank 0: title, passwords, ending), `brinstar`, `norfair`, `tourian`, `kraid`, `ridley` (the area
-banks: palettes, enemy data, music), `graphics` (bank 6) and `engine` (bank 7). Palettes, graphics, enemy
+banks: enemy data, music), `graphics` (bank 6) and `engine` (bank 7). Palettes, graphics, enemy
 data, music and text are getting types of their own next.
 
 ## How it fits together

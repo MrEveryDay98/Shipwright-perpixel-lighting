@@ -8,6 +8,7 @@
 // Independent of libultraship: the app wraps these in resources, the lockstep tool uses them directly.
 
 #include "game/data/Level.h"
+#include "game/data/Ppu.h"
 
 #include <cstdint>
 #include <map>
@@ -21,7 +22,7 @@ class XMLElement;
 namespace Game::Data {
 
 // Version of the extracted data. Bump it when the extraction changes, so old archives are redone.
-constexpr int kDataVersion = 3;
+constexpr int kDataVersion = 4;
 
 // A run of bytes at its original place in the ROM. Untyped data is kept this way until it gets a
 // resource type of its own.
@@ -49,6 +50,7 @@ std::string WriteBlock(const Block& block);
 struct Assets {
     std::vector<Block> blocks;
     Level level;
+    PpuAssets ppu;
 
     // Reads any data resource (by its root element). False if it isn't one, or is malformed.
     bool Read(const tinyxml2::XMLElement* root, std::string& error);
