@@ -196,6 +196,9 @@ void Assets::Merge(const Assets& other) {
     for (const auto& [bank, t] : other.level.specialItems) {
         level.specialItems[bank] = t;
     }
+    for (const auto& [bank, a] : other.level.areaInfo) {
+        level.areaInfo[bank] = a;
+    }
     for (const auto& [bank, t] : other.ppu.palettes) {
         ppu.palettes[bank] = t;
     }

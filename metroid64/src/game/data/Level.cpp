@@ -190,6 +190,28 @@ std::string Num2(uint8_t n) {
     return Hex2(n);
 }
 
+// AreaInfo fields: name, offset from $95CC, length.
+struct AreaField {
+    const char* name;
+    int offset;
+    int length;
+};
+constexpr uint16_t kAreaInfo = 0x95CC;
+constexpr AreaField kAreaFields[] = {
+    { "Unused95CC", 0x00, 1 },    // not read by the game
+    { "MusicFlag", 0x01, 1 },     // the area's bit in MusicInitFlag (StartMusic)
+    { "EnemyDamageLo", 0x02, 1 }, // base damage of the area's enemies, BCD (low, high)
+    { "EnemyDamageHi", 0x03, 1 },    { "ItemMusicRooms", 0x04, 7 }, // rooms that start the item room music (GetRoomNum)
+    { "StartMapX", 0x0B, 1 }, // where Samus starts in the area (map position, screen y)
+    { "StartMapY", 0x0C, 1 },        { "StartScreenY", 0x0D, 1 },   { "PalToggle", 0x0E, 1 }, // initial PalToggle
+    { "Unused95DB", 0x0F, 1 },                                                                // not read by the game
+    { "ExplodeAnim", 0x10, 1 },                                // enemy explosion animation
+    { "PieceAnim", 0x11, 1 },                                  // explosion piece animation
+    { "Unused95DE", 0x12, 2 },                                 // not read by the game
+    { "FireballAnims", 0x14, 2 },                              // enemy fireball animations (Enemies.cpp)
+    { "FireballEndAnims", 0x16, 2 }, { "MemuEnemy", 0x18, 1 }, // the enemy type Memus use (SpecEnemyHandler)
+};
+
 // Record sizes of the special item kinds (what each ScanForItems handler returns).
 int SpecialItemSize(SpecialItem::Kind k) {
     switch (k) {
@@ -395,6 +417,14 @@ void ExtractLevel(const uint8_t* prgBytes, std::map<std::string, std::string>& f
         Cover(covered, bank, m.address, m.size);
         files["metroid/macros/" + area] = WriteMacros(m);
 
+        AreaInfo info;
+        info.bank = bank;
+        for (int i = 0; i < 0x19; i++) {
+            info.bytes[i] = prg.Get(bank, (uint16_t)(kAreaInfo + i));
+        }
+        Cover(covered, bank, kAreaInfo, 0x19);
+        files["metroid/areas/" + area] = WriteAreaInfo(info);
+
         SpecialItems items = DecodeSpecialItems(prg, bank, prg.Get16(bank, kAreaPointers));
         Cover(covered, bank, items.address, items.size);
         files["metroid/items/" + area] = WriteSpecialItems(items);
@@ -531,6 +561,18 @@ std::string WriteSpecialItems(const SpecialItems& t) {
     return s + "</SpecialItems>\n";
 }
 
+std::string WriteAreaInfo(const AreaInfo& a) {
+    std::string s = "<AreaInfo Version=\"0\" Area=\"" + std::string(AreaName(a.bank)) + "\"";
+    for (const AreaField& f : kAreaFields) {
+        s += std::string("\n    ") + f.name + "=\"";
+        for (int i = 0; i < f.length; i++) {
+            s += (i ? " " : "") + Hex2(a.bytes[f.offset + i]);
+        }
+        s += "\"";
+    }
+    return s + "/>\n";
+}
+
 bool ReadLevelResource(const tinyxml2::XMLElement* root, Level& level, std::string& error) {
     if (root == nullptr) {
         error = "empty";
@@ -633,6 +675,20 @@ bool ReadLevelResource(const tinyxml2::XMLElement* root, Level& level, std::stri
             s.rows.push_back(row);
         }
         level.structures[bank][s.number] = s;
+        return true;
+    }
+    if (kind == "AreaInfo") {
+        AreaInfo a;
+        a.bank = bank;
+        for (const AreaField& f : kAreaFields) {
+            std::vector<uint8_t> b = HexBytes(root->Attribute(f.name));
+            if ((int)b.size() != f.length) {
+                error = std::string("AreaInfo ") + f.name + " needs " + std::to_string(f.length) + " byte(s)";
+                return false;
+            }
+            std::copy(b.begin(), b.end(), a.bytes + f.offset);
+        }
+        level.areaInfo[bank] = a;
         return true;
     }
     if (kind == "SpecialItems") {
@@ -774,6 +830,9 @@ bool AssembleLevel(const Level& level, Image& image, std::string& error) {
             image.Put16(bank, kMacroDefsPtr, at);
         }
         image.Put(bank, at, bytes);
+    }
+    for (const auto& [bank, a] : level.areaInfo) {
+        image.Put(bank, kAreaInfo, std::vector<uint8_t>(a.bytes, a.bytes + 0x19));
     }
     for (const auto& [bank, t] : level.specialItems) {
         uint16_t at = t.address;

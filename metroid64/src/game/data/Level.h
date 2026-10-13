@@ -7,6 +7,7 @@
 //   metroid/structures/<area>/struct_<NN> <Structure> rows of macros
 //   metroid/macros/<area>                <Macros>     2x2 tile blocks the structures are made of
 //   metroid/items/<area>                 <SpecialItems> power-ups, elevators, bosses... by map screen
+//   metroid/areas/<area>                 <AreaInfo>   start position, music, enemy damage...
 //
 // <area> is brinstar, norfair, tourian, kraid or ridley (area banks 1-5). Numbers are hex.
 
@@ -113,6 +114,12 @@ struct SpecialItems {
     std::vector<uint8_t> Encode(uint16_t base) const;
 };
 
+// Per-area settings ($95CC-$95E4 of each area bank), named after what the code does with them.
+struct AreaInfo {
+    int bank = 1;
+    uint8_t bytes[0x19] = {}; // $95CC-$95E4
+};
+
 // Every level resource of the game.
 struct Level {
     WorldMap world;
@@ -121,6 +128,7 @@ struct Level {
     std::map<int, std::map<uint8_t, Structure>> structures; // [bank][number]
     std::map<int, MacroSet> macros;                         // [bank]
     std::map<int, SpecialItems> specialItems;               // [bank]
+    std::map<int, AreaInfo> areaInfo;                       // [bank]
 };
 
 // Reads the level out of the PRG ROM into resource files; marks the bytes it covers in `covered` (one
@@ -134,6 +142,7 @@ std::string WriteRoom(const Room& room);
 std::string WriteStructure(const Structure& s);
 std::string WriteMacros(const MacroSet& m);
 std::string WriteSpecialItems(const SpecialItems& s);
+std::string WriteAreaInfo(const AreaInfo& a);
 bool ReadLevelResource(const tinyxml2::XMLElement* root, Level& level, std::string& error);
 
 // Puts the level into the image (pointer tables included).

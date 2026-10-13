@@ -85,6 +85,29 @@ loaded. Items:
 - `Enemy Index Type X Y` (`Index`: the enemy slot), `Memus`, `Elevator Info`, `Door Info`, `Palette`.
 - Tourian: `Cannon Index Info`, `MotherBrain`, `Zebetite Index`, `Rinka Index`.
 
+### Area settings: `metroid/areas/<area>`
+
+```xml
+<AreaInfo Version="0" Area="brinstar"
+    Unused95CC="FF"
+    MusicFlag="01"
+    EnemyDamageLo="80"
+    EnemyDamageHi="00"
+    ItemMusicRooms="2B 2C 28 0B 1C 0A 1A"
+    StartMapX="03"
+    StartMapY="0E"
+    StartScreenY="B0"
+    .../>
+```
+
+- `MusicFlag`: the area's bit in the music flags (which song plays).
+- `EnemyDamageLo`/`Hi`: base damage the area's enemies do (BCD, like the energy counter).
+- `ItemMusicRooms`: room numbers that play the item room music.
+- `StartMapX`/`StartMapY`/`StartScreenY`: where Samus appears when the game starts in the area.
+- `PalToggle`, `ExplodeAnim`, `PieceAnim`, `FireballAnims`, `FireballEndAnims`, `MemuEnemy`: values the
+  enemy code and the area start use (animation numbers, the Memus' enemy type).
+- `Unused...`: bytes the game never reads.
+
 ## Palettes: `metroid/palettes/<area>`
 
 ```xml
