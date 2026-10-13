@@ -25,3 +25,4 @@ __pycache__/
 metroid64.json
 logs/
 imgui.ini
+build-lockstep/

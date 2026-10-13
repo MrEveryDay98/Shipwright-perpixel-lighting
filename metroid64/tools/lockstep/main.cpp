@@ -15,6 +15,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <algorithm>
 #include <cstring>
 #include <fstream>
 #include <iterator>
@@ -95,6 +96,46 @@ bool Ignored(uint16_t addr) {
     }
     if (addr >= 0x0110 && addr < 0x0200) {
         return true; // stack
+    }
+    return false;
+}
+
+// APU register writes in order, from both sides.
+std::vector<std::pair<uint16_t, uint8_t>> gEmuApu, gPortApu;
+
+class RecordingMachine : public Nes::Machine {
+  public:
+    void Write(uint16_t addr, uint8_t value) override {
+        if (addr >= 0x4000 && addr <= 0x4017 && addr != 0x4014 && addr != 0x4016) {
+            gEmuApu.emplace_back(addr, value);
+        }
+        Nes::Machine::Write(addr, value);
+    }
+};
+
+bool CompareApu(int frame) {
+    if (gEmuApu == gPortApu) {
+        return true;
+    }
+    printf("frame %d: APU writes differ\n", frame);
+    size_t n = std::max(gEmuApu.size(), gPortApu.size());
+    for (size_t i = 0, shown = 0; i < n && shown < 24; i++) {
+        bool same = i < gEmuApu.size() && i < gPortApu.size() && gEmuApu[i] == gPortApu[i];
+        if (same && shown == 0) {
+            continue;
+        }
+        auto fmt = [](const std::vector<std::pair<uint16_t, uint8_t>>& v, size_t k) {
+            char b[16];
+            if (k < v.size()) {
+                snprintf(b, sizeof(b), "$%04X=%02X", v[k].first, v[k].second);
+            } else {
+                snprintf(b, sizeof(b), "-");
+            }
+            return std::string(b);
+        };
+        printf("  #%zu original %-10s port %-10s%s\n", i, fmt(gEmuApu, i).c_str(), fmt(gPortApu, i).c_str(),
+               same ? "" : "  <--");
+        shown++;
     }
     return false;
 }
@@ -213,7 +254,7 @@ int main(int argc, char** argv) {
         fprintf(stderr, "%s\n", error);
         return 2;
     }
-    static Nes::Machine emu;
+    static RecordingMachine emu;
     emu.Load(rom);
     emu.Reset();
 
@@ -251,6 +292,8 @@ int main(int argc, char** argv) {
         emu.RunFrame();
     }
     CopyState(emu);
+    Game::Hw::SetApuSink([](uint16_t reg, uint8_t v) { gPortApu.emplace_back(reg, v); }, nullptr);
+    gEmuApu.clear();
     printf("synced at frame %d (GameMode %02X MainRoutine %02X)\n", frame, emu.Ram()[0x1D], emu.Ram()[0x1E]);
 
     // Each port frame is matched against as many emulated frames as it ran NMIs. Lag frames of the
@@ -260,6 +303,8 @@ int main(int argc, char** argv) {
     int compared = 0, resyncs = 0;
     for (int n = 0; n < frames; n++) {
         portFrameButtons = frame;
+        gEmuApu.clear();
+        gPortApu.clear();
         int nmis = Game::RunFrame();
         bool lag = false;
         for (int k = 0; k < nmis; k++) {
@@ -278,7 +323,7 @@ int main(int argc, char** argv) {
             resyncs++;
             continue;
         }
-        if (Compare(emu, names, frame) > 0) {
+        if (Compare(emu, names, frame) > 0 || !CompareApu(frame)) {
             printf("FAILED after %d compared frames (%d resyncs). GameMode %02X MainRoutine %02X\n", compared,
                    resyncs, emu.Ram()[0x1D], emu.Ram()[0x1E]);
             return 1;
