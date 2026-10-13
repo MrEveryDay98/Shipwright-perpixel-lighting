@@ -198,15 +198,12 @@ bool MoveProjectile() {
     Regs r = AreaHook(0x95C0, { tile });
     tile = r.a;
     if (tile == 0x4E) {
-        return Original(0xE81E, r).c; // LE81E
+        return DoorTileHit();
     }
     if (!IsBlastableRange(tile)) {
         return false; // a wall
     }
-    Regs in = r;
-    in.a = tile;
-    in.c = false;
-    return Original(0xE9C2, in).c; // IsBlastTile
+    return IsBlastTile(tile, r.x, false);
 }
 
 // $D624: moves the object at PageIndex by its speeds. Returns the carry: clear (and the projectile
@@ -215,7 +212,7 @@ bool MoveObjectByTiles() {
     uint8_t x = PageIndex;
     Mem(0x05) = ObjHorzSpeed[x];
     Mem(0x04) = ObjVertSpeed[x];
-    Regs r = Original(0xE8BE, { 0, x, 0 });
+    Regs r = { ObjCoordsToTemp(x), x, 0 };
     r = Original(0xFD8F, r);
     if (!r.c) {
         ObjAction[PageIndex] = 0; // the original reaches this through KillIfOffScreen's tail
@@ -345,7 +342,7 @@ void BombBlastTiles() {
 void BlastTileAt04(uint8_t x) {
     uint8_t tile = Read(Ptr04());
     if (IsBlastableRange(tile) && tile < 0xA0) {
-        Original(0xE9C2, { tile, x, 0, false }); // IsBlastTile
+        IsBlastTile(tile, x, false);
     }
 }
 
@@ -372,7 +369,7 @@ void GetObjCoords() {
     Mem(0x02) = ObjectY[x];
     Mem(0x03) = ObjectX[x];
     Mem(0x0B) = ObjectHi[x];
-    Original(0xE96A, { 0, x, 0 }); // MakeCartRAMPtr
+    MakeCartRAMPtr();
 }
 
 // --- $D7B3 UpdateElevator ------------------------------------------------------------------------------

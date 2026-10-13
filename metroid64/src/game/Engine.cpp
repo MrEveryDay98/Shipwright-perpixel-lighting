@@ -1307,15 +1307,6 @@ void CheckMissileToggle() {
 
 // --- Not translated yet ---------------------------------------------------------------------------
 
-bool CheckMoveDown() {
-    return Original(0xE7AD).c;
-}
-bool CheckMoveLeft() {
-    return Original(0xE880).c;
-}
-bool CheckMoveRight() {
-    return Original(0xE88B).c;
-}
 void SetupRoom() {
     Original(0xEA2B);
 }

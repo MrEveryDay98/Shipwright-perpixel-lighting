@@ -635,7 +635,7 @@ bool SamusRoll() {
         bool carry = false;
         ObjRadY = Adc(ObjRadY, 0x08, carry);
         if (CheckMoveUp()) {
-            Regs r = Original(0xE8BE, { 0, 0x00, 0 });
+            Regs r = { ObjCoordsToTemp(0x00), 0x00, 0 };
             Mem(0x05) = r.x;
             Mem(0x04) = 0xF5;
             r = Original(0xFD8F, r);
@@ -840,7 +840,7 @@ void SetProjectileAnim(uint8_t x, uint8_t anim) {
 
 // $D306: positions the new shot ($04/$05: offset from Samus). Returns the slot (the original reloads Y).
 uint8_t PlaceProjectile(uint8_t y) {
-    Regs r = Original(0xE8BE, { 0, 0x00, y });
+    Regs r = { ObjCoordsToTemp(0x00), 0x00, y };
     r.x = r.y;
     r = Original(0xFD8F, r);
     r.y = r.x;
@@ -1049,10 +1049,6 @@ uint8_t BitScan(uint8_t a) {
 }
 
 // --- Not translated yet ---
-
-bool CheckMoveUp() {
-    return Original(0xE7A2).c;
-}
 
 void ClearHealthChange() {
     Original(0xF323);
