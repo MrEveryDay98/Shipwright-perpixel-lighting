@@ -73,8 +73,12 @@ struct Var {
 // Loads and checks the PRG ROM of Metroid (USA). Returns false with a reason if it isn't that game.
 bool LoadRom(const std::vector<uint8_t>& ines, const char** error);
 bool RomLoaded();
+// The game's data, as the 8 banks of 16 KiB the original reads (built by game/data from resources).
+void SetRomImage(std::vector<uint8_t> prg);
 // A byte of a specific 16 KiB bank (addr $8000-$BFFF, or $C000-$FFFF for the fixed bank 7).
 uint8_t RomByte(int bank, uint16_t addr);
+// Developer tool: marks coverage[bank * $4000 + offset] for every ROM byte read (null stops).
+void TrackRomReads(uint8_t* coverage);
 
 // What the original reads at a CPU address: RAM, cartridge RAM, the bank mapped at $8000 or the
 // fixed bank. Used where the original reads through pointers that may point anywhere.

@@ -4,6 +4,7 @@
 // We provide our own main(); stop SDL from renaming it to SDL_main on Windows.
 #define SDL_MAIN_HANDLED
 
+#include "GameData.h"
 #include "Port.h"
 #include "Hud.h"
 #include "Menu.h"
@@ -48,24 +49,37 @@ std::shared_ptr<Metroid::Hud> sHud;
 bool sPlaying = false;
 bool sFrozen = false;
 
-bool TryLoadRom(const std::string& path) {
+// Starts the game from the game's data in the archives.
+bool StartGame() {
     std::string error;
-    auto emu = std::make_unique<Metroid::Port>();
-    if (!emu->LoadRomFile(path, error)) {
-        SPDLOG_WARN("ROM {} rejected: {}", path, error);
+    auto game = std::make_unique<Metroid::Port>();
+    if (!game->LoadGameData(error)) {
+        SPDLOG_WARN("Game data not usable: {}", error);
         sHud->SetRomError(error);
         return false;
     }
-    sGame = std::move(emu);
+    sGame = std::move(game);
     sGame->PowerOn();
     sRenderer.Init();
     sHud->SetRunning(true);
     sPlaying = true;
+    return true;
+}
+
+// First run (or new data version): makes metroid.o2r from the ROM, then starts the game. The ROM isn't
+// needed after that.
+bool TryLoadRom(const std::string& path) {
+    std::string error;
+    if (!Metroid::ExtractGameData(path, error)) {
+        SPDLOG_WARN("ROM {} rejected: {}", path, error);
+        sHud->SetRomError(error);
+        return false;
+    }
     auto config = Ship::Context::GetRawInstance()->GetConfig();
     config->SetString(kRomPathConfigKey, std::filesystem::absolute(path).string());
     config->Save();
-    SPDLOG_INFO("Loaded Metroid ROM from {}", path);
-    return true;
+    SPDLOG_INFO("Game data made from the ROM at {}", path);
+    return StartGame();
 }
 
 bool OnFileDropped(char* path) {
@@ -110,9 +124,15 @@ void FindRom() {
     }
 }
 
-// metroid64.o2r plus anything in mods/ (archives or plain folders): that is where models go.
+// metroid64.o2r, the game's data (metroid.o2r) and anything in mods/ (archives or plain folders), in
+// that order: later archives override earlier ones.
 std::vector<std::string> CollectArchives() {
     std::vector<std::string> archives = { Ship::Context::LocateFileAcrossAppDirs("metroid64.o2r", kAppShortName) };
+    // The game's data, made from the ROM on first run.
+    std::error_code dataEc;
+    if (std::filesystem::exists(Metroid::GameDataArchivePath(), dataEc)) {
+        archives.push_back(Metroid::GameDataArchivePath());
+    }
     std::filesystem::path mods = Ship::Context::GetPathRelativeToAppDirectory("mods", kAppShortName);
     std::error_code ec;
     if (!std::filesystem::is_directory(mods, ec)) {
@@ -234,6 +254,7 @@ int main(int argc, char** argv) {
     context->InitResourceManager(CollectArchives(), {}, 1, false);
     RegisterResourceFactories();
     Metroid::RegisterSkeletonResourceFactories();
+    Metroid::RegisterGameDataResourceFactories();
     context->InitConsole();
 
     sHud = std::make_shared<Metroid::Hud>();
@@ -267,7 +288,10 @@ int main(int argc, char** argv) {
     osContInit(&queue, &controllerBits, status);
 
     if (argc > 1) {
-        TryLoadRom(argv[1]);
+        TryLoadRom(argv[1]); // a ROM given on the command line remakes the game's data
+    }
+    if (!sPlaying && Metroid::GameDataReady()) {
+        StartGame();
     }
     if (!sPlaying) {
         FindRom();

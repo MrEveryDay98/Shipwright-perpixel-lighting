@@ -67,8 +67,8 @@ class GameView {
   public:
     virtual ~GameView() = default;
 
-    // Reads and checks the user's ROM (Metroid (USA)).
-    virtual bool LoadRomFile(const std::string& path, std::string& error) = 0;
+    // Loads the game's data (resources made from the player's ROM).
+    virtual bool LoadGameData(std::string& error) = 0;
     virtual void PowerOn() = 0;
     // Runs one 60 Hz frame with these NES buttons held (bit 0 A ... bit 7 Right).
     virtual void Tick(uint8_t buttons) = 0;

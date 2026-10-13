@@ -15,6 +15,9 @@
 //                                Replaces --script; --sync defaults to 30
 //     --picture                  also compares the picture the app draws from the port's video memory with
 //                                the emulated PPU's, every compared frame
+//     --rom-coverage <file>      records which ROM bytes the port read, added to the file (128 KiB map)
+//     --raw-rom                  the port reads the ROM file directly instead of the data extracted from
+//                                it (by default the data goes through the extractor and its XML first)
 //     --check-lag                also compares at the frames where the original lagged and prints the
 //                                differences without failing (a few are expected: the original ran extra
 //                                NMIs, so joypad, sound and sprite bytes differ)
@@ -23,6 +26,7 @@
 #include "game/Game.h"
 #include "game/Hw.h"
 #include "game/Memory.h"
+#include "game/data/Data.h"
 #include "game/Ram.h"
 #include "game/Title.h"
 #include "nes/Nes.h"
@@ -338,13 +342,21 @@ int main(int argc, char** argv) {
     const char* ramH = "metroid64/src/game/Ram.h";
     std::string dump;
     const char* password = nullptr;
+    const char* coverageFile = nullptr;
+    static uint8_t coverage[8 * 0x4000];
     bool syncGiven = false;
     bool checkLag = false;
     bool picture = false;
+    bool rawRom = false;
     for (int i = 2; i < argc; i += 2) {
         std::string opt = argv[i];
         if (opt == "--check-lag") {
             checkLag = true;
+            i--;
+            continue;
+        }
+        if (opt == "--raw-rom") {
+            rawRom = true;
             i--;
             continue;
         }
@@ -356,7 +368,9 @@ int main(int argc, char** argv) {
         if (i + 1 >= argc) {
             break;
         }
-        if (opt == "--password") {
+        if (opt == "--rom-coverage") {
+            coverageFile = argv[i + 1];
+        } else if (opt == "--password") {
             password = argv[i + 1];
         } else if (opt == "--dump") {
             dump = argv[i + 1];
@@ -393,6 +407,25 @@ int main(int argc, char** argv) {
         fprintf(stderr, "%s\n", error);
         return 2;
     }
+    if (!rawRom) {
+        // The game's data as the app gets it: extracted, written as resource XML, read back.
+        std::string why;
+        if (!Game::Data::InstallFromRom(rom, why)) {
+            fprintf(stderr, "data extraction: %s\n", why.c_str());
+            return 2;
+        }
+    }
+    if (coverageFile) {
+        std::ifstream old(coverageFile, std::ios::binary);
+        old.read((char*)coverage, sizeof(coverage));
+        Game::TrackRomReads(coverage);
+    }
+    auto saveCoverage = [&]() {
+        if (coverageFile) {
+            std::ofstream out(coverageFile, std::ios::binary);
+            out.write((const char*)coverage, sizeof(coverage));
+        }
+    };
     if (password) {
         script = PasswordScript(password);
         if (!syncGiven) {
@@ -498,6 +531,7 @@ int main(int argc, char** argv) {
                    emu.Ram()[0x1D], emu.Ram()[0x1E]);
             Dump("original", emu, dump);
             ReportOriginalCalls();
+            saveCoverage();
             return 1;
         }
         compared++;
@@ -507,5 +541,6 @@ int main(int argc, char** argv) {
            compared, resyncs, frame, emu.Ram()[0x1D], emu.Ram()[0x1E]);
     Dump("original", emu, dump);
     ReportOriginalCalls();
+    saveCoverage();
     return 0;
 }

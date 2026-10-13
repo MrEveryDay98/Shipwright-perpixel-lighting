@@ -4,7 +4,8 @@ Metroid64 is a native C++ port of NES *Metroid* (`metroid64/src/game/`), written
 Harkinian is built on the Ocarina of Time decompilation: every routine of the original was translated by hand
 into C++, keeping the original's variables at their original addresses and its logic, quirks and bugs.
 Physics, enemy behaviour, items, doors, passwords and timing are the original's. Tables, graphics, rooms and
-music are read from your ROM at runtime; the repository contains no Nintendo data. Metroid64 then presents
+music come from your ROM: on first run they are extracted into `metroid.o2r` (see below); the repository
+contains no Nintendo data. Metroid64 then presents
 what the game draws in 3D (`metroid64/src/Renderer.cpp`). [PORTING.md](PORTING.md) describes how the port
 is written and checked.
 
@@ -20,6 +21,25 @@ Where the original wrote to the console's hardware, the port updates plain model
 | Controller | The buttons held, read the way the game reads the pad. |
 
 The game runs one frame per 60 Hz tick: the vblank (NMI) work, then one pass of the main loop.
+
+## The game's data
+
+`tools/assetmap/gen_assetmap.py` lists, from the disassembly, every run of data in the ROM (addresses and
+names only) as `src/game/data/AssetMap.inc`; a few instruction bytes the original reads as data (tables read
+past their end) are included. On first run the app copies those blocks out of the ROM into `metroid.o2r`
+as XML resources, `metroid/data/<area>/<label>`:
+
+```xml
+<DataBlock Version="0" Bank="1" Address="A271" Name="Palette00">
+    3F 00 20 0F 22 12 1C 0F 22 12 1C 0F 27 11 07 0F
+    ...
+</DataBlock>
+```
+
+At startup the resources (with any mods on top) are put back where the original kept them, and the game
+reads them there; nothing else of the ROM is used, the code being the port's own. The lockstep tool runs the
+port on data that went through the same extraction and XML, so the tests cover it. Typed resources (rooms,
+structures, palettes, graphics, music) replace these generic blocks one kind at a time.
 
 ## Known difference: slowdown
 

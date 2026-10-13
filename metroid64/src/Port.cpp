@@ -1,5 +1,6 @@
 #include "Port.h"
 
+#include "GameData.h"
 #include "Picture.h"
 
 #include "game/Game.h"
@@ -35,19 +36,8 @@ constexpr int kCpuCyclesPerFrame = 29781;
 Port::Port() : mApu([](uint16_t addr) { return Game::Read(addr); }) {
 }
 
-bool Port::LoadRomFile(const std::string& path, std::string& error) {
-    std::ifstream f(path, std::ios::binary);
-    if (!f) {
-        error = "Could not open " + path;
-        return false;
-    }
-    std::vector<uint8_t> file((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-    const char* why = nullptr;
-    if (!Game::LoadRom(file, &why)) {
-        error = why ? why : "Not Metroid (USA)";
-        return false;
-    }
-    return true;
+bool Port::LoadGameData(std::string& error) {
+    return Metroid::LoadGameData(error);
 }
 
 void Port::PowerOn() {

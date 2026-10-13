@@ -1,5 +1,7 @@
 # Lockstep test: the original game on an emulated NES versus the C++ port. Not part of the game.
-file(GLOB LOCKSTEP_GAME_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/../../src/game/*.cpp)
+file(GLOB LOCKSTEP_GAME_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/../../src/game/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/game/data/*.cpp)
+find_package(tinyxml2 REQUIRED)
 add_executable(lockstep
     main.cpp
     OriginalCpu.cpp
@@ -11,3 +13,4 @@ add_executable(lockstep
 )
 target_include_directories(lockstep PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../../src)
 target_compile_features(lockstep PRIVATE cxx_std_20)
+target_link_libraries(lockstep PRIVATE tinyxml2::tinyxml2)

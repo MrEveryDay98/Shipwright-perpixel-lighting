@@ -16,8 +16,10 @@ Metroid64 game in [`metroid64/`](metroid64).
 
 ## You need your own ROM
 
-Metroid64 ships **no Nintendo data**. It reads the game's data (rooms, graphics, music, tables) from your own `Metroid (USA).nes`. Only that exact dump is accepted
-(its PRG ROM is checked against a CRC32).
+Metroid64 ships **no Nintendo data**. On first run it extracts the game's data (rooms, graphics, music, tables)
+from your own `Metroid (USA).nes` into `metroid.o2r` next to the game, the way Ship of Harkinian builds its
+archive. After that the ROM isn't needed. Only that exact dump is accepted (its PRG ROM is checked against a
+CRC32).
 
 You can provide the ROM in any of these ways:
 
@@ -25,7 +27,8 @@ You can provide the ROM in any of these ways:
 - pass it on the command line: `metroid64 "Metroid (USA).nes"`,
 - put it next to the executable as `metroid.nes` (any `.nes` file in that folder is tried).
 
-The path is remembered in `metroid64.json`.
+Giving a ROM again (or a new Metroid64 version that changes the data format) remakes `metroid.o2r`. The data
+is XML inside the archive (`metroid/data/<area>/...`); a mod can replace any of those files.
 
 ## Building
 
@@ -100,6 +103,8 @@ Source layout:
 | File | Purpose |
 | --- | --- |
 | `metroid64/src/game/` | The game: the port of Metroid's code, its RAM, ROM access and hardware models |
+| `metroid64/src/game/data/` | The game's data as resources: extraction from the ROM, XML, building what the game reads |
+| `metroid64/src/GameData.*` | `metroid.o2r`: making it on first run, the resource types, loading the game's data |
 | `metroid64/src/Port.*` | Runs the game for the app: frames, sound, scroll and sprite ownership for the renderer |
 | `metroid64/src/Picture.*` | The 2D picture from the game's video memory |
 | `metroid64/src/nes/Apu.*` | APU synthesizer for the game's sound |

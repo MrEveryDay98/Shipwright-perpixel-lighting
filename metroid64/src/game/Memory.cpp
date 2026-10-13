@@ -14,7 +14,8 @@ namespace {
 constexpr uint32_t kUsaPrgCrc32 = 0x70080810;
 constexpr size_t kPrgSize = 8 * 0x4000;
 std::vector<uint8_t> sPrg;
-uint8_t sOpenBus = 0; // target for stray writes
+uint8_t sOpenBus = 0;         // target for stray writes
+uint8_t* sCoverage = nullptr; // one byte per PRG byte, set when read (developer tool)
 
 uint32_t Crc32(const uint8_t* data, size_t len) {
     uint32_t crc = 0xFFFFFFFF;
@@ -54,13 +55,24 @@ bool LoadRom(const std::vector<uint8_t>& file, const char** error) {
     return true;
 }
 
+void SetRomImage(std::vector<uint8_t> prg) {
+    sPrg = std::move(prg);
+}
+
 bool RomLoaded() {
     return !sPrg.empty();
 }
 
 uint8_t RomByte(int bank, uint16_t addr) {
     size_t off = (size_t)(bank & 7) * 0x4000 + (addr & 0x3FFF);
+    if (sCoverage != nullptr && off < kPrgSize) {
+        sCoverage[off] = 1;
+    }
     return off < sPrg.size() ? sPrg[off] : 0;
+}
+
+void TrackRomReads(uint8_t* coverage) {
+    sCoverage = coverage;
 }
 
 uint8_t Read(uint16_t addr) {

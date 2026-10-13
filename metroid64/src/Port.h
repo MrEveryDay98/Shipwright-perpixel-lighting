@@ -12,8 +12,8 @@ class Port : public GameView {
   public:
     Port();
 
-    // Reads and checks the user's ROM (Metroid (USA)); the game reads its data from it.
-    bool LoadRomFile(const std::string& path, std::string& error) override;
+    // Builds the game's data from the loaded resources (metroid.o2r and mods).
+    bool LoadGameData(std::string& error) override;
     void PowerOn() override;
 
     // Runs one 60 Hz frame with these NES buttons held (bit 0 A ... bit 7 Right).
