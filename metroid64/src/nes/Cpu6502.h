@@ -43,6 +43,24 @@ class Cpu6502 {
     uint8_t S() const {
         return mS;
     }
+    uint8_t X() const {
+        return mX;
+    }
+    uint8_t Y() const {
+        return mY;
+    }
+    uint8_t P() const {
+        return mP;
+    }
+    // For running a single routine (test tools).
+    void SetState(uint16_t pc, uint8_t a, uint8_t x, uint8_t y, uint8_t p, uint8_t s) {
+        mPC = pc;
+        mA = a;
+        mX = x;
+        mY = y;
+        mP = p;
+        mS = s;
+    }
 
   private:
     enum Flag : uint8_t { C = 0x01, Z = 0x02, I = 0x04, D = 0x08, B = 0x10, U = 0x20, V = 0x40, N = 0x80 };

@@ -95,6 +95,13 @@ endif()
 ################################################################################
 add_subdirectory(metroid64)
 
+# Developer tools (not part of the game): the lockstep test that checks the C++ port against the
+# original running on an emulated NES.
+option(METROID64_TOOLS "Build Metroid64 developer tools" OFF)
+if(METROID64_TOOLS)
+    add_subdirectory(metroid64/tools/lockstep)
+endif()
+
 if(CMAKE_SYSTEM_NAME MATCHES "Windows")
     set(CPACK_GENERATOR "ZIP")
 elseif(CMAKE_SYSTEM_NAME MATCHES "Linux")

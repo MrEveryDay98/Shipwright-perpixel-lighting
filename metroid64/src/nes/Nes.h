@@ -76,6 +76,25 @@ class Machine : public Bus {
     uint8_t Mirroring() const {
         return mMmcControl & 3;
     }
+    const uint8_t* Vram() const {
+        return mVram.data();
+    }
+    uint8_t MmcControl() const {
+        return mMmcControl;
+    }
+    // Scroll as the game last set it ($2005 writes and the nametable bits of $2000), from the t register.
+    uint8_t ScrollRegX() const {
+        return (uint8_t)(((mT & 31) << 3) | mFineX);
+    }
+    uint8_t ScrollRegY() const {
+        return (uint8_t)((((mT >> 5) & 31) << 3) | ((mT >> 12) & 7));
+    }
+    uint8_t OamAddrReg() const {
+        return mOamAddr;
+    }
+    const uint8_t* Wram() const {
+        return mWram.data();
+    }
     // MMC1 PRG bank register (the 16 KiB bank at $8000 in Metroid's mode).
     uint8_t PrgBank() const {
         return mPrgBank & 0x0F;
