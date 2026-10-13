@@ -213,6 +213,113 @@ The blocks, with the disassembly's labels for bank 6 and names after its comment
 Bytes next to these blocks that the loaders don't copy (unused tiles, the title's star data) stay in data
 blocks.
 
+## Music and sound effects
+
+The sound engine is in each of banks 0-5 with its own copy of every table, so these resources are per
+bank: `<bank>` is the bank's folder (`title`, `brinstar`, `norfair`, `tourian`, `kraid`, `ridley`). A bank
+has the songs that can play while it is mapped: in all of them `tourian`, `item_room`, `fade_in` and
+`power_up`; besides, `title` has `intro` and `ending`, `brinstar` `brinstar`, `norfair` `norfair`, `tourian`
+`escape` and `mother_brain`, and both `kraid` and `ridley` have `kraid` and `ridley`.
+
+### Songs: `metroid/music/<bank>/<song>`
+
+```xml
+<Song Version="0" Bank="brinstar" Name="item_room" Address="BDCD" Size="42" Repeat="FF" NoteLengths="0B"
+      TriangleCounter="03" SQ1Duty="92" SQ2Duty="96" SQ1Envelope="0" SQ2Envelope="0">
+    <!-- L0-LF with NoteLengths 0B, in frames: 6 12 24 48 96 36 72 18 16 8 3 16 7 14 28 56 -->
+    <Part Channel="Triangle">
+        |:8 L0 E4 F4 F#4 G4 G#4 G4 F#4 F4 L6 - :|
+    </Part>
+    <Part Channel="SQ1">
+        L8 -
+    </Part>
+    <Part Channel="SQ2">
+        L3 - L2 A#6 - F6 - A6 - C#6 L4 - L2 C6 - F#6 - B6 L3 - L2 F7 - D7 L3 - end
+    </Part>
+</Song>
+```
+
+Settings (the song's entry in the engine's `InitMusicTbl`, and its init routine):
+
+- `Repeat`: `00` plays once (fade in, power up, intro, ending), anything else starts over at the end.
+- `NoteLengths`: where `L0` is in the note lengths (below): `00`, `0B` or `17` in the original. The comment
+  lists what `L0`-`LF` then are, in frames.
+- `TriangleCounter`: low digit not 0: every triangle note sounds that many quarter frames; else high digit
+  not 0: until the next note; `00`: as long as the note (at most 15 frames).
+- `SQ1Duty`, `SQ2Duty`: the square channels' duty and volume (APU register $4000/$4004). The engine has six
+  init routines, so only their pairs work: `92 96`, `B6 F6`, `F4 F4`, `34 34`, `B3 B3`, `F5 F6`.
+- `SQ1Envelope`, `SQ2Envelope`: the volume envelope (1-5, below) of each note; `0`: none, the duty/volume
+  above throughout.
+
+Each `Part` is the data from where its channels (`SQ1`, `SQ2`, `Triangle`, `Noise`; one or more) start.
+Parts are stored one after the other in this order: a channel reads on into the next part if it doesn't
+end first, and the original relies on that (above, SQ1 rests one long note and then plays SQ2's notes).
+A channel without a part is silent. The data, one byte per word:
+
+- A note: `C4`, `A#3` (`Bb3` works too), from `A1` to `F7` (the notes of the note table: no `D#2`, no
+  `D#7`/`E7`). The triangle sounds an octave lower than the name. `-`: a rest.
+- On the noise channel the notes are drum beats `drum0`-`drum3` (the `DrumBeat` sound effects).
+- `L0`-`LF`: the length of this and the next notes (from the note lengths, at the song's offset). The word
+  after a length is always played as a note, whatever it is.
+- `|:N` ... `:|`: repeat, N times in all (decimal, 0-62; 0 means 256).
+- `end`: the end of the song (on any channel: all stop, or start over if it repeats).
+- `$XX`: any other byte as it is (the original has a few: odd notes, and on Norfair's noise channel a
+  leftover copy of other notes it never gets to).
+
+`Address` and `Size` are where the data was in the ROM: a song that still fits goes back there, a bigger
+one is placed in free space in the same bank and the engine's pointers to it are updated. The engine reads
+a channel's data with an 8-bit index, so a channel can only reach 256 bytes from where it starts (repeats
+included). A channel that runs past the song's last part without an `end` reads whatever follows in the
+bank, as in the original (Tourian's square and triangle loops are longer than the song).
+
+### Note table, note lengths, volume envelopes: `metroid/music/<bank>/notes`, `lengths`, `envelopes`
+
+```xml
+<NoteTable Version="0" Bank="brinstar" Address="BE77">
+    <Note Name="A1" Period="7F0"/>
+    ...
+</NoteTable>
+<NoteLengths Version="0" Bank="brinstar" Address="BEF7">
+    <Lengths Offset="00">4 8 16 32 64 24 48 12 11 5 2</Lengths>
+    ...
+</NoteLengths>
+<VolumeEnvelopes Version="0" Bank="brinstar" Address="BCB0">
+    <Envelope Number="1" Address="BCBA" Size="11">01 02 02 03 03 04 05 06 07 08 FF</Envelope>
+    ...
+</VolumeEnvelopes>
+```
+
+- The note table has the APU timer period of each of the 64 notes (frequency: 1789773 / 16 /
+  (Period + 1)). `Name` is the note's name in songs; changing a period retunes that note in every song of
+  the bank.
+- The note lengths are in frames (decimal), 34 in all; a song's `NoteLengths` picks where its `L0` is.
+- The 5 volume envelopes are the square channels' volume for each frame of a note, from the second value
+  on; `FF` holds the channel's own duty/volume from there, `F0` silences it. An envelope that grows is moved
+  to free space.
+
+### Sound effects: `metroid/sfx/<bank>/<name>`
+
+```xml
+<SoundEffect Version="0" Bank="brinstar" Name="Jump" Address="B251" Channel="Square"
+    Duty="2" Halt="0" ConstantVolume="1" Volume="5" Sweep="1" SweepPeriod="0" SweepNegate="1"
+    SweepShift="4" Period="140" Length="17">
+</SoundEffect>
+<SoundEffectTable Version="0" Bank="brinstar" Name="SpitFlamesTable" Address="B4FB">
+    12 13 14 15 16 17 18 19 1A 1B 1C 1D 1B 1A 19 17 16 15 14 12
+</SoundEffectTable>
+```
+
+`SoundEffect`: the APU registers a sound starts with, by field: square channels `Duty`, `Halt` (length
+counter halt), `ConstantVolume`, `Volume`, `Sweep`, `SweepPeriod`, `SweepNegate`, `SweepShift`, `Period`
+(11-bit timer), `Length` (length counter index); triangle `Control`, `LinearCounter`, `Period`, `Length`;
+noise `Halt`, `ConstantVolume`, `Volume`, `Mode`, `Period` (0-F), `Length`. `Unused...` keeps bits of
+registers that do nothing when they aren't 0. How long a sound plays and how it changes is in the engine's
+code. The `DrumBeat0`-`3` entries are the music's drum beats (no $400D byte).
+
+`SoundEffectTable`: the values some sounds step through: `SpitFlamesTable`, `BossHitTable`,
+`MissilePickupTable`, `IceBeamTable`, `WaveBeamPeriodTable`, `WaveBeamVolumeTable` (the comment in each
+says which register). Sound effects and their tables keep their size and address.
+
 ## Everything else: `metroid/data/<bank>/<name>`
 
 Data without a type of its own yet is kept as the bytes of a table, named after the disassembly's label:
@@ -225,7 +332,7 @@ Data without a type of its own yet is kept as the bytes of a table, named after 
 
 A block goes back exactly where it came from, so a mod can change its bytes but not its size. Folders:
 `title` (bank 0: title, passwords, ending), `brinstar`, `norfair`, `tourian`, `kraid`, `ridley` (the area
-banks: enemy data, music), `graphics` (bank 6) and `engine` (bank 7). Enemy data and the remaining
+banks: enemy data), `graphics` (bank 6) and `engine` (bank 7). Enemy data and the remaining
 small tables are getting types of their own next.
 
 ## How it fits together

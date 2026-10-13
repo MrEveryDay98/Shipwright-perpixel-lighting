@@ -8,6 +8,7 @@
 // Independent of libultraship: the app wraps these in resources, the lockstep tool uses them directly.
 
 #include "game/data/Graphics.h"
+#include "game/data/Audio.h"
 #include "game/data/Level.h"
 #include "game/data/Ppu.h"
 
@@ -23,7 +24,7 @@ class XMLElement;
 namespace Game::Data {
 
 // Version of the extracted data. Bump it when the extraction changes, so old archives are redone.
-constexpr int kDataVersion = 7;
+constexpr int kDataVersion = 8;
 
 // A run of bytes at its original place in the ROM. Untyped data is kept this way until it gets a
 // resource type of its own.
@@ -57,6 +58,7 @@ struct Assets {
     Level level;
     PpuAssets ppu;
     std::map<std::pair<int, int>, Graphics> graphics; // [(bank, address)]
+    Audio audio;
 
     // Reads any data resource (by its root element). False if it isn't one, or is malformed. `load` gives
     // the files resources refer to (the graphics' images).

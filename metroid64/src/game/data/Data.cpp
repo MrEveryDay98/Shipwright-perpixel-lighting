@@ -78,6 +78,7 @@ bool Extract(const std::vector<uint8_t>& ines, std::map<std::string, std::string
     ExtractLevel(prg, files, covered);
     ExtractPpu(prg, files, covered);
     ExtractGraphics(prg, files, covered);
+    ExtractAudio(prg, files, covered);
     for (const AssetEntry& a : kAssets) {
         size_t base = (size_t)a.bank * 0x4000 + (a.address - BankBase(a.bank));
         size_t i = 0;
@@ -160,8 +161,11 @@ bool ReadBlock(const tinyxml2::XMLElement* root, Block& out, std::string& error)
     return true;
 }
 
-const char* const kResourceTypes[] = { "DataBlock", "WorldMap", "Room",     "Structure", "Macros", "SpecialItems",
-                                       "Palettes",  "Screen",   "AreaInfo", "Graphics",  nullptr };
+const char* const kResourceTypes[] = { "DataBlock", "WorldMap", "Room", "Structure", "Macros", "SpecialItems",
+                                       "Palettes", "Screen", "AreaInfo", "Graphics",
+                                       // Audio
+                                       "Song", "SoundEffect", "SoundEffectTable", "NoteTable", "NoteLengths",
+                                       "VolumeEnvelopes", nullptr };
 
 bool Assets::Read(const tinyxml2::XMLElement* root, const FileLoader& load, std::string& error) {
     if (root != nullptr && strcmp(root->Name(), "DataBlock") == 0) {
@@ -182,6 +186,9 @@ bool Assets::Read(const tinyxml2::XMLElement* root, const FileLoader& load, std:
         }
         graphics[{ g.bank, g.address }] = std::move(g);
         return true;
+    }
+    if (IsAudioResource(root)) {
+        return ReadAudioResource(root, audio, error);
     }
     return ReadLevelResource(root, level, error);
 }
@@ -220,6 +227,7 @@ void Assets::Merge(const Assets& other) {
     for (const auto& [where, g] : other.graphics) {
         graphics[where] = g;
     }
+    audio.Merge(other.audio);
 }
 
 bool Install(const Assets& assets, std::string& error) {
@@ -237,6 +245,9 @@ bool Install(const Assets& assets, std::string& error) {
     }
     if (!AssembleLevel(assets.level, image, error) || !AssemblePpu(assets.ppu, image, error) ||
         !AssembleGraphics(assets.graphics, image, error)) {
+        return false;
+    }
+    if (!AssembleAudio(assets.audio, image, error)) {
         return false;
     }
     SetRomImage(std::move(image.Prg()));
