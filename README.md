@@ -3,10 +3,12 @@
 NES *Metroid* in 2.5D, built on [libultraship](https://github.com/Kenix3/libultraship), the engine behind
 Ship of Harkinian (Shipwright).
 
-The original game runs unmodified on an emulated NES inside Metroid64, so every physics rule, enemy behaviour,
-item and door is the original's. Metroid64 changes only how the game is shown: every solid 8x8
-background tile becomes a textured 3D block, seen through a perspective camera that follows the game's own
-scrolling. See [docs/EMULATION.md](docs/EMULATION.md).
+The game is a native C++ port of the original: every routine was translated from the original 6502 code, keeping
+its variables, logic and quirks, and checked frame by frame against the original running on an emulator (a
+test tool, not part of the game). So every physics rule, enemy behaviour, item and door is the original's.
+Metroid64 changes how the game is shown: every solid 8x8 background tile becomes a textured 3D block, seen
+through a perspective camera that follows the game's own scrolling, and mods can replace Samus and whole rooms
+with models. See [docs/ENGINE.md](docs/ENGINE.md) and [docs/PORTING.md](docs/PORTING.md).
 
 This project began as a fork of Shipwright. All of the Ocarina of Time code, its asset pipeline (Torch) and its
 tooling have been removed. What's left is libultraship (window, Fast3D renderer, input, ImGui, archives) and the
@@ -14,7 +16,7 @@ Metroid64 game in [`metroid64/`](metroid64).
 
 ## You need your own ROM
 
-Metroid64 ships **no Nintendo data**. It runs your own `Metroid (USA).nes`. Only that exact dump is accepted
+Metroid64 ships **no Nintendo data**. It reads the game's data (rooms, graphics, music, tables) from your own `Metroid (USA).nes`. Only that exact dump is accepted
 (its PRG ROM is checked against a CRC32).
 
 You can provide the ROM in any of these ways:
@@ -61,7 +63,7 @@ box. Press **F1** for the menu, then **Controls → Controller configuration** t
 
 ## Menu (F1)
 
-- **Game**: Open ROM, Reset (power cycle), Freeze emulation, Quit.
+- **Game**: Open ROM, Reset (power cycle), Freeze game, Quit.
 - **Audio**: volume, mute.
 - **Graphics**:
   - Fullscreen and VSync.
@@ -74,33 +76,37 @@ box. Press **F1** for the menu, then **Controls → Controller configuration** t
 
 ## What works
 
-- The game runs from its original code. Tested so far: the title screen, starting a game, and Brinstar's first corridor, doors and vertical shaft. Other areas, passwords and the ending have not been played through yet.
+- The whole game is ported: title and intro, passwords, all five areas with their enemies and bosses, items, doors, elevators, the escape and the ending. The lockstep test matches the original in every area (random play from passwords) and in the ending.
 - The play field in 3D from the live nametables, including scrolling, doors, destroyed blocks and palette effects.
 - Sprites as flat cards, with door bubbles placed on the walls and the status display as an overlay.
-- Sound and music from an emulated APU (volume and mute in the Audio menu).
+- Sound and music: the game's sound engine, played through an APU synthesizer (volume and mute in the Audio menu).
+- Room geometry: a mod can replace any room of the world map with its own model. See [docs/MODELS.md](docs/MODELS.md).
 - Model support: Samus can be replaced by a 3D model, either a flipbook of display lists or a skeleton with animations in Shipwright's formats, animated from the game's own animation state. See [docs/MODELS.md](docs/MODELS.md).
 
 ## Not done yet
 
-- Saving the emulator state (the game's own passwords are the only way to save).
+- Save states (the game's own passwords are the only way to save).
+- The console's slowdown in busy rooms is not reproduced (see [docs/ENGINE.md](docs/ENGINE.md)).
 - Models for enemies and items.
 - In vertical shafts the view doesn't extend past the NES screen's left and right edges, because the game only keeps one screen's width there.
 
 ## Developer notes
 
-- [docs/EMULATION.md](docs/EMULATION.md) covers the emulator, the RAM addresses and sprite tagging the 3D view relies on, and developer environment variables for scripted headless runs.
+- [docs/ENGINE.md](docs/ENGINE.md) covers how the game runs, the RAM addresses and sprite tagging the 3D view relies on, and developer environment variables for scripted headless runs.
+- [docs/PORTING.md](docs/PORTING.md) covers how the port is written and the lockstep test that checks it against the original.
 
 Source layout:
 
 | File | Purpose |
 | --- | --- |
-| `metroid64/src/nes/Cpu6502.*` | 6502 CPU |
-| `metroid64/src/nes/Nes.*` | NES: memory map, MMC1, PPU, controller, frame timing, 2D reference renderer |
-| `metroid64/src/nes/Apu.*` | NES audio |
-| `metroid64/src/Emulator.*` | Metroid on the NES: ROM check, sprite ownership, scroll tracking, RAM addresses |
-| `metroid64/src/Renderer.*` | 3D presentation of the emulated picture; 2D screens |
+| `metroid64/src/game/` | The game: the port of Metroid's code, its RAM, ROM access and hardware models |
+| `metroid64/src/Port.*` | Runs the game for the app: frames, sound, scroll and sprite ownership for the renderer |
+| `metroid64/src/Picture.*` | The 2D picture from the game's video memory |
+| `metroid64/src/nes/Apu.*` | APU synthesizer for the game's sound |
+| `metroid64/src/Renderer.*` | 3D presentation of the game; 2D screens |
 | `metroid64/src/Model.*` | Model manifests and drawing |
 | `metroid64/src/Skeleton.*` | Skeleton, limb and animation resources (Shipwright's formats), posing and limb drawing |
 | `metroid64/src/Menu.*` | F1 menu: graphics, frame rate, controls, developer |
 | `metroid64/src/Hud.*` | ImGui overlay: ROM prompt, notices |
 | `metroid64/src/main.cpp` | libultraship bootstrap, input and main loop |
+| `metroid64/tools/lockstep/` | Test tool: the original on an emulated NES (6502, MMC1, PPU) next to the port |

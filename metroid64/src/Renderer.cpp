@@ -1,6 +1,6 @@
 #include "Renderer.h"
 
-#include "nes/Nes.h"
+#include "Picture.h"
 
 #include "Menu.h"
 
@@ -129,7 +129,7 @@ const uint8_t* Renderer::TileTexture(const GameView& emu, uint16_t patternAddr, 
         for (int x = 0; x < 8; x++) {
             int bit = 7 - x;
             uint8_t ci = ((p[y] >> bit) & 1) | (((p[y + 8] >> bit) & 1) << 1);
-            uint32_t c = (ci == 0 && transparent) ? 0 : Nes::Machine::Color(palette4[ci]);
+            uint32_t c = (ci == 0 && transparent) ? 0 : NesColor(palette4[ci]);
             uint8_t* o = &tex[(y * 8 + x) * 4];
             o[0] = c >> 24;
             o[1] = c >> 16;
@@ -538,7 +538,7 @@ Gfx* Renderer::BuildFrame(const GameView& emu, float alpha) {
     if (!threeD) {
         Draw2DFrame(g, emu);
     } else {
-        // The camera looks at the middle of the NES screen; between emulated frames it is
+        // The camera looks at the middle of the NES screen; between game frames it is
         // interpolated along the (unwrapped) scroll.
         float offX = (float)((emu.PrevWorldScrollX() - emu.WorldScrollX()) * (1.0f - alpha));
         float offY = (float)((emu.PrevWorldScrollY() - emu.WorldScrollY()) * (1.0f - alpha));

@@ -6,6 +6,9 @@
 
 namespace Metroid {
 
+// The NES's colour for a palette entry ($00-$3F), as 0xRRGGBBAA.
+uint32_t NesColor(uint8_t index);
+
 // Draws the picture the game's video memory shows, as 0xRRGGBBAA pixels (256x240).
 void RenderPicture(const Game::Hw::Video& video, uint32_t* out);
 

@@ -2,7 +2,7 @@
 
 By default Metroid64 draws characters with the game's own sprites, as flat cards. Drop a model into
 `mods/` and it replaces those sprites. The game itself is unchanged: the model is placed and animated from
-the running game's memory (see [EMULATION.md](EMULATION.md)).
+the running game's memory (see [ENGINE.md](ENGINE.md)).
 
 ## Where mods go
 
@@ -99,8 +99,6 @@ so keep solid surfaces where the original has them. By default the model replace
 that room. With `"keep_tiles": true` it is drawn in addition to them, which is useful for decoration,
 or when blocks that can be destroyed should stay visible.
 
-Room geometry needs the native port, which knows which room is drawn where. While the emulator is the
-default, turn on Developer > Run the native port.
 
 ## Examples
 

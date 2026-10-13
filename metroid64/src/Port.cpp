@@ -6,7 +6,6 @@
 #include "game/Hw.h"
 #include "game/Memory.h"
 #include "game/Present.h"
-#include "nes/Nes.h"
 
 #include <algorithm>
 #include <fstream>
@@ -58,15 +57,24 @@ void Port::PowerOn() {
     Game::SetNmiHook([this](int) { Game::Hw::gPads[0] = mButtons; });
     Game::PowerOn();
     ResetView();
+    mLagTicks = 0;
     mFrame = 0;
 }
 
 void Port::Tick(uint8_t buttons) {
     mButtons = buttons;
-    int nmis = Game::RunFrame();
-    mFrame += nmis;
-    // The sound engine runs once per NMI; the synth renders the time those frames took.
-    mApu.Clock(kCpuCyclesPerFrame * std::max(nmis, 1));
+    if (mLagTicks > 0) {
+        // The original was still busy with the last frame (a lag frame): it spent this vblank too, so the
+        // game waits here as long as it did on the console.
+        mLagTicks--;
+        mFrame++;
+        mApu.Clock(kCpuCyclesPerFrame);
+        return;
+    }
+    int nmis = std::max(Game::RunFrame(), 1);
+    mFrame++;
+    mLagTicks = nmis - 1;
+    mApu.Clock(kCpuCyclesPerFrame);
     for (int i = 0; i < 64; i++) {
         mOamTags[i] = { (SpriteOwner)Game::Present::gOamTags[i].owner, Game::Present::gOamTags[i].slot };
     }

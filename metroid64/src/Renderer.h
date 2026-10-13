@@ -13,7 +13,7 @@
 
 namespace Metroid {
 
-// Presents the emulated NES in 3D. The play field comes straight from the PPU's nametables: every
+// Presents the game in 3D. The play field comes straight from the video memory's nametables: every
 // solid 8x8 background tile becomes a textured block, passable tiles become cards set back from
 // the play plane. Sprites come from OAM and are drawn as flat cards, or replaced by models. Screens
 // that aren't the play field (title, password, ending) are shown as the original 2D picture.
@@ -21,7 +21,7 @@ class Renderer {
   public:
     void Init();
     // Builds this frame's display list. alpha (0-1) interpolates between the previous and current
-    // emulated frame. Valid until the next call.
+    // game frame. Valid until the next call.
     Gfx* BuildFrame(const GameView& emu, float alpha);
 
     void DrawModel(Gfx*& g, const Gfx* dl, const Mat4& model);

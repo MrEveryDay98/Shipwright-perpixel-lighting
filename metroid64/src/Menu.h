@@ -13,8 +13,6 @@ constexpr const char* kCVarMatchRefreshRate = M64_CVAR("MatchRefreshRate");
 constexpr const char* kCVarDisplay3D = M64_CVAR("Display3D");
 constexpr const char* kCVarVolume = M64_CVAR("Volume");
 constexpr const char* kCVarMute = M64_CVAR("Mute");
-// Runs the native port instead of the original on the emulator (until the port is complete).
-constexpr const char* kCVarNativePort = M64_CVAR("NativePort");
 
 // libultraship's own console variables (it defines them only for its own target).
 namespace LusCVar {
@@ -35,7 +33,7 @@ class Menu : public Ship::GuiMenuBar {
         std::function<void()> openRom;
         std::function<void()> reset;
         std::function<bool()> loaded; // a ROM is running
-        bool* frozen = nullptr;       // emulation stopped from the menu
+        bool* frozen = nullptr;       // game stopped from the menu
     };
 
     Menu(Actions actions);

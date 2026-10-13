@@ -38,10 +38,11 @@ it on an emulated NES next to the port and checks that both behave identically, 
 
 ## Working incrementally
 
-`Game::Original(addr, regs)` stands for a routine that hasn't been translated yet. In the lockstep tool it
-runs the original routine on the port's memory; in the game it only logs. Translate top-down: a routine
-is only exercised once everything that calls it is native. When translating a routine, replace the
-`Original(0xNNNN)` stub that calls it.
+Every routine is translated now. `Game::Original(addr, regs)` remains for working incrementally on
+changes: it stands for a routine that hasn't been translated yet. In the lockstep tool it runs the original
+routine on the port's memory (the tool lists every one a run used); in the game it only logs. The only
+call left is `AreaHook`'s fallback for an area-bank address no translated code handles, which the game's
+data never reaches.
 
 ## The lockstep test
 
@@ -59,6 +60,7 @@ lockstep "Metroid (USA).nes" --script 120:08,125:00,200:08,205:00 --sync 650 --f
 - `--password area,gear,missiles[,suitless]` (hex): types a password made with the port's own password code
   on the title screen, so the game starts in that area (`10` Brinstar to `14` Ridley's hideout) with that
   gear. Combine with `--random` and `--poke` to play around an area.
+- `--picture`: also compares the 2D picture drawn from the port's video memory with the emulated PPU's.
 - `--dump addr[-addr],...`: prints the original's bytes at the end, to check a test reached what it was
   meant to (an item collected, a room entered).
 - `--check-lag`: also compares after the original's lag frames and prints the differences without failing.

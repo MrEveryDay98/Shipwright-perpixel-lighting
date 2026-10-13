@@ -43,6 +43,7 @@ class Port : public GameView {
     Nes::Apu mApu;
     uint8_t mButtons = 0;
     uint64_t mFrame = 0;
+    int mLagTicks = 0; // vblanks the frame just run also took
 };
 
 } // namespace Metroid

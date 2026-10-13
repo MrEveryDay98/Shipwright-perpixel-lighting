@@ -1,8 +1,7 @@
 #pragma once
 
 // What the renderer and audio output see of the running game: picture memory, sprites and who drew
-// them, Samus and the scroll. The game itself is the native port (Port); the emulator implements the
-// same view for comparison.
+// them, Samus and the scroll. Implemented by the native game (Port).
 
 #include <array>
 #include <cmath>
@@ -12,6 +11,18 @@
 #include <vector>
 
 namespace Metroid {
+
+// Controller bits in the order the NES shifts them out.
+enum Button : uint8_t {
+    BtnA = 0x01,
+    BtnB = 0x02,
+    BtnSelect = 0x04,
+    BtnStart = 0x08,
+    BtnUp = 0x10,
+    BtnDown = 0x20,
+    BtnLeft = 0x40,
+    BtnRight = 0x80,
+};
 
 // Which part of the game drew an OAM entry. Found by looking at which main-loop routine is on the
 // stack when the game writes its sprite buffer at $0200, so it works for any sprite the game draws.
@@ -79,7 +90,7 @@ class GameView {
     virtual void RenderFrame(uint32_t* out) const = 0;
     // Audio produced so far (signed 16-bit mono at 44100 Hz). The caller drains it.
     virtual std::vector<int16_t>& AudioSamples() = 0;
-    // The room drawn in name table page 0 or 1 (unknown on the emulator).
+    // The room drawn in name table page 0 or 1.
     virtual RoomInfo RoomOnPage(int page) const {
         (void)page;
         return {};

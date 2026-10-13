@@ -268,8 +268,8 @@ void RegisterSkeletonResourceFactories() {
                                     "SkeletonLimb", (uint32_t)SkelResourceType::SkeletonLimb, 0);
     loader->RegisterResourceFactory(std::make_shared<ResourceFactoryBinaryAnimationV0>(), RESOURCE_FORMAT_BINARY,
                                     "Animation", (uint32_t)SkelResourceType::Animation, 0);
-    loader->RegisterResourceFactory(std::make_shared<ResourceFactoryXMLAnimationV0>(), RESOURCE_FORMAT_XML,
-                                    "Animation", (uint32_t)SkelResourceType::Animation, 0);
+    loader->RegisterResourceFactory(std::make_shared<ResourceFactoryXMLAnimationV0>(), RESOURCE_FORMAT_XML, "Animation",
+                                    (uint32_t)SkelResourceType::Animation, 0);
 }
 
 // --- Posing and drawing (after z_skelanime.c) ---------------------------------------------------

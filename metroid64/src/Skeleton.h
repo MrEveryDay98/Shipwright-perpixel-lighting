@@ -125,7 +125,8 @@ class SkeletonPose {
     // Draws every limb. `model` places the skeleton in the scene and `view` is the camera; limb
     // matrices are loaded whole (model * view), as the flex skeleton display lists expect.
     void Draw(Gfx*& g, const Skeleton& skel, const Mat4& model, const Mat4& view,
-              const std::function<Mtx*(const Mat4&)>& allocMtx, const std::function<const Gfx*(const std::string&)>& dl);
+              const std::function<Mtx*(const Mat4&)>& allocMtx,
+              const std::function<const Gfx*(const std::string&)>& dl);
 
   private:
     std::vector<int16_t> mJoints; // 3 values per joint

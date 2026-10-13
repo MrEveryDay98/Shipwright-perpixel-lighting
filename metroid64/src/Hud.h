@@ -6,7 +6,7 @@
 namespace Metroid {
 
 // The "please provide a ROM" screen and a few notices, drawn on libultraship's ImGui layer. The game's
-// own status display is part of the emulated picture.
+// own status display is part of the game's picture.
 class Hud : public Ship::GuiWindow {
   public:
     Hud();

@@ -95,7 +95,7 @@ void Menu::DrawGameMenu() {
     if (ImGui::MenuItem("Reset", nullptr, false, loaded)) {
         mActions.reset();
     }
-    ImGui::MenuItem("Freeze emulation", nullptr, mActions.frozen, loaded);
+    ImGui::MenuItem("Freeze game", nullptr, mActions.frozen, loaded);
     ImGui::SetItemTooltip("Stops the NES entirely (the game's own pause is Start).");
     ImGui::Separator();
     if (ImGui::MenuItem("Quit")) {
@@ -225,8 +225,6 @@ void Menu::DrawDeveloperMenu() {
     if (ImGui::MenuItem("Console")) {
         ToggleWindow("Console");
     }
-    CVarCheckbox("Run the native port (unfinished)", kCVarNativePort, false);
-    ImGui::TextDisabled("Applies when the ROM is next loaded. Off: the original on the emulator.");
     ImGui::EndMenu();
 }
 

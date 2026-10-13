@@ -46,7 +46,7 @@ void Hud::Draw() {
                      "Press F1 for the menu (graphics, controls, frame rate)");
     }
     if (mFrozen) {
-        CenteredText(dl, big, vp->Pos.y + vp->Size.y * 0.1f, white, "EMULATION FROZEN (F1 > Game)");
+        CenteredText(dl, big, vp->Pos.y + vp->Size.y * 0.1f, white, "GAME FROZEN (F1 > Game)");
     }
 }
 
