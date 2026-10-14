@@ -726,7 +726,7 @@ void Renderer::DrawOutsideFog(Gfx*& g) {
     constexpr uint8_t kDark = 230;
     const float inner[4] = { 0, (float)kScreenW, 0, -(float)kScreenH }; // left, right, top, bottom
     const float outer[4] = { -kEdge, kScreenW + kEdge, kEdge, -(kScreenH + kEdge) };
-    const float far[4] = { -kFar, kScreenW + kFar, kFar, -(kScreenH + kFar) };
+    const float distant[4] = { -kFar, kScreenW + kFar, kFar, -(kScreenH + kFar) };
     gDPPipeSync(g++);
     gSPTexture(g++, 0, 0, 0, G_TX_RENDERTILE, G_OFF);
     gDPSetCombineMode(g++, G_CC_SHADE, G_CC_SHADE);
@@ -757,7 +757,7 @@ void Renderer::DrawOutsideFog(Gfx*& g) {
         }
     };
     ring(inner, outer, 0, kDark);
-    ring(outer, far, kDark, kDark);
+    ring(outer, distant, kDark, kDark);
     SetTexturedState(g, true);
 }
 
