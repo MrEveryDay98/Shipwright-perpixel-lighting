@@ -23,8 +23,13 @@ bool gEnabled = false;
 namespace {
 
 constexpr uint8_t kEnemySlots[] = { 0x00, 0x10, 0x20, 0x30, 0x40, 0x50 };
-constexpr int kOutMargin = 32; // an enemy this far outside the screen leaves the game's slots
-constexpr int kInMargin = 16;  // and comes back into them this far outside it
+// Enemies only use the game's slots while well inside the screen: the game draws only what is on its
+// 256x240 screen (and drops sprites past its left edge), and the 3D view shows beyond it, so near an edge
+// with more of the section past it the roster runs and draws them whole. An enemy leaves the slots when
+// its centre is less than kOutMargin inside such an edge and comes back at kInMargin. Where the screen
+// can't scroll further (the section's end), its edge is the room's and the game keeps them as usual.
+constexpr int kOutMargin = 20;
+constexpr int kInMargin = 32;
 
 // An enemy's state: its two 16-byte blocks ($0400+slot and $6AF4+slot).
 struct EnemyState {
@@ -361,12 +366,16 @@ void BeforeFrame() {
     if (!ViewOrigin(vx, vy)) {
         return;
     }
-    auto distanceOutside = [&](int x, int y) {
-        int dx = std::max({ vx - x, x - (vx + 256), 0 });
-        int dy = std::max({ vy - y, y - (vy + 240), 0 });
-        return std::max(dx, dy);
+    const int length = sSection.length * (sSection.horizontal ? 256 : 240);
+    const bool h = sSection.horizontal;
+    const bool moreLeft = h && vx > 0, moreRight = h && vx + 256 < length;
+    const bool moreUp = !h && vy > 0, moreDown = !h && vy + 240 < length;
+    auto inside = [&](int x, int y, int margin) {
+        constexpr int kOpen = -4096; // no limit at the section's own ends
+        return x >= vx + (moreLeft ? margin : kOpen) && x < vx + 256 - (moreRight ? margin : kOpen) &&
+               y >= vy + (moreUp ? margin : kOpen) && y < vy + 240 - (moreDown ? margin : kOpen);
     };
-    // Enemies that have left the screen go to the roster.
+    // Enemies near or past an edge go to the roster.
     for (uint8_t slot : kEnemySlots) {
         EnemyState e;
         ReadSlot(slot, e);
@@ -374,7 +383,7 @@ void BeforeFrame() {
             continue;
         }
         int ex = 0, ey = 0;
-        if (!ToSection(e.b[kNameTable] & 0x01, e.a[1], e.a[0], ex, ey) || distanceOutside(ex, ey) <= kOutMargin) {
+        if (!ToSection(e.b[kNameTable] & 0x01, e.a[1], e.a[0], ex, ey) || inside(ex, ey, kOutMargin)) {
             continue;
         }
         RosterEnemy r;
@@ -383,7 +392,7 @@ void BeforeFrame() {
         sRoster.push_back(r);
         Enstatus[slot] = 0;
     }
-    // Roster enemies near the screen, on a screen the game has loaded, go into free slots.
+    // Roster enemies well inside the screen, on a screen the game has loaded, go into free slots.
     for (size_t i = 0; i < sRoster.size();) {
         RosterEnemy& r = sRoster[i];
         int ex = r.screen * ScreenWidth() + r.state.a[1], ey = r.screen * ScreenHeight() + r.state.a[0];
@@ -400,7 +409,7 @@ void BeforeFrame() {
                 break;
             }
         }
-        if (page >= 0 && freeSlot != 0xFF && distanceOutside(ex, ey) <= kInMargin) {
+        if (page >= 0 && freeSlot != 0xFF && inside(ex, ey, kInMargin)) {
             EnemyState e = r.state;
             e.b[kNameTable] = (uint8_t)page;
             WriteSlot(freeSlot, e);

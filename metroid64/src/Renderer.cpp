@@ -629,7 +629,7 @@ void Renderer::DrawSection(Gfx*& g, const GameView& emu, SectionView& v) {
     float fov = CVarGetFloat("gMetroid64.Camera.Fov", 52.0f);
     float dist = CVarGetFloat("gMetroid64.Camera.Distance", 270.0f);
     float halfH = (dist + kBlockFront + 64) * std::tan(fov * 3.14159265f / 360.0f);
-    float halfW = halfH * kNativeW / kNativeH;
+    float halfW = halfH * 2.4f; // wide enough for any window shape up to 21:9
     float cx = sx + kScreenW / 2.0f, cy = sy + kScreenH / 2.0f;
 
     Mtx* m = AllocMtx(Translate((float)-sx, (float)sy, 0));

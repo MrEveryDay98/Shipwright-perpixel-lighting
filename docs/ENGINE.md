@@ -75,8 +75,11 @@ section Samus is in keeps running, not only those on the two screens the origina
 - On entering a section, each of its rooms is loaded the game's own way (`SetupRoom`) in a stand-in, and the
   enemies it places go into a roster with their place in the section. The room loader no longer places
   enemies itself (`GetEnemyData`), except Kraid and Ridley.
-- Before each frame, enemies more than 32 pixels outside the screen leave the game's six enemy slots for the
-  roster, and roster enemies within 16 pixels of it, on a screen the game has loaded, go into free slots.
+- Before each frame, enemies near an edge of the screen that has more of the section past it (centre less
+  than 20 pixels inside) leave the game's six enemy slots for the roster, and roster enemies 32 pixels
+  inside the screen, on a screen the game has loaded, go into free slots. The game only draws its own
+  256x240 screen, so near such an edge the roster draws them whole; at the section's ends the edge is the
+  room's and the game keeps them as usual.
 - Every other roster enemy runs one frame of the game's own enemy code (`DoOneEnemy`) in a stand-in: the
   game's memory is saved, two screens of the section's room RAM are put around the enemy, the screen
   looks at it, Samus is where she is (or at the far side if she isn't on those screens), and nothing else
