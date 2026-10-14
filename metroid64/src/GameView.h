@@ -135,6 +135,10 @@ class GameView {
         return mPrevWorldY;
     }
 
+    // Where a position in the game's name table plane (name table bit, x, y) is, relative to the top-left of
+    // the screen.
+    float ScreenXOf(uint8_t hi, uint8_t x) const;
+    float ScreenYOf(uint8_t hi, uint8_t y) const;
     // Samus's position (her centre) relative to the top-left of the screen, from RAM.
     float SamusScreenX() const;
     float SamusScreenY() const;

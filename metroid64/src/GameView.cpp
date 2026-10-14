@@ -57,16 +57,24 @@ bool GameView::InGameplay() const {
     return Peek(Ram::kTitleRoutine) == 0 && field && (PpuCtrl() & 0x10);
 }
 
-float GameView::SamusScreenX() const {
+float GameView::ScreenXOf(uint8_t hi, uint8_t x) const {
     bool horizontalRoom = Mirroring() == 2;
-    int px = (horizontalRoom ? (Peek(Ram::kSamusHi) & 1) * 256 : 0) + Peek(Ram::kSamusX);
+    int px = (horizontalRoom ? (hi & 1) * 256 : 0) + x;
     return (float)WrapAround(px - mPlaneX, 128, horizontalRoom ? 512 : 256);
 }
 
-float GameView::SamusScreenY() const {
+float GameView::ScreenYOf(uint8_t hi, uint8_t y) const {
     bool horizontalRoom = Mirroring() == 2;
-    int py = (horizontalRoom ? 0 : (Peek(Ram::kSamusHi) & 1) * 240) + Peek(Ram::kSamusY);
+    int py = (horizontalRoom ? 0 : (hi & 1) * 240) + y;
     return (float)WrapAround(py - mPlaneY, 120, horizontalRoom ? 240 : 480);
+}
+
+float GameView::SamusScreenX() const {
+    return ScreenXOf(Peek(Ram::kSamusHi), Peek(Ram::kSamusX));
+}
+
+float GameView::SamusScreenY() const {
+    return ScreenYOf(Peek(Ram::kSamusHi), Peek(Ram::kSamusY));
 }
 
 } // namespace Metroid

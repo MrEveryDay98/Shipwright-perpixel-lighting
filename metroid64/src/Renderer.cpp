@@ -480,6 +480,10 @@ void Renderer::UpdateSection(const GameView& emu) {
     uint64_t frame = emu.FrameCount();
     int steps = (int)std::min<uint64_t>(frame - mSectionFrame, 60);
     mSectionFrame = frame;
+    if (steps > 0) {
+        FollowScroll(emu, mSection);
+        FollowScroll(emu, mOutgoing);
+    }
 
     const Game::Data::Level* level = Game::Data::InstalledLevel();
     int bank = emu.AreaBank();
@@ -501,6 +505,9 @@ void Renderer::UpdateSection(const GameView& emu) {
         // door scrolls to it. From a horizontal section the scrolling turns vertical through an $A0 door
         // and stays horizontal through an $A1 door; from a vertical one it turns horizontal.
         uint8_t dir = door & 0x0F;
+        if (dir == 1 || dir == 2) {
+            mDoorDir = dir;
+        }
         if (!mSection.valid && mOutgoing.valid && (dir == 1 || dir == 2)) {
             uint8_t mx = emu.Peek(Ram::kMapPosX) & 0x1F, my = emu.Peek(Ram::kMapPosY) & 0x1F;
             int nx = dir == 1 ? mx + 1 : mx - 1;
@@ -538,6 +545,8 @@ void Renderer::UpdateSection(const GameView& emu) {
     if (mSection.valid) {
         mSection.fade = std::min(1.0f, mSection.fade + step);
     }
+    AnchorSection(emu, mSection, inDoor ? mDoorDir : 0);
+    AnchorSection(emu, mOutgoing);
     if (mSection.valid) {
         UpdateLiveTiles(emu, mSection);
     }
@@ -593,28 +602,93 @@ void Renderer::UpdateLiveTiles(const GameView& emu, SectionView& v) {
 }
 
 bool Renderer::SectionScreenOrigin(const GameView& emu, const SectionView& v, int& x, int& y) const {
-    // Where the top-left of the screen is in the section: found from a name table page that holds one of
-    // the section's rooms, and where the scroll is relative to that page.
-    uint8_t mirroring = emu.Mirroring();
-    int planeX = emu.PlaneScrollX(), planeY = emu.PlaneScrollY();
-    for (int page = 0; page < 2; page++) {
-        RoomInfo room = emu.RoomOnPage(page);
-        if (!room.valid || room.bank != v.section.bank) {
-            continue;
-        }
-        int i = SectionIndex(v.section, room.mapX, room.mapY);
-        if (i < 0) {
-            continue;
-        }
-        int originX = mirroring == 2 ? page * 256 : 0;
-        int originY = mirroring == 3 ? page * 240 : 0;
-        int dx = WrapDelta(planeX - originX, mirroring == 2 ? 512 : 256);
-        int dy = WrapDelta(planeY - originY, mirroring == 3 ? 480 : 240);
-        x = (v.section.horizontal ? i * 256 : 0) + dx;
-        y = (v.section.horizontal ? 0 : i * 240) + dy;
-        return true;
+    if (!v.anchored) {
+        return false;
     }
-    return false;
+    x = v.camX;
+    y = v.camY;
+    return true;
+}
+
+void Renderer::FollowScroll(const GameView& emu, SectionView& v) {
+    if (!v.anchored) {
+        return;
+    }
+    uint8_t mirroring = emu.Mirroring();
+    if (mirroring != v.lastMirroring) {
+        v.anchored = false;
+        return;
+    }
+    int px = emu.PlaneScrollX(), py = emu.PlaneScrollY();
+    v.camX += WrapDelta(px - v.lastPlaneX, mirroring == 2 ? 512 : 256);
+    v.camY += WrapDelta(py - v.lastPlaneY, mirroring == 3 ? 480 : 240);
+    v.lastPlaneX = px;
+    v.lastPlaneY = py;
+}
+
+// Anchors a section to the scroll, once the name table page at the left (horizontal) or top (vertical) of
+// the screen holds one of its rooms, complete; the other page, if it holds one, must be next to it.
+void Renderer::AnchorSection(const GameView& emu, SectionView& v, int doorDir) {
+    if (v.anchored || !v.valid) {
+        return;
+    }
+    if (getenv("METROID64_DEBUG_ANCHOR")) {
+        RoomInfo r0 = emu.RoomOnPage(0), r1 = emu.RoomOnPage(1);
+        SPDLOG_DEBUG("anchor? section {} {} {:02X},{:02X} len {} door {} mirror {} plane {},{} world {},{} p0 {} "
+                     "{:02X},{:02X} c{} "
+                     "p1 {} {:02X},{:02X} c{}",
+                     v.section.bank, v.section.horizontal ? "h" : "v", v.section.x, v.section.y, v.section.length,
+                     doorDir, emu.Mirroring(), emu.PlaneScrollX(), emu.PlaneScrollY(), emu.WorldScrollX(),
+                     emu.WorldScrollY(), r0.valid, r0.mapX, r0.mapY, r0.complete, r1.valid, r1.mapX, r1.mapY,
+                     r1.complete);
+    }
+    bool h = v.section.horizontal;
+    uint8_t mirroring = emu.Mirroring();
+    int px = emu.PlaneScrollX(), py = emu.PlaneScrollY();
+    if (doorDir != 0 && mirroring == 2) {
+        // A door scrolling sideways: the next section's room is on the page beside the one at the screen's
+        // left, to the right (1) or left (2) of it.
+        int page = ((px >> 8) & 1) ^ 1;
+        RoomInfo room = emu.RoomOnPage(page);
+        int j = room.valid && room.complete && room.bank == v.section.bank
+                    ? SectionIndex(v.section, room.mapX, room.mapY)
+                    : -1;
+        if (j < 0) {
+            return;
+        }
+        v.camX = (h ? j * 256 : 0) + (doorDir == 1 ? -256 : 256) + (px & 0xFF);
+        v.camY = h ? 0 : j * 240 + (py % 240);
+        v.lastPlaneX = px;
+        v.lastPlaneY = py;
+        v.lastMirroring = mirroring;
+        v.anchored = true;
+        return;
+    }
+    if ((h && mirroring != 2) || (!h && mirroring != 3)) {
+        return;
+    }
+    int page = h ? (px >> 8) & 1 : (py / 240) & 1;
+    RoomInfo room = emu.RoomOnPage(page);
+    if (!room.valid || !room.complete || room.bank != v.section.bank) {
+        return;
+    }
+    int i = SectionIndex(v.section, room.mapX, room.mapY);
+    if (i < 0) {
+        return;
+    }
+    RoomInfo other = emu.RoomOnPage(page ^ 1);
+    if (other.valid && other.complete && other.bank == v.section.bank) {
+        int j = SectionIndex(v.section, other.mapX, other.mapY);
+        if (j >= 0 && std::abs(j - i) != 1) {
+            return;
+        }
+    }
+    v.camX = h ? i * 256 + (px & 0xFF) : (px & 0xFF);
+    v.camY = h ? (py % 240) : i * 240 + (py % 240);
+    v.lastPlaneX = px;
+    v.lastPlaneY = py;
+    v.lastMirroring = mirroring;
+    v.anchored = true;
 }
 
 void Renderer::DrawSection(Gfx*& g, const GameView& emu, SectionView& v) {
@@ -805,6 +879,44 @@ void Renderer::DrawOutsideFog(Gfx*& g) {
     SetTexturedState(g, true);
 }
 
+// --- Motion between game frames ----------------------------------------------------------------
+
+void Renderer::Motion::Set(bool present, float nx, float ny) {
+    prevX = x;
+    prevY = y;
+    x = nx;
+    y = ny;
+    // A jump (a new room, a respawn, a new enemy in the slot) isn't motion.
+    moving = present && have && std::abs(x - prevX) <= 24 && std::abs(y - prevY) <= 24;
+    have = present;
+}
+
+void Renderer::UpdateMotion(const GameView& emu) {
+    if (emu.FrameCount() == mMotionFrame) {
+        return;
+    }
+    mMotionFrame = emu.FrameCount();
+    float wx = (float)emu.WorldScrollX(), wy = (float)emu.WorldScrollY();
+    mSamusMotion.Set(true, emu.SamusScreenX() + wx, emu.SamusScreenY() + wy);
+    for (int i = 0; i < 6; i++) {
+        uint8_t slot = (uint8_t)(i * 0x10);
+        bool present = emu.Peek((uint16_t)(0x6AF4 + slot)) != 0; // Enstatus
+        uint8_t hi = emu.Peek((uint16_t)(0x6AFB + slot));        // EnNameTable
+        float x = emu.ScreenXOf(hi, emu.Peek((uint16_t)(0x0401 + slot))) + wx;
+        float y = emu.ScreenYOf(hi, emu.Peek((uint16_t)(0x0400 + slot))) + wy;
+        mEnemyMotion[i].Set(present, x, y);
+    }
+}
+
+// The game has the object at its new place; between game frames the camera is between the old scroll and
+// the new, so the object is drawn the same fraction back along its own motion.
+float Renderer::MotionX(const Motion& m) const {
+    return m.moving ? -(1.0f - mAlpha) * (m.x - m.prevX) : 0.0f;
+}
+float Renderer::MotionY(const Motion& m) const {
+    return m.moving ? -(1.0f - mAlpha) * (m.y - m.prevY) : 0.0f;
+}
+
 // --- Sprites ----------------------------------------------------------------------------------
 
 void Renderer::DrawSprites(Gfx*& g, const GameView& emu, bool hudPass, bool hideSamus) {
@@ -845,6 +957,14 @@ void Renderer::DrawSprites(Gfx*& g, const GameView& emu, bool hudPass, bool hide
         }
         bool hflip = attr & 0x40, vflip = attr & 0x80;
         int parts = tall ? 2 : 1;
+        float mx = 0, my = 0;
+        if (owner == SpriteOwner::Samus) {
+            mx = MotionX(mSamusMotion);
+            my = MotionY(mSamusMotion);
+        } else if (owner == SpriteOwner::Enemy && tags[i].slot < 0x60 && (tags[i].slot & 0x0F) == 0) {
+            mx = MotionX(mEnemyMotion[tags[i].slot >> 4]);
+            my = MotionY(mEnemyMotion[tags[i].slot >> 4]);
+        }
         for (int part = 0; part < parts; part++) {
             uint16_t pat;
             if (tall) {
@@ -853,8 +973,8 @@ void Renderer::DrawSprites(Gfx*& g, const GameView& emu, bool hudPass, bool hide
             } else {
                 pat = ((emu.PpuCtrl() & 0x08) ? 0x1000 : 0) + o[1] * 16;
             }
-            float x0 = o[3], x1 = x0 + 8;
-            float yt = -(float)(o[0] + 1 + part * 8), yb = yt - 8;
+            float x0 = o[3] + mx, x1 = x0 + 8;
+            float yt = -(float)(o[0] + 1 + part * 8) - my, yb = yt - 8;
             int s0 = hflip ? 8 : 0, s1 = 8 - s0;
             int t0 = vflip ? 8 : 0, t1 = 8 - t0; // t at the top edge, then the bottom edge
             Quad q;
@@ -882,8 +1002,8 @@ void Renderer::DrawSamusModel(Gfx*& g, const GameView& emu, const Model& model, 
     ModelInstance m;
     m.anim = SamusAnimName(anim);
     m.time = ((float)(emu.FrameCount() - mSamusAnimStart) + alpha) / 60.0f;
-    m.x = emu.SamusScreenX();
-    m.y = emu.SamusScreenY() + emu.Peek(Ram::kSamusRadY) + 1; // models stand on their origin
+    m.x = emu.SamusScreenX() + MotionX(mSamusMotion);
+    m.y = emu.SamusScreenY() + MotionY(mSamusMotion) + emu.Peek(Ram::kSamusRadY) + 1; // models stand on their origin
     m.facingLeft = emu.SamusFacingLeft();
     model.Draw(*this, g, m);
 }
@@ -950,6 +1070,8 @@ Gfx* Renderer::BuildFrame(const GameView& emu, float alpha) {
     gDPSetAlphaCompare(g++, G_AC_NONE);
 
     bool threeD = CVarGetInteger(kCVarDisplay3D, 1) != 0 && emu.InGameplay();
+    mAlpha = alpha;
+    UpdateMotion(emu);
     if (!threeD) {
         Draw2DFrame(g, emu);
     } else {

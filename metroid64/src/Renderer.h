@@ -71,11 +71,37 @@ class Renderer {
         std::vector<SectionChunk> chunks; // [screen * 16 + cy * 4 + cx]
         uint64_t pageHash[2] = {};
         float fade = 0; // opacity
+        // Where the top-left of the screen is in the section: found once, when a name table page shows one
+        // of its rooms at the left (or top) of the screen, then moved by the scroll each game frame (wrapped
+        // by the name tables the mirroring makes distinct, so flipping a mirrored bit moves nothing). A
+        // page that has started on the next room doesn't move it.
+        bool anchored = false;
+        int camX = 0, camY = 0;
+        int lastPlaneX = 0, lastPlaneY = 0;
+        uint8_t lastMirroring = 0; // a change of mirroring changes what the scroll means: anchored again
     };
+    // An object's motion over the last game frame (positions relative to the unwrapped scroll), so it can
+    // be drawn where it was between game frames like the camera is.
+    struct Motion {
+        float prevX = 0, prevY = 0, x = 0, y = 0;
+        bool have = false, moving = false;
+        void Set(bool present, float nx, float ny);
+    };
+    void UpdateMotion(const GameView& emu);
+    // How far to draw an object back from where the game has it, for the interpolation.
+    float MotionX(const Motion& m) const;
+    float MotionY(const Motion& m) const;
+    Motion mSamusMotion;
+    Motion mEnemyMotion[6];
+    uint64_t mMotionFrame = ~0ull;
+    float mAlpha = 1.0f;
     void UpdateSection(const GameView& emu);
     bool LoadSection(const GameView& emu, const Game::Data::Section& s, SectionView& out);
     void UpdateLiveTiles(const GameView& emu, SectionView& v);
     bool SectionScreenOrigin(const GameView& emu, const SectionView& v, int& x, int& y) const;
+    // doorDir: 1 or 2 while a door scrolls right or left to this section (it is then beside the screen).
+    static void AnchorSection(const GameView& emu, SectionView& v, int doorDir = 0);
+    static void FollowScroll(const GameView& emu, SectionView& v);
     void DrawSection(Gfx*& g, const GameView& emu, SectionView& v);
     void DrawOutsideFog(Gfx*& g);
     void DrawOffscreenEnemies(Gfx*& g, const GameView& emu);
@@ -92,6 +118,7 @@ class Renderer {
     uint64_t mGfxHash = 0;
     SectionView mSection, mOutgoing;
     bool mInDoor = false;
+    int mDoorDir = 0;
     uint64_t mSectionFrame = 0;
 
     // The original picture, for 2D screens: 4x4 textures of 64x64 (one texture load each).
