@@ -44,7 +44,7 @@ struct SpriteTag {
 // RAM addresses (Metroid (USA)), confirmed by running the game.
 namespace Ram {
 constexpr uint16_t kTitleRoutine = 0x1D; // 0 while the game engine runs
-constexpr uint16_t kMainRoutine = 0x1E;  // 3 = playing, 8 = Samus appearing
+constexpr uint16_t kMainRoutine = 0x1E;  // 3 playing, 5 paused, 8 Samus appearing, 9 timer
 constexpr uint16_t kSamusDir = 0x4D;     // 0 right, 1 left
 constexpr uint16_t kSamusRadY = 0x0301;  // half height
 constexpr uint16_t kSamusAnimFrame = 0x0303;

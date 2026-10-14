@@ -50,8 +50,11 @@ void GameView::TrackScroll(int x, int y) {
 
 bool GameView::InGameplay() const {
     uint8_t main = Peek(Ram::kMainRoutine);
-    // The game engine draws its play field from pattern table $1000.
-    return Peek(Ram::kTitleRoutine) == 0 && (main == 3 || main == 8) && (PpuCtrl() & 0x10);
+    // Playing (3), paused (5), Samus appearing (8), waiting on a timer over the play field (9: a power-up's
+    // jingle, or Samus's death before the game over screen). The game engine draws its play field from
+    // pattern table $1000.
+    bool field = main == 3 || main == 5 || main == 8 || main == 9;
+    return Peek(Ram::kTitleRoutine) == 0 && field && (PpuCtrl() & 0x10);
 }
 
 float GameView::SamusScreenX() const {
