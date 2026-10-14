@@ -29,6 +29,8 @@
 #include "game/Hw.h"
 #include "game/Memory.h"
 #include "game/data/Data.h"
+#include "game/data/Layout.h"
+#include "game/Present.h"
 #include "game/Ram.h"
 #include "game/Title.h"
 #include "nes/Nes.h"
@@ -331,6 +333,32 @@ void ReportOriginalCalls() {
     printf("\n");
 }
 
+// Every room the port draws is checked against the room layout made from the level data
+// (Game::Data::DrawScreen), which the presentation builds its room meshes from.
+int sRoomsChecked = 0, sRoomsDiffer = 0;
+
+void CheckRoom(const Game::Present::RoomTag& tag, int page) {
+    const Game::Data::Level* level = Game::Data::InstalledLevel();
+    if (level == nullptr || !tag.valid) {
+        return;
+    }
+    Game::Data::ScreenTiles screen;
+    if (!Game::Data::DrawScreen(*level, tag.bank, tag.room, [](uint16_t a) { return Game::Read(a); }, screen)) {
+        return;
+    }
+    sRoomsChecked++;
+    for (int i = 0; i < 0x400; i++) {
+        uint8_t ram = Game::Mem((uint16_t)(0x6000 + page * 0x400 + i));
+        if (ram != screen.ram[i]) {
+            if (sRoomsDiffer++ < 5) {
+                printf("room layout differs: bank %d room %02X (map %02X,%02X) at +%03X: game %02X, layout %02X\n",
+                       tag.bank, tag.room, tag.mapX, tag.mapY, i, ram, screen.ram[i]);
+            }
+            return;
+        }
+    }
+}
+
 int main(int argc, char** argv) {
     if (argc < 2) {
         fprintf(stderr, "usage: lockstep <rom> [--script s] [--sync n] [--frames n] [--random seed] [--ram-h path] "
@@ -428,6 +456,7 @@ int main(int argc, char** argv) {
             fprintf(stderr, "data extraction: %s\n", why.c_str());
             return 2;
         }
+        Game::Present::gRoomFinishedHook = CheckRoom;
     }
     if (coverageFile) {
         std::ifstream old(coverageFile, std::ios::binary);
@@ -554,8 +583,8 @@ int main(int argc, char** argv) {
         compared++;
     }
     printf("OK: %d frames matched (%d resyncs after lag frames), ended at frame %d (GameMode %02X MainRoutine "
-           "%02X)\n",
-           compared, resyncs, frame, emu.Ram()[0x1D], emu.Ram()[0x1E]);
+           "%02X); %d room layouts checked, %d differ\n",
+           compared, resyncs, frame, emu.Ram()[0x1D], emu.Ram()[0x1E], sRoomsChecked, sRoomsDiffer);
     Dump("original", emu, dump);
     ReportOriginalCalls();
     saveCoverage();

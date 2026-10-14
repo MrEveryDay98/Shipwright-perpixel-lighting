@@ -33,6 +33,15 @@ void OnSpriteDma() {
 
 RoomTag gRooms[2];
 
+void (*gRoomFinishedHook)(const RoomTag& tag, int page) = nullptr;
+
+void OnRoomFinished() {
+    int page = (Vars::CartRAMPtrUB >> 2) & 0x01;
+    if (gRoomFinishedHook != nullptr) {
+        gRoomFinishedHook(gRooms[page], page);
+    }
+}
+
 void OnRoomDrawn() {
     RoomTag& t = gRooms[(Vars::CartRAMPtrUB >> 2) & 0x01];
     t.valid = true;

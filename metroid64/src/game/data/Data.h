@@ -77,6 +77,8 @@ extern const char* const kResourceTypes[];
 // Builds the data the game reads from the resources. False, with a reason, if it can't be built (a mod
 // that doesn't fit, for instance).
 bool Install(const Assets& assets, std::string& error);
+// The level of the data installed last (for the room layouts and meshes), or null before the first install.
+const Level* InstalledLevel();
 
 // Lockstep and tools: extract, write the XML, read it back and install it, all in memory.
 bool InstallFromRom(const std::vector<uint8_t>& ines, std::string& error);

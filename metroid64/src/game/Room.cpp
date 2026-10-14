@@ -200,6 +200,7 @@ void EndOfObjs() {
 // The room is in room RAM: the attribute table follows ($F0), and the first row or column is written to
 // the name table ($E57C / $E70C, entered with TempScrollDir equal to ScrollDir).
 void EndOfRoom() {
+    Present::OnRoomFinished();
     RoomNumber = 0xF0;
     TempScrollDir = ScrollDir;
     if (!(ScrollDir & 0x02)) {

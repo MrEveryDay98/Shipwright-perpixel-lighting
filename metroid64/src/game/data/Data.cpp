@@ -246,6 +246,15 @@ void Assets::Merge(const Assets& other) {
     }
 }
 
+namespace {
+Level sInstalledLevel;
+bool sHaveLevel = false;
+} // namespace
+
+const Level* InstalledLevel() {
+    return sHaveLevel ? &sInstalledLevel : nullptr;
+}
+
 bool Install(const Assets& assets, std::string& error) {
     Image image;
     // Same result whatever order the resources came in: blocks by bank and address.
@@ -268,6 +277,8 @@ bool Install(const Assets& assets, std::string& error) {
         return false;
     }
     SetRomImage(std::move(image.Prg()));
+    sInstalledLevel = assets.level;
+    sHaveLevel = true;
     return true;
 }
 

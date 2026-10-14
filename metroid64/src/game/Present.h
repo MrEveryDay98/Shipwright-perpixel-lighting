@@ -38,5 +38,9 @@ struct RoomTag {
 extern RoomTag gRooms[2];
 // SetupRoom started drawing RoomNumber (at MapPosX/MapPosY) into the room RAM CartRAMPtr points to.
 void OnRoomDrawn();
+// EndOfRoom: the room is all in room RAM (page 0 or 1). Tests can watch this (the lockstep tool checks
+// the room layouts against what the game drew).
+void OnRoomFinished();
+extern void (*gRoomFinishedHook)(const RoomTag& tag, int page);
 
 } // namespace Game::Present
