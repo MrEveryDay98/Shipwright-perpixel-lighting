@@ -78,7 +78,10 @@ class Model {
 class ModelLibrary {
   public:
     void Reset();
-    const Model* Samus();
+    // Samus: models/samus.json (the power suit), models/samus_varia.json (with the Varia),
+    // models/samus_ball.json (as the morph ball). Variants without a model use the power suit's.
+    enum class SamusForm { Power, Varia, Ball };
+    const Model* Samus(SamusForm form = SamusForm::Power);
     // Custom geometry for a room of the world map: rooms/<area>/<XX>_<YY>.json for that map position
     // (hex), else rooms/<area>/room_<NN>.json for every place the room is used. Areas: brinstar,
     // norfair, tourian, kraid, ridley.
@@ -86,8 +89,8 @@ class ModelLibrary {
 
   private:
     std::map<uint32_t, std::shared_ptr<Model>> mRooms; // looked up (null: none)
-    bool mSamusLooked = false;
-    std::shared_ptr<Model> mSamus;
+    bool mSamusLooked[3] = {};
+    std::shared_ptr<Model> mSamus[3];
 };
 
 // Animation name for Samus's current ROM animation (the value the game keeps at $0305).

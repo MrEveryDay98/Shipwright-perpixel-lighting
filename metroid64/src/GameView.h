@@ -53,6 +53,7 @@ constexpr uint16_t kSamusHi = 0x030C;        // bit 0: which nametable Samus is 
 constexpr uint16_t kSamusY = 0x030D;
 constexpr uint16_t kSamusX = 0x030E;
 constexpr uint16_t kEnergy = 0x0106; // BCD: low byte, high byte
+constexpr uint16_t kSamusGear = 0x6878; // power-ups Samus has; bit 5 the Varia
 } // namespace Ram
 
 // The world-map room drawn in one physical name table page (256x240), for per-room custom geometry.

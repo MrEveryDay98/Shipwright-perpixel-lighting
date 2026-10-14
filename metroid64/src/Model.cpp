@@ -190,8 +190,10 @@ void Model::Draw(Renderer& r, Gfx*& g, const ModelInstance& v) const {
 }
 
 void ModelLibrary::Reset() {
-    mSamusLooked = false;
-    mSamus.reset();
+    for (int i = 0; i < 3; i++) {
+        mSamusLooked[i] = false;
+        mSamus[i].reset();
+    }
     mRooms.clear();
 }
 
@@ -215,12 +217,18 @@ const Model* ModelLibrary::Room(uint8_t bank, uint8_t mapX, uint8_t mapY, uint8_
     return it->second.get();
 }
 
-const Model* ModelLibrary::Samus() {
-    if (!mSamusLooked) {
-        mSamusLooked = true;
-        mSamus = Model::Load("models/samus.json");
+const Model* ModelLibrary::Samus(SamusForm form) {
+    static const char* const kManifests[] = { "models/samus.json", "models/samus_varia.json",
+                                              "models/samus_ball.json" };
+    int i = (int)form;
+    if (!mSamusLooked[i]) {
+        mSamusLooked[i] = true;
+        mSamus[i] = Model::Load(kManifests[i]);
     }
-    return mSamus.get();
+    if (mSamus[i] == nullptr && form != SamusForm::Power) {
+        return Samus(SamusForm::Power);
+    }
+    return mSamus[i].get();
 }
 
 } // namespace Metroid

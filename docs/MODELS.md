@@ -20,7 +20,9 @@ Files in mods override files of the same path in earlier archives.
 
 | Character | Manifest path |
 | --- | --- |
-| Samus | `models/samus.json` |
+| Samus (power suit) | `models/samus.json` |
+| Samus with the Varia | `models/samus_varia.json` (else the power suit's) |
+| Samus as the morph ball | `models/samus_ball.json` (else the power suit's) |
 
 Enemies and items still use their sprites. Their positions and types are in RAM, so they can get models the
 same way.

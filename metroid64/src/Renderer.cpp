@@ -564,7 +564,15 @@ Gfx* Renderer::BuildFrame(const GameView& emu, float alpha) {
 
         DrawPlayField(g, emu);
 
-        const Model* samus = mModels.Samus();
+        // The ball while the game shows Samus rolled up, the Varia once she has it (SamusGear bit 5, the
+        // bit the game picks her palette by), else the power suit.
+        ModelLibrary::SamusForm form = ModelLibrary::SamusForm::Power;
+        if (std::string(SamusAnimName(emu.Peek(Ram::kSamusAnimReset))) == "Morph") {
+            form = ModelLibrary::SamusForm::Ball;
+        } else if (emu.Peek(Ram::kSamusGear) & 0x20) {
+            form = ModelLibrary::SamusForm::Varia;
+        }
+        const Model* samus = mModels.Samus(form);
         bool samusVisible = false;
         for (int i = 0; i < 64; i++) {
             samusVisible |= emu.SpriteTags()[i].owner == SpriteOwner::Samus;
