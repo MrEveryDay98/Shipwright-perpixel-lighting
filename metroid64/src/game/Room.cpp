@@ -12,6 +12,7 @@
 #include "game/Items.h"
 #include "game/Memory.h"
 #include "game/Original.h"
+#include "game/AllActive.h"
 #include "game/Present.h"
 #include "game/Ram.h"
 #include "game/Samus.h"
@@ -227,6 +228,10 @@ void EndOfRoom() {
 uint8_t GetEnemyData(uint8_t& x) {
     uint16_t data = GenPtr00.Word();
     x = Read(data) & 0xF0;
+    // Everything active (not the original): the section's roster places the enemies, except Kraid and Ridley.
+    if (AllActive::SuppressRoomEnemies() && !(Read((uint16_t)(data + 1)) & 0x40)) {
+        return 0x03;
+    }
     if (IsSlotTaken(x) != 0) {
         return 0x03;
     }

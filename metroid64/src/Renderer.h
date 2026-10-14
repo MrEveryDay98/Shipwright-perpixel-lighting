@@ -78,6 +78,7 @@ class Renderer {
     bool SectionScreenOrigin(const GameView& emu, const SectionView& v, int& x, int& y) const;
     void DrawSection(Gfx*& g, const GameView& emu, SectionView& v);
     void DrawOutsideFog(Gfx*& g);
+    void DrawOffscreenEnemies(Gfx*& g, const GameView& emu);
 
     void DrawPlayField(Gfx*& g, const GameView& emu);
     void DrawSprites(Gfx*& g, const GameView& emu, bool hudPass, bool hideSamus);

@@ -3,6 +3,7 @@
 #include "Picture.h"
 
 #include "Menu.h"
+#include "game/AllActive.h"
 #include "game/data/Data.h"
 
 #include <algorithm>
@@ -719,6 +720,42 @@ void Renderer::DrawSection(Gfx*& g, const GameView& emu, SectionView& v) {
     SetTexturedState(g, true);
 }
 
+void Renderer::DrawOffscreenEnemies(Gfx*& g, const GameView& emu) {
+    // Enemies running outside the game's two screens (everything active), at their place in the section.
+    const auto& sprites = Game::AllActive::OffscreenSprites();
+    int sx = 0, sy = 0;
+    if (sprites.empty() || !mSection.valid || !SectionScreenOrigin(emu, mSection, sx, sy)) {
+        return;
+    }
+    const uint8_t* pal = emu.Palette();
+    uint16_t base = (emu.PpuCtrl() & 0x08) ? 0x1000 : 0;
+    std::map<const uint8_t*, std::vector<Quad>> groups;
+    for (const auto& sp : sprites) {
+        uint8_t attr = sp.attr;
+        uint8_t pal4[4] = { 0, pal[16 + (attr & 3) * 4 + 1], pal[16 + (attr & 3) * 4 + 2],
+                            pal[16 + (attr & 3) * 4 + 3] };
+        float x0 = (float)(sp.x - sx), x1 = x0 + 8;
+        float yt = -(float)(sp.y - sy), yb = yt - 8;
+        bool hflip = attr & 0x40, vflip = attr & 0x80;
+        int s0 = hflip ? 8 : 0, s1 = 8 - s0;
+        int t0 = vflip ? 8 : 0, t1 = 8 - t0;
+        float z = (attr & 0x20) ? kBehindZ : 1.0f;
+        Quad q;
+        SetVtx(q.v[0], x0, yb, z, s0, t1, 255);
+        SetVtx(q.v[1], x1, yb, z, s1, t1, 255);
+        SetVtx(q.v[2], x1, yt, z, s1, t0, 255);
+        SetVtx(q.v[3], x0, yt, z, s0, t0, 255);
+        groups[TileTexture(emu, base + sp.tile * 16, pal4, true)].push_back(q);
+    }
+    SetTexturedState(g, true);
+    for (auto& [tex, quads] : groups) {
+        if (g + 64 >= mFrameEnd) {
+            break;
+        }
+        EmitTexturedQuads(g, tex, 8, quads, mFrameVtx);
+    }
+}
+
 void Renderer::DrawOutsideFog(Gfx*& g) {
     // Darkness over everything outside the original screen (0..256 x 0..240), in front of the blocks,
     // fading in over a few pixels from its edge.
@@ -947,6 +984,7 @@ Gfx* Renderer::BuildFrame(const GameView& emu, float alpha) {
             DrawSamusModel(g, emu, *samus, alpha);
         }
 
+        DrawOffscreenEnemies(g, emu);
         if (CVarGetInteger(kCVarOutsideView, 0) == 0) {
             DrawOutsideFog(g);
         }

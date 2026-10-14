@@ -20,6 +20,8 @@
 //     --rom-coverage <file>      records which ROM bytes the port read, added to the file (128 KiB map)
 //     --raw-rom                  the port reads the ROM file directly instead of the data extracted from
 //                                it (by default the data goes through the extractor and its XML first)
+//     --all-active               plays the port alone with "everything active" on (game/AllActive.h),
+//                                which changes the game: nothing is compared; it reports how it went
 //     --check-lag                also compares at the frames where the original lagged and prints the
 //                                differences without failing (a few are expected: the original ran extra
 //                                NMIs, so joypad, sound and sprite bytes differ)
@@ -30,6 +32,7 @@
 #include "game/Memory.h"
 #include "game/data/Data.h"
 #include "game/data/Layout.h"
+#include "game/AllActive.h"
 #include "game/Present.h"
 #include "game/Ram.h"
 #include "game/Title.h"
@@ -441,8 +444,14 @@ int main(int argc, char** argv) {
     bool checkLag = false;
     bool picture = false;
     bool rawRom = false;
+    bool allActive = false;
     for (int i = 2; i < argc; i += 2) {
         std::string opt = argv[i];
+        if (opt == "--all-active") {
+            allActive = true;
+            i--;
+            continue;
+        }
         if (opt == "--check-lag") {
             checkLag = true;
             i--;
@@ -598,6 +607,27 @@ int main(int argc, char** argv) {
             Game::Mem(a) = v;
         }
     };
+    if (allActive) {
+        Game::AllActive::gEnabled = true;
+        Game::SetNmiHook([&](int nmiIndex) { Game::Hw::gPads[0] = buttonsAt(portFrameButtons + nmiIndex); });
+        size_t maxRoster = 0;
+        int sectionsWithRoster = 0;
+        for (int n = 0; n < frames; n++) {
+            for (const auto& [a, v] : pokes) {
+                Game::Mem(a) = v;
+            }
+            portFrameButtons = frame;
+            Game::AllActive::BeforeFrame();
+            frame += std::max(Game::RunFrame(), 1);
+            maxRoster = std::max(maxRoster, Game::AllActive::RosterSize());
+            sectionsWithRoster += Game::AllActive::RosterSize() > 0 ? 1 : 0;
+        }
+        printf("ALL-ACTIVE: %d frames, %d rosters built, at most %zu enemies off screen, %d frames with some; ended "
+               "GameMode %02X MainRoutine %02X area bank %d\n",
+               frames, Game::AllActive::RostersBuilt(), maxRoster, sectionsWithRoster, (uint8_t)Game::Vars::GameMode,
+               (uint8_t)Game::Vars::MainRoutine, Game::Hw::gPrgBank);
+        return 0;
+    }
     for (int n = 0; n < frames; n++) {
         applyPokes();
         portFrameButtons = frame;

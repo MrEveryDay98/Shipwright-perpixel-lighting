@@ -1,14 +1,17 @@
 #include "Port.h"
 
 #include "GameData.h"
+#include "Menu.h"
 #include "Picture.h"
 
 #include "game/Game.h"
 #include "game/Hw.h"
 #include "game/Memory.h"
+#include "game/AllActive.h"
 #include "game/Present.h"
 
 #include <algorithm>
+#include <libultraship/bridge/consolevariablebridge.h>
 #include <fstream>
 #include <iterator>
 
@@ -61,6 +64,8 @@ void Port::Tick(uint8_t buttons) {
         mApu.Clock(kCpuCyclesPerFrame);
         return;
     }
+    Game::AllActive::gEnabled = CVarGetInteger(kCVarOutsideView, 0) == 2;
+    Game::AllActive::BeforeFrame();
     int nmis = std::max(Game::RunFrame(), 1);
     mFrame++;
     mLagTicks = nmis - 1;

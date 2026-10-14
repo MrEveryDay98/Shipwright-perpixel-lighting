@@ -65,6 +65,27 @@ frames earlier. What happens in the game is the same; only the pacing differs.
   horizontal) and fades in while the old one fades out. Elevators and new areas switch the same way.
 - **Outside the original screen**: the game only runs enemies and items on its 256x240 screen, so by
   default the view darkens everything outside it (Graphics > View > Outside the original screen).
+
+## Everything active (an optional way to play)
+
+Graphics > View > Outside the original screen > **Everything active** changes the game: every enemy of the
+section Samus is in keeps running, not only those on the two screens the original keeps loaded
+(`game/AllActive.cpp`).
+
+- On entering a section, each of its rooms is loaded the game's own way (`SetupRoom`) in a stand-in, and the
+  enemies it places go into a roster with their place in the section. The room loader no longer places
+  enemies itself (`GetEnemyData`), except Kraid and Ridley.
+- Before each frame, enemies more than 32 pixels outside the screen leave the game's six enemy slots for the
+  roster, and roster enemies within 16 pixels of it, on a screen the game has loaded, go into free slots.
+- Every other roster enemy runs one frame of the game's own enemy code (`DoOneEnemy`) in a stand-in: the
+  game's memory is saved, two screens of the section's room RAM are put around the enemy, the screen
+  looks at it, Samus is where she is (or at the far side if she isn't on those screens), and nothing else
+  is there; the enemy's state and the sprites it drew are kept and the memory put back. So they move,
+  collide with the room and react to Samus like the original enemies.
+- Enemies stay where they went, and dead, until Samus leaves the section.
+- Not covered yet: Tourian; enemies from Zeb holes (pipes), which the pipe removes off screen as in the
+  original; Memus; enemy shots fired off screen (dropped).
+- With it off nothing of this runs; the lockstep tool's `--all-active` plays the port alone with it on.
 - **Camera**: the scroll at the top of the picture, unwrapped across nametable boundaries and
   interpolated between game frames.
 - **Without the game's data** (no level loaded) the play field is drawn from the name tables instead.
