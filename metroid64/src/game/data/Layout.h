@@ -65,4 +65,15 @@ uint8_t RoomDoors(const Level& level, int bank, uint8_t number);
 // The section containing map screen (x, y) when the game scrolls that way.
 Section FindSection(const Level& level, int bank, uint8_t x, uint8_t y, bool horizontal);
 
+// The door tile of a room's door on a side (bit 0 right, bit 1 left): what Samus touches going in, $A0
+// (the scrolling turns: horizontal to vertical) or $A1 (stays horizontal) (CheckDoorTiles in
+// Collision.cpp, ScrollDoor). 0 if the edge column has neither.
+uint8_t DoorTile(const Level& level, int bank, uint8_t number, uint8_t side, const EngineRead& engine);
+
+// Every section the game can scroll through: from each area's start (AreaInfo; Brinstar's start scrolls
+// horizontally, the others' vertically, SamusInit) through the doors. Going through a door from a vertical
+// section always turns the scrolling horizontal (VertRoomCentered); from a horizontal one it turns vertical
+// at an $A0 door and stays horizontal at an $A1 door.
+std::vector<Section> AllSections(const Level& level, const EngineRead& engine);
+
 } // namespace Game::Data

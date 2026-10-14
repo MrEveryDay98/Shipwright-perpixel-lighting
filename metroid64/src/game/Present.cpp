@@ -42,6 +42,14 @@ void OnRoomFinished() {
     }
 }
 
+void (*gScrollHook)(uint8_t dir, bool entered) = nullptr;
+
+void OnScroll(uint8_t dir, bool entered) {
+    if (gScrollHook != nullptr) {
+        gScrollHook(dir, entered);
+    }
+}
+
 void OnRoomDrawn() {
     RoomTag& t = gRooms[(Vars::CartRAMPtrUB >> 2) & 0x01];
     t.valid = true;

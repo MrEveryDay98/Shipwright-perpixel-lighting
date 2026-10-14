@@ -39,6 +39,7 @@
 #include <cstdlib>
 #include <algorithm>
 #include <cstring>
+#include <set>
 #include <fstream>
 #include <iterator>
 #include <map>
@@ -359,6 +360,61 @@ void CheckRoom(const Game::Present::RoomTag& tag, int page) {
     }
 }
 
+// Every time the port's scrolling reaches the edge of a screen, the sections (Game::Data::FindSection)
+// must agree: a stop is at the end of the section, a step into the next screen stays in it (outside
+// doors, which scroll into the next section).
+int sScrollsChecked = 0, sScrollsDiffer = 0;
+
+void CheckScroll(uint8_t dir, bool entered) {
+    using namespace Game::Vars;
+    const Game::Data::Level* level = Game::Data::InstalledLevel();
+    if (level == nullptr || DoorStatus != 0) {
+        return;
+    }
+    bool horizontal = dir >= 2;
+    int bank = Game::Hw::gPrgBank;
+    uint8_t x = MapPosX, y = MapPosY;
+    Game::Data::Section s = Game::Data::FindSection(*level, bank, x, y, horizontal);
+    bool ok;
+    if (entered) {
+        uint8_t ox = dir == 2 ? x + 1 : dir == 3 ? x - 1 : x;
+        uint8_t oy = dir == 0 ? y + 1 : dir == 1 ? y - 1 : y;
+        ok = Game::Data::FindSection(*level, bank, ox, oy, horizontal) == s;
+    } else {
+        int last = s.length - 1;
+        ok = dir == 0 ? y == s.y : dir == 1 ? y == s.y + last : dir == 2 ? x == s.x : x == s.x + last;
+    }
+    sScrollsChecked++;
+    if (!ok && sScrollsDiffer++ < 5) {
+        printf("section differs: bank %d map %02X,%02X dir %d %s; section %s %02X,%02X length %d\n", bank, x, y, dir,
+               entered ? "entered" : "stopped", s.horizontal ? "horizontal" : "vertical", s.x, s.y, s.length);
+    }
+}
+
+// Every section the port scrolls through must be one of Game::Data::AllSections (the room meshes are made
+// for those).
+std::set<Game::Data::Section> sAllSections;
+std::set<Game::Data::Section> sMissedSections;
+int sSectionFrames = 0;
+
+void CheckSection() {
+    using namespace Game::Vars;
+    const Game::Data::Level* level = Game::Data::InstalledLevel();
+    if (level == nullptr || GameMode != 0 || MainRoutine != 0x03 || DoorStatus != 0) {
+        return;
+    }
+    if (level->world.rooms[MapPosY & 0x1F][MapPosX & 0x1F] == 0xFF) {
+        return;
+    }
+    Game::Data::Section s =
+        Game::Data::FindSection(*level, Game::Hw::gPrgBank, MapPosX, MapPosY, (ScrollDir & 0x02) != 0);
+    sSectionFrames++;
+    if (!sAllSections.count(s) && sMissedSections.insert(s).second) {
+        printf("section not found by AllSections: bank %d %s %02X,%02X length %d\n", s.bank,
+               s.horizontal ? "horizontal" : "vertical", s.x, s.y, s.length);
+    }
+}
+
 int main(int argc, char** argv) {
     if (argc < 2) {
         fprintf(stderr, "usage: lockstep <rom> [--script s] [--sync n] [--frames n] [--random seed] [--ram-h path] "
@@ -457,6 +513,11 @@ int main(int argc, char** argv) {
             return 2;
         }
         Game::Present::gRoomFinishedHook = CheckRoom;
+        Game::Present::gScrollHook = CheckScroll;
+        for (const auto& sec :
+             Game::Data::AllSections(*Game::Data::InstalledLevel(), [](uint16_t a) { return Game::Read(a); })) {
+            sAllSections.insert(sec);
+        }
     }
     if (coverageFile) {
         std::ifstream old(coverageFile, std::ios::binary);
@@ -580,11 +641,13 @@ int main(int argc, char** argv) {
             saveCoverage();
             return 1;
         }
+        CheckSection();
         compared++;
     }
     printf("OK: %d frames matched (%d resyncs after lag frames), ended at frame %d (GameMode %02X MainRoutine "
-           "%02X); %d room layouts checked, %d differ\n",
-           compared, resyncs, frame, emu.Ram()[0x1D], emu.Ram()[0x1E], sRoomsChecked, sRoomsDiffer);
+           "%02X); %d room layouts checked, %d differ; %d scroll edges checked, %d differ; %zu sections, %zu missed\n",
+           compared, resyncs, frame, emu.Ram()[0x1D], emu.Ram()[0x1E], sRoomsChecked, sRoomsDiffer, sScrollsChecked,
+           sScrollsDiffer, sAllSections.size(), sMissedSections.size());
     Dump("original", emu, dump);
     ReportOriginalCalls();
     saveCoverage();

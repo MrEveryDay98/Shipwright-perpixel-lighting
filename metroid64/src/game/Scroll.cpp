@@ -6,6 +6,7 @@
 #include "game/Constants.h"
 #include "game/Engine.h"
 #include "game/Memory.h"
+#include "game/Present.h"
 #include "game/Projectiles.h"
 #include "game/Ram.h"
 #include "game/Samus.h"
@@ -385,8 +386,10 @@ bool ScrollUp() {
         MapPosY--;
         if (GetRoomNum()) {
             MapPosY++;
+            Present::OnScroll(0, false);
             return true;
         }
+        Present::OnScroll(0, true);
         SwitchNameTable();
         x = 240;
     }
@@ -408,8 +411,10 @@ bool ScrollDown() {
         MapPosY++;
         if (GetRoomNum()) {
             MapPosY--;
+            Present::OnScroll(1, false);
             return true;
         }
+        Present::OnScroll(1, true);
     }
     uint8_t x = ScrollY;
     if (x == 239) {
@@ -434,8 +439,10 @@ bool ScrollLeft() {
         MapPosX--;
         if (GetRoomNum()) {
             MapPosX++;
+            Present::OnScroll(2, false);
             return true;
         }
+        Present::OnScroll(2, true);
         SwitchNameTable();
     }
     ScrollX--;
@@ -456,8 +463,10 @@ bool ScrollRight() {
         MapPosX++;
         if (GetRoomNum()) {
             MapPosX--;
+            Present::OnScroll(3, false);
             return true;
         }
+        Present::OnScroll(3, true);
     }
     ScrollX++;
     if (ScrollX == 0) {

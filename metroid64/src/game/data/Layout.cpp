@@ -1,6 +1,7 @@
 #include "game/data/Layout.h"
 
 #include <cstring>
+#include <set>
 
 namespace Game::Data {
 
@@ -173,6 +174,110 @@ Section FindSection(const Level& level, int bank, uint8_t x, uint8_t y, bool hor
         s.length = (uint8_t)(bottom - top + 1);
     }
     return s;
+}
+
+uint8_t DoorTile(const Level& level, int bank, uint8_t number, uint8_t side, const EngineRead& engine) {
+    ScreenTiles screen;
+    if (!DrawScreen(level, bank, number, engine, screen)) {
+        return 0;
+    }
+    int x = (side & 0x02) ? 0 : 31;
+    for (int y = 0; y < 30; y++) {
+        uint8_t t = screen.Tile(x, y);
+        if (t == 0xA0 || t == 0xA1) {
+            return t;
+        }
+    }
+    return 0;
+}
+
+namespace {
+
+// The elevator on a map screen, if there is one: its destination (the special items table's elevator
+// entries, ScanForItems / ElevatorHandler; ElevatorChangeArea).
+bool ScreenElevator(const Level& level, int bank, uint8_t x, uint8_t y, uint8_t& dest) {
+    auto items = level.specialItems.find(bank);
+    if (items == level.specialItems.end()) {
+        return false;
+    }
+    auto screen = items->second.screens.find({ y, x });
+    if (screen == items->second.screens.end()) {
+        return false;
+    }
+    for (const SpecialItem& it : screen->second) {
+        if (it.kind == SpecialItem::Kind::Elevator) {
+            dest = it.info;
+            return true;
+        }
+    }
+    return false;
+}
+
+// An elevator ride (ElevatorCenter to ElevatorStop): the screen scrolls vertically up or down the
+// elevator's column, the area changes on the way (the map position stays), and the ride ends at the
+// elevator room of the other area in that column. Going down it ends in the area's start shaft (still
+// vertical); going up, the scrolling turns horizontal there. $8F is the ending.
+template <typename Add> void AddElevatorRide(const Level& level, int bank, uint8_t x, uint8_t y, Add&& add) {
+    uint8_t dest = 0;
+    if (!ScreenElevator(level, bank, x, y, dest) || dest == 0x8F) {
+        return;
+    }
+    add(FindSection(level, bank, x, y, false));
+    bool up = dest & 0x80;
+    int destBank = up ? (dest == 0x84 ? 2 : 1) : (dest & 0x0F) + 1;
+    for (int ay = up ? y - 1 : y + 1; ay >= 0 && ay <= 31; ay += up ? -1 : 1) {
+        uint8_t otherDest = 0;
+        if (level.world.rooms[ay][x] != 0xFF && ScreenElevator(level, destBank, x, (uint8_t)ay, otherDest)) {
+            add(FindSection(level, destBank, x, (uint8_t)ay, false));
+            add(FindSection(level, destBank, x, (uint8_t)ay, up));
+            return;
+        }
+    }
+}
+
+} // namespace
+
+std::vector<Section> AllSections(const Level& level, const EngineRead& engine) {
+    std::set<Section> seen;
+    std::vector<Section> todo;
+    auto add = [&](const Section& s) {
+        if (seen.insert(s).second) {
+            todo.push_back(s);
+        }
+    };
+    for (const auto& [bank, info] : level.areaInfo) {
+        uint8_t x = info.bytes[0x95D7 - 0x95CC], y = info.bytes[0x95D8 - 0x95CC];
+        if (level.world.rooms[y & 0x1F][x & 0x1F] == 0xFF) {
+            continue;
+        }
+        add(FindSection(level, bank, x, y, bank == 1));
+    }
+    while (!todo.empty()) {
+        Section s = todo.back();
+        todo.pop_back();
+        for (int i = 0; i < s.length; i++) {
+            uint8_t x = s.ScreenX(i), y = s.ScreenY(i);
+            uint8_t room = level.world.rooms[y][x];
+            AddElevatorRide(level, s.bank, x, y, add);
+            uint8_t doors = RoomDoors(level, s.bank, room);
+            for (uint8_t side = 1; side <= 2; side++) {
+                if (!(doors & side)) {
+                    continue;
+                }
+                // A horizontal section's doors are at its ends.
+                if (s.horizontal && i != (side == 1 ? s.length - 1 : 0)) {
+                    continue;
+                }
+                int nx = side == 1 ? x + 1 : x - 1;
+                if (nx < 0 || nx > 31 || level.world.rooms[y][nx] == 0xFF) {
+                    continue;
+                }
+                bool horizontal = !s.horizontal || DoorTile(level, s.bank, room, side, engine) == 0xA1;
+                add(FindSection(level, s.bank, (uint8_t)nx, y, horizontal));
+            }
+        }
+    }
+    return { seen.begin(), seen.end() };
 }
 
 } // namespace Game::Data

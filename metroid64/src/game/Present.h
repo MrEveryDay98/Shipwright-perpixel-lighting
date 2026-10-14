@@ -42,5 +42,9 @@ void OnRoomDrawn();
 // the room layouts against what the game drew).
 void OnRoomFinished();
 extern void (*gRoomFinishedHook)(const RoomTag& tag, int page);
+// Scrolling reached the edge of a screen going `dir` (ScrollDir: 0 up, 1 down, 2 left, 3 right): `entered`
+// if it went on into the next map screen (MapPosX/Y is now that screen), else it stopped there.
+void OnScroll(uint8_t dir, bool entered);
+extern void (*gScrollHook)(uint8_t dir, bool entered);
 
 } // namespace Game::Present
