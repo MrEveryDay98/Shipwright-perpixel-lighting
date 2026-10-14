@@ -1172,8 +1172,12 @@ void UpdateWorld() {
     Present::TagSprites(p, Owner::Samus);
     p = SpritePagePos;
     AreaRoutine();
+    Present::TagSprites(p, Owner::Other);
+    p = SpritePagePos;
     UpdateElevator();
     UpdateStatues();
+    Present::TagSprites(p, Owner::Item);
+    p = SpritePagePos;
     DestroyEnemyObjects();     // $FA9D
     UpdateMellows();           // $FC65
     if (UpdateObjectsF93B()) { // $F93B: the original left UpdateWorld (see Enemies.h)
@@ -1199,7 +1203,11 @@ void UpdateWorld() {
     p = SpritePagePos;
     UpdateObjectsFAF2(); // $FAF2
     CheckMissileToggle();
+    Present::TagSprites(p, Owner::Other);
+    p = SpritePagePos;
     UpdateItems();
+    Present::TagSprites(p, Owner::Item);
+    p = SpritePagePos;
     UpdateObjectsFDE3(); // $FDE3
     Present::TagSprites(p, Owner::Other);
     // Hide the sprites not used this frame.

@@ -12,6 +12,9 @@
 // spawns enemies when their room is drawn; with this on, the roster's enemies take their place, so an
 // enemy is where it went, and stays dead, until Samus leaves the section.
 //
+// Doors, power-ups, the elevator and the statues are loaded with each screen and drawn across the section in
+// their current state.
+//
 // Not covered yet: Tourian, Kraid and Ridley themselves, Memus, Zeb holes' enemies off screen, and enemy
 // shots fired off screen (they are dropped).
 
@@ -34,9 +37,16 @@ bool SuppressRoomEnemies();
 struct Sprite {
     int x, y;
     uint8_t tile, attr;
+    bool door = false; // a door bubble (drawn on the wall's face)
 };
 // The off-screen enemies' sprites of the last frame (empty when off).
 const std::vector<Sprite>& OffscreenSprites();
+// The doors, power-ups, elevator and statues of every screen of the section, as the game draws them: the
+// loaded screens' each frame from the game, the others as they were last (or when the section was entered).
+// While this is on, the game's own sprites for these are not drawn (they only cover its screen).
+std::vector<Sprite> ObjectSprites();
+// True while the section's enemies and objects are being run and drawn here.
+bool Active();
 
 // For tests: enemies in the roster now, and rosters built so far.
 size_t RosterSize();

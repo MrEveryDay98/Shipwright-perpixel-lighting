@@ -34,6 +34,7 @@ enum class SpriteOwner : uint8_t {
     Hud,        // $E0C1: energy, missiles, energy tanks
     Scenery,    // $8B79 (area bank): door bubbles
     Other,      // anything else (doors, intro, effects)
+    Item,       // power-ups, the elevator, the statues
 };
 
 struct SpriteTag {

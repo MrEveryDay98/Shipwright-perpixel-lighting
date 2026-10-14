@@ -86,6 +86,11 @@ section Samus is in keeps running, not only those on the two screens the origina
   is there; the enemy's state and the sprites it drew are kept and the memory put back. So they move,
   collide with the room and react to Samus like the original enemies.
 - Enemies stay where they went, and dead, until Samus leaves the section.
+- Doors, power-ups, the elevator and the statues: each screen's are loaded and drawn with the roster (in
+  the stand-in), so the whole section shows them, collected items left out. The two screens the game has
+  loaded are drawn again from the game each frame (doors opening, items taken, the elevator moving) and
+  keep how they last looked when they scroll out. The game's own sprites for them (which only cover its
+  screen) aren't drawn meanwhile.
 - Not covered yet: Tourian; enemies from Zeb holes (pipes), which the pipe removes off screen as in the
   original; Memus; enemy shots fired off screen (dropped).
 - With it off nothing of this runs; the lockstep tool's `--all-active` plays the port alone with it on.

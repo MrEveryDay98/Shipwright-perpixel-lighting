@@ -191,7 +191,8 @@ void Renderer::SetTexturedState(Gfx*& g, bool zbuffer) {
     gSPClearGeometryMode(g++, G_LIGHTING | G_FOG | G_TEXTURE_GEN | G_TEXTURE_GEN_LINEAR | G_CULL_BOTH | G_ZBUFFER);
     gSPSetGeometryMode(g++, G_SHADE | G_SHADING_SMOOTH | (zbuffer ? G_ZBUFFER : 0));
     gDPSetCycleType(g++, G_CYC_1CYCLE);
-    gDPSetTextureFilter(g++, G_TF_POINT);
+    // Filtered, so the Graphics menu's texture filter (three-point, linear or none) applies.
+    gDPSetTextureFilter(g++, G_TF_BILERP);
     gDPSetTexturePersp(g++, G_TP_PERSP);
     gDPSetTextureLUT(g++, G_TT_NONE);
     gSPTexture(g++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
@@ -721,8 +722,11 @@ void Renderer::DrawSection(Gfx*& g, const GameView& emu, SectionView& v) {
 }
 
 void Renderer::DrawOffscreenEnemies(Gfx*& g, const GameView& emu) {
-    // Enemies running outside the game's two screens (everything active), at their place in the section.
-    const auto& sprites = Game::AllActive::OffscreenSprites();
+    // Everything active: enemies running outside the game's two screens, and the section's doors and items,
+    // at their place in the section.
+    std::vector<Game::AllActive::Sprite> sprites = Game::AllActive::OffscreenSprites();
+    auto objects = Game::AllActive::ObjectSprites();
+    sprites.insert(sprites.end(), objects.begin(), objects.end());
     int sx = 0, sy = 0;
     if (sprites.empty() || !mSection.valid || !SectionScreenOrigin(emu, mSection, sx, sy)) {
         return;
@@ -740,6 +744,9 @@ void Renderer::DrawOffscreenEnemies(Gfx*& g, const GameView& emu) {
         int s0 = hflip ? 8 : 0, s1 = 8 - s0;
         int t0 = vflip ? 8 : 0, t1 = 8 - t0;
         float z = (attr & 0x20) ? kBehindZ : 1.0f;
+        if (sp.door) {
+            z = kBlockFront + 1; // on the wall's face, like the game's door bubbles (DrawSprites)
+        }
         Quad q;
         SetVtx(q.v[0], x0, yb, z, s0, t1, 255);
         SetVtx(q.v[1], x1, yb, z, s1, t1, 255);
@@ -814,6 +821,10 @@ void Renderer::DrawSprites(Gfx*& g, const GameView& emu, bool hudPass, bool hide
         }
         SpriteOwner owner = tags[i].owner;
         if ((owner == SpriteOwner::Hud) != hudPass || (hideSamus && owner == SpriteOwner::Samus)) {
+            continue;
+        }
+        // Everything active draws the doors and items of the whole section itself.
+        if (Game::AllActive::Active() && (owner == SpriteOwner::Scenery || owner == SpriteOwner::Item)) {
             continue;
         }
         uint8_t attr = o[2];

@@ -6,6 +6,9 @@
 #include "game/Memory.h"
 #include "game/Present.h"
 #include "game/Ram.h"
+#include "game/Area.h"
+#include "game/Items.h"
+#include "game/Projectiles.h"
 #include "game/Room.h"
 #include "game/data/Data.h"
 #include "game/data/Layout.h"
@@ -51,6 +54,7 @@ Data::Section sSection;
 std::vector<Data::ScreenTiles> sScreens; // the section's room RAM: its rooms, then what the game drew
 std::vector<RosterEnemy> sRoster;
 std::vector<Sprite> sSprites;
+std::vector<std::vector<Sprite>> sObjects; // per screen of the section
 int sRostersBuilt = 0;
 
 // The game as it is, to put back after running something in a stand-in.
@@ -160,11 +164,46 @@ void UpdateScreens() {
     }
 }
 
+// Draws the doors, power-ups, elevator and statues the game has on name table `table`, with the screen
+// looking at it, and keeps their sprites as screen `screen`'s. The caller restores the game afterwards.
+void CaptureObjects(int screen, uint8_t table) {
+    PPUCNT0ZP = (uint8_t)((PPUCNT0ZP & ~0x03) | table);
+    ScrollX = 0;
+    ScrollY = 0;
+    FrameCount = (uint8_t)(FrameCount | 0x01); // the elevator only draws on odd frames: draw it steadily
+    std::vector<Sprite> out;
+    auto take = [&](uint8_t from, bool door) {
+        for (int k = from; k < SpritePagePos && k < 0x100; k += 4) {
+            uint8_t y = Mem((uint16_t)(0x0200 + k));
+            if (y >= 0xEF) {
+                continue;
+            }
+            Sprite sp;
+            sp.x = screen * ScreenWidth() + Mem((uint16_t)(0x0203 + k));
+            sp.y = screen * ScreenHeight() + y + 1;
+            sp.tile = Mem((uint16_t)(0x0201 + k));
+            sp.attr = Mem((uint16_t)(0x0202 + k));
+            sp.door = door;
+            out.push_back(sp);
+        }
+    };
+    SpritePagePos = 0;
+    DrawDoors();
+    take(0, true);
+    uint8_t from = SpritePagePos;
+    UpdateItems();
+    UpdateElevator();
+    UpdateStatues();
+    take(from, false);
+    sObjects[screen] = std::move(out);
+}
+
 // Every enemy the section's rooms place: each room is loaded the game's own way (SetupRoom, which places
 // its enemies and the special items' ones) in a stand-in, and its enemies taken.
 void BuildRoster() {
     sRostersBuilt++;
     sRoster.clear();
+    sObjects.assign(sSection.length, {});
     sBuilding = true;
     sSnapshot.Take();
     for (int i = 0; i < sSection.length; i++) {
@@ -183,6 +222,12 @@ void BuildRoster() {
         for (int n = 0; n < 64 && RoomNumber < 0xF0; n++) {
             SetupRoom();
         }
+        // Samus away from this screen while its objects are drawn.
+        ObjectHi = (uint8_t)(table ^ 0x01);
+        Snapshot loaded;
+        loaded.Take();
+        CaptureObjects(i, table);
+        loaded.Restore();
         for (uint8_t s : kEnemySlots) {
             EnemyState e;
             ReadSlot(s, e);
@@ -314,6 +359,20 @@ const std::vector<Sprite>& OffscreenSprites() {
     return sSprites;
 }
 
+std::vector<Sprite> ObjectSprites() {
+    std::vector<Sprite> all;
+    if (sActive) {
+        for (const auto& v : sObjects) {
+            all.insert(all.end(), v.begin(), v.end());
+        }
+    }
+    return all;
+}
+
+bool Active() {
+    return sActive;
+}
+
 size_t RosterSize() {
     return sRoster.size();
 }
@@ -361,6 +420,15 @@ void BeforeFrame() {
         BuildRoster();
     }
     UpdateScreens();
+    // The loaded screens' objects as they are now.
+    for (int page = 0; page < 2; page++) {
+        int i = ScreenOfPage(page, true);
+        if (i >= 0) {
+            sSnapshot.Take();
+            CaptureObjects(i, (uint8_t)page);
+            sSnapshot.Restore();
+        }
+    }
 
     int vx = 0, vy = 0;
     if (!ViewOrigin(vx, vy)) {

@@ -9,7 +9,7 @@
 
 namespace Game::Present {
 
-enum class Owner : uint8_t { None, Samus, Enemy, Projectile, Hud, Scenery, Other };
+enum class Owner : uint8_t { None, Samus, Enemy, Projectile, Hud, Scenery, Other, Item };
 
 struct Tag {
     Owner owner = Owner::None;
