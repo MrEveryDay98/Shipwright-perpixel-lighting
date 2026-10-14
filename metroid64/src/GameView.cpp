@@ -1,5 +1,7 @@
 #include "GameView.h"
 
+#include <algorithm>
+
 namespace Metroid {
 
 namespace {
@@ -29,23 +31,89 @@ void GameView::ResetView() {
 }
 
 void GameView::TrackScroll(int x, int y) {
+    mPrev2WorldX = mPrevWorldX;
+    mPrev2WorldY = mPrevWorldY;
     mPrevWorldX = mWorldX;
     mPrevWorldY = mWorldY;
+    mScrollCut = false;
     if (!mHaveScroll) {
-        mWorldX = mPrevWorldX = x;
-        mWorldY = mPrevWorldY = y;
+        mWorldX = x;
+        mWorldY = y;
+        mScrollCut = true;
         mHaveScroll = true;
     } else {
         int dx = WrapDelta(x - mPlaneX, 512), dy = WrapDelta(y - mPlaneY, 480);
         mWorldX += dx;
         mWorldY += dy;
-        if (std::abs(dx) > 32 || std::abs(dy) > 32) {
-            mPrevWorldX = mWorldX; // a cut, not a scroll: don't interpolate across it
-            mPrevWorldY = mWorldY;
-        }
+        mScrollCut = std::abs(dx) > 32 || std::abs(dy) > 32;
+    }
+    if (mScrollCut) {
+        // A cut, not a scroll: don't interpolate across it.
+        mPrevWorldX = mPrev2WorldX = mWorldX;
+        mPrevWorldY = mPrev2WorldY = mWorldY;
     }
     mPlaneX = x;
     mPlaneY = y;
+}
+
+namespace {
+// (p1 + p2) / 2 - (1 - alpha) * (p2 - p0) / 2, relative to p2: between the averages of (p0, p1) and (p1, p2).
+double SmoothOffset(double p0, double p1, double p2, float alpha) {
+    return (p1 - p2) / 2 - (1.0 - alpha) * (p2 - p0) / 2;
+}
+} // namespace
+
+double GameView::SmoothScrollOffsetX(float alpha) const {
+    return SmoothOffset(mPrev2WorldX, mPrevWorldX, mWorldX, alpha);
+}
+
+double GameView::SmoothScrollOffsetY(float alpha) const {
+    return SmoothOffset(mPrev2WorldY, mPrevWorldY, mWorldY, alpha);
+}
+
+void GameView::Motion::Set(bool present, float nx, float ny, bool cut) {
+    prev2X = prevX;
+    prev2Y = prevY;
+    prevX = x;
+    prevY = y;
+    x = nx;
+    y = ny;
+    // A jump (a new room, a respawn, a new enemy in the slot) isn't motion: start over from here.
+    bool jump = cut || std::abs(x - prevX) > 24 || std::abs(y - prevY) > 24;
+    if (!present) {
+        have = 0;
+    } else if (jump || have == 0) {
+        have = 1;
+    } else {
+        have = std::min(have + 1, 3);
+    }
+}
+
+float GameView::Motion::OffsetX(float alpha) const {
+    if (have >= 3) {
+        return (float)SmoothOffset(prev2X, prevX, x, alpha);
+    }
+    return have == 2 ? -(1.0f - alpha) * (x - prevX) : 0.0f;
+}
+
+float GameView::Motion::OffsetY(float alpha) const {
+    if (have >= 3) {
+        return (float)SmoothOffset(prev2Y, prevY, y, alpha);
+    }
+    return have == 2 ? -(1.0f - alpha) * (y - prevY) : 0.0f;
+}
+
+void GameView::TrackObjects() {
+    float wx = (float)mWorldX, wy = (float)mWorldY;
+    mSamusMotion.Set(true, SamusScreenX() + wx, SamusScreenY() + wy, mScrollCut);
+    for (int i = 0; i < 6; i++) {
+        uint8_t slot = (uint8_t)(i * 0x10);
+        bool present = Peek((uint16_t)(0x6AF4 + slot)) != 0; // Enstatus
+        uint8_t hi = Peek((uint16_t)(0x6AFB + slot));        // EnNameTable
+        float x = ScreenXOf(hi, Peek((uint16_t)(0x0401 + slot))) + wx;
+        float y = ScreenYOf(hi, Peek((uint16_t)(0x0400 + slot))) + wy;
+        mEnemyMotion[i].Set(present, x, y, mScrollCut);
+    }
 }
 
 bool GameView::InGameplay() const {

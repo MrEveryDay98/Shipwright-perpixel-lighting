@@ -80,20 +80,9 @@ class Renderer {
         int lastPlaneX = 0, lastPlaneY = 0;
         uint8_t lastMirroring = 0; // a change of mirroring changes what the scroll means: anchored again
     };
-    // An object's motion over the last game frame (positions relative to the unwrapped scroll), so it can
-    // be drawn where it was between game frames like the camera is.
-    struct Motion {
-        float prevX = 0, prevY = 0, x = 0, y = 0;
-        bool have = false, moving = false;
-        void Set(bool present, float nx, float ny);
-    };
-    void UpdateMotion(const GameView& emu);
     // How far to draw an object back from where the game has it, for the interpolation.
-    float MotionX(const Motion& m) const;
-    float MotionY(const Motion& m) const;
-    Motion mSamusMotion;
-    Motion mEnemyMotion[6];
-    uint64_t mMotionFrame = ~0ull;
+    float MotionX(const GameView::Motion& m) const;
+    float MotionY(const GameView::Motion& m) const;
     float mAlpha = 1.0f;
     void UpdateSection(const GameView& emu);
     bool LoadSection(const GameView& emu, const Game::Data::Section& s, SectionView& out);

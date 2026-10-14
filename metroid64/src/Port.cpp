@@ -75,6 +75,7 @@ void Port::Tick(uint8_t buttons) {
     }
     const auto& v = Game::Hw::gVideo;
     TrackScroll((v.ctrl & 0x01) * 256 + v.scrollX, ((v.ctrl >> 1) & 0x01) * 240 + v.scrollY);
+    TrackObjects();
 }
 
 int Port::AreaBank() const {

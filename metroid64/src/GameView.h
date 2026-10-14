@@ -131,6 +131,12 @@ class GameView {
     double PrevWorldScrollX() const {
         return mPrevWorldX;
     }
+    // How far from the current scroll to draw the camera between game frames (alpha 0-1 from the last
+    // game frame to the next): between the averages of the last three game frames' scroll, two by two.
+    // The game scrolls in uneven steps (1, 2, 1, 2 pixels while running); averaging pairs evens them out,
+    // half a frame late. Objects are drawn the same way (Motion), so they keep their place on screen.
+    double SmoothScrollOffsetX(float alpha) const;
+    double SmoothScrollOffsetY(float alpha) const;
     double PrevWorldScrollY() const {
         return mPrevWorldY;
     }
@@ -146,17 +152,40 @@ class GameView {
         return Peek(Ram::kSamusDir) & 1;
     }
 
+    // An object's position at the last two game frames, in the same unwrapped space as the scroll, so it can
+    // be drawn between them the way the camera is.
+    struct Motion {
+        float prev2X = 0, prev2Y = 0, prevX = 0, prevY = 0, x = 0, y = 0;
+        int have = 0; // frames in a row it was there without a jump (up to 3)
+        void Set(bool present, float nx, float ny, bool cut);
+        // How far from where the game has it now to draw it (like SmoothScrollOffset).
+        float OffsetX(float alpha) const;
+        float OffsetY(float alpha) const;
+    };
+    const Motion& SamusMotion() const {
+        return mSamusMotion;
+    }
+    // Enemy slots $00-$50 by index 0-5.
+    const Motion& EnemyMotion(int i) const {
+        return mEnemyMotion[i];
+    }
+
   protected:
-    // Called after each frame with the scroll at the top of the picture, in the nametable plane.
+    // Called after each frame with the scroll at the top of the picture, in the nametable plane; then the
+    // objects' motion is recorded with it (TrackObjects).
     void TrackScroll(int x, int y);
+    void TrackObjects();
     void ResetView();
 
     std::array<SpriteTag, 64> mOamTags{};
 
   private:
     int mPlaneX = 0, mPlaneY = 0;
-    double mWorldX = 0, mWorldY = 0, mPrevWorldX = 0, mPrevWorldY = 0;
+    double mWorldX = 0, mWorldY = 0, mPrevWorldX = 0, mPrevWorldY = 0, mPrev2WorldX = 0, mPrev2WorldY = 0;
     bool mHaveScroll = false;
+    bool mScrollCut = false;
+    Motion mSamusMotion;
+    Motion mEnemyMotion[6];
 };
 
 } // namespace Metroid

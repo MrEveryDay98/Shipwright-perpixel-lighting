@@ -881,40 +881,13 @@ void Renderer::DrawOutsideFog(Gfx*& g) {
 
 // --- Motion between game frames ----------------------------------------------------------------
 
-void Renderer::Motion::Set(bool present, float nx, float ny) {
-    prevX = x;
-    prevY = y;
-    x = nx;
-    y = ny;
-    // A jump (a new room, a respawn, a new enemy in the slot) isn't motion.
-    moving = present && have && std::abs(x - prevX) <= 24 && std::abs(y - prevY) <= 24;
-    have = present;
-}
-
-void Renderer::UpdateMotion(const GameView& emu) {
-    if (emu.FrameCount() == mMotionFrame) {
-        return;
-    }
-    mMotionFrame = emu.FrameCount();
-    float wx = (float)emu.WorldScrollX(), wy = (float)emu.WorldScrollY();
-    mSamusMotion.Set(true, emu.SamusScreenX() + wx, emu.SamusScreenY() + wy);
-    for (int i = 0; i < 6; i++) {
-        uint8_t slot = (uint8_t)(i * 0x10);
-        bool present = emu.Peek((uint16_t)(0x6AF4 + slot)) != 0; // Enstatus
-        uint8_t hi = emu.Peek((uint16_t)(0x6AFB + slot));        // EnNameTable
-        float x = emu.ScreenXOf(hi, emu.Peek((uint16_t)(0x0401 + slot))) + wx;
-        float y = emu.ScreenYOf(hi, emu.Peek((uint16_t)(0x0400 + slot))) + wy;
-        mEnemyMotion[i].Set(present, x, y);
-    }
-}
-
 // The game has the object at its new place; between game frames the camera is between the old scroll and
 // the new, so the object is drawn the same fraction back along its own motion.
-float Renderer::MotionX(const Motion& m) const {
-    return m.moving ? -(1.0f - mAlpha) * (m.x - m.prevX) : 0.0f;
+float Renderer::MotionX(const GameView::Motion& m) const {
+    return m.OffsetX(mAlpha);
 }
-float Renderer::MotionY(const Motion& m) const {
-    return m.moving ? -(1.0f - mAlpha) * (m.y - m.prevY) : 0.0f;
+float Renderer::MotionY(const GameView::Motion& m) const {
+    return m.OffsetY(mAlpha);
 }
 
 // --- Sprites ----------------------------------------------------------------------------------
@@ -959,11 +932,11 @@ void Renderer::DrawSprites(Gfx*& g, const GameView& emu, bool hudPass, bool hide
         int parts = tall ? 2 : 1;
         float mx = 0, my = 0;
         if (owner == SpriteOwner::Samus) {
-            mx = MotionX(mSamusMotion);
-            my = MotionY(mSamusMotion);
+            mx = MotionX(emu.SamusMotion());
+            my = MotionY(emu.SamusMotion());
         } else if (owner == SpriteOwner::Enemy && tags[i].slot < 0x60 && (tags[i].slot & 0x0F) == 0) {
-            mx = MotionX(mEnemyMotion[tags[i].slot >> 4]);
-            my = MotionY(mEnemyMotion[tags[i].slot >> 4]);
+            mx = MotionX(emu.EnemyMotion(tags[i].slot >> 4));
+            my = MotionY(emu.EnemyMotion(tags[i].slot >> 4));
         }
         for (int part = 0; part < parts; part++) {
             uint16_t pat;
@@ -1002,8 +975,9 @@ void Renderer::DrawSamusModel(Gfx*& g, const GameView& emu, const Model& model, 
     ModelInstance m;
     m.anim = SamusAnimName(anim);
     m.time = ((float)(emu.FrameCount() - mSamusAnimStart) + alpha) / 60.0f;
-    m.x = emu.SamusScreenX() + MotionX(mSamusMotion);
-    m.y = emu.SamusScreenY() + MotionY(mSamusMotion) + emu.Peek(Ram::kSamusRadY) + 1; // models stand on their origin
+    m.x = emu.SamusScreenX() + MotionX(emu.SamusMotion());
+    m.y =
+        emu.SamusScreenY() + MotionY(emu.SamusMotion()) + emu.Peek(Ram::kSamusRadY) + 1; // models stand on their origin
     m.facingLeft = emu.SamusFacingLeft();
     model.Draw(*this, g, m);
 }
@@ -1071,18 +1045,24 @@ Gfx* Renderer::BuildFrame(const GameView& emu, float alpha) {
 
     bool threeD = CVarGetInteger(kCVarDisplay3D, 1) != 0 && emu.InGameplay();
     mAlpha = alpha;
-    UpdateMotion(emu);
     if (!threeD) {
         Draw2DFrame(g, emu);
     } else {
         // The camera looks at the middle of the NES screen; between game frames it is
         // interpolated along the (unwrapped) scroll.
-        float offX = (float)((emu.PrevWorldScrollX() - emu.WorldScrollX()) * (1.0f - alpha));
-        float offY = (float)((emu.PrevWorldScrollY() - emu.WorldScrollY()) * (1.0f - alpha));
+        float offX = (float)emu.SmoothScrollOffsetX(alpha);
+        float offY = (float)emu.SmoothScrollOffsetY(alpha);
         float fov = CVarGetFloat("gMetroid64.Camera.Fov", 52.0f);
         float dist = CVarGetFloat("gMetroid64.Camera.Distance", 270.0f);
         float height = CVarGetFloat("gMetroid64.Camera.Height", 30.0f);
         float cx = kScreenW / 2.0f + offX, cy = -(kScreenH / 2.0f + offY);
+        static const bool debugMotion = getenv("METROID64_DEBUG_MOTION") != nullptr;
+        if (debugMotion) {
+            // Samus as drawn relative to the camera, per drawn frame (smooth motion: small, steady steps).
+            float sx = emu.SamusScreenX() + MotionX(emu.SamusMotion()) - cx;
+            SPDLOG_INFO("motion frame {} alpha {:.3f} samus-camera {:.3f} scroll {:.1f} camera {:.3f}",
+                        emu.FrameCount(), alpha, sx, emu.WorldScrollX(), emu.WorldScrollX() + offX);
+        }
         ToMtx(Perspective(fov, (float)kNativeW / kNativeH, 16.0f, 4000.0f), &mProjection);
         mViewMat = LookAt({ cx, cy + height, dist }, { cx, cy, 0.0f }, { 0, 1, 0 });
         ToMtx(mViewMat, &mView);
