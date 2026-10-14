@@ -199,13 +199,23 @@ void Renderer::SetTexturedState(Gfx*& g, bool zbuffer) {
     }
 }
 
+// What Ship of Harkinian's actor drawing sets up before an actor's display lists (models exported for it
+// expect this): two-cycle mode, which their combiners and render modes use (a second cycle tinting with
+// the primitive colour, fog in the first), one light, and fog pushed to the far plane.
+void Renderer::SetModelState(Gfx*& g) {
+    gDPPipeSync(g++);
+    gDPSetCycleType(g++, G_CYC_2CYCLE);
+    gSPSetLights1(g++, sModelLights);
+    gDPSetFogColor(g++, 0, 0, 0, 255);
+    gSPFogPosition(g++, 996, 1000);
+}
+
 void Renderer::DrawModel(Gfx*& g, const Gfx* dl, const Mat4& model) {
     Mtx* m = AllocMtx(model);
     if (m == nullptr || dl == nullptr || g + 32 >= mFrameEnd) {
         return;
     }
-    gDPPipeSync(g++);
-    gSPSetLights1(g++, sModelLights);
+    SetModelState(g);
     gSPMatrix(g++, m, G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_PUSH);
     gSPDisplayList(g++, dl);
     gSPPopMatrix(g++, G_MTX_MODELVIEW);
@@ -217,8 +227,7 @@ void Renderer::DrawSkeleton(Gfx*& g, const Skeleton& skel, SkeletonPose& pose, c
     if (g + 16 + skel.limbCount * 4 >= mFrameEnd) {
         return;
     }
-    gDPPipeSync(g++);
-    gSPSetLights1(g++, sModelLights);
+    SetModelState(g);
     pose.Draw(g, skel, model, mViewMat, [this](const Mat4& m) { return AllocMtx(m); }, limbList);
     gSPMatrix(g++, &mView, G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH);
     SetTexturedState(g, true);

@@ -24,6 +24,7 @@ class Renderer {
     // game frame. Valid until the next call.
     Gfx* BuildFrame(const GameView& emu, float alpha);
 
+    void SetModelState(Gfx*& g);
     void DrawModel(Gfx*& g, const Gfx* dl, const Mat4& model);
     void DrawSkeleton(Gfx*& g, const Skeleton& skel, SkeletonPose& pose, const Mat4& model,
                       const std::function<const Gfx*(const std::string&)>& limbList);
