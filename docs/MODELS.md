@@ -71,6 +71,9 @@ animations exported for Shipwright (for example with Fast64) load unchanged:
 
 - **`skeleton`** is a `Skeleton` resource (`OSKL`). Normal and Flex skeletons with Standard or LOD limbs (`OSLB`) work. Flex skeletons get their limb matrices through segment `0x0D`, as in Shipwright.
 - **`animation`** is an `Animation` resource (`OANM`) of the Normal kind. It plays at `fps` animation frames per second (default 20, the rate Shipwright's animations are made for), interpolated between frames.
+- Without `animations` (or for an animation that isn't in the manifest, when there's no `fallback`) the skeleton is
+  drawn in its rest pose: every limb at its joint position, unrotated. Skeletons made like Link's get their
+  standing pose from an animation, so they look folded up until one is added.
 - Curve and Skin limbs, and Link's own animation format, are not supported.
 - Animation resources can also be written as XML (`<Animation FrameCount StaticIndexMax>` with `<Values>` and `<JointIndices>` lists), which is handy for hand-made tests.
 

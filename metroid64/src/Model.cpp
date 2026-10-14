@@ -130,7 +130,7 @@ std::shared_ptr<Model> Model::Load(const std::string& manifestPath) {
             model->mAnims[name] = std::move(a);
         }
     }
-    if (model->mAnims.empty()) {
+    if (model->mAnims.empty() && model->mSkeleton == nullptr) {
         SPDLOG_ERROR("Model manifest {} has no usable animations", manifestPath);
         return nullptr;
     }
@@ -168,23 +168,20 @@ const Model::Anim* Model::Find(const std::string& name) const {
 
 void Model::Draw(Renderer& r, Gfx*& g, const ModelInstance& v) const {
     const Anim* a = Find(v.anim);
-    if (a == nullptr) {
-        return;
-    }
     Mat4 m = Scale(mScale, mScale, mScale);
     m = Mul(m, RotateY(v.facingLeft ? mYawLeft : mYawRight));
     m = Mul(m, Translate(v.x + mOffset.x, -v.y + mOffset.y, mOffset.z));
 
     if (mSkeleton != nullptr) {
-        if (a->skelAnim == nullptr) {
-            return;
-        }
+        // Without an animation the skeleton stands in its rest pose (each limb at its joint position).
         SkeletonPose pose;
-        pose.Sample(*mSkeleton, *a->skelAnim, v.time * a->fps, a->loop);
+        if (a != nullptr && a->skelAnim != nullptr) {
+            pose.Sample(*mSkeleton, *a->skelAnim, v.time * a->fps, a->loop);
+        }
         r.DrawSkeleton(g, *mSkeleton, pose, m, [this](const std::string& path) { return LimbDisplayList(path); });
         return;
     }
-    if (a->frames.empty()) {
+    if (a == nullptr || a->frames.empty()) {
         return;
     }
     int frame = (int)(v.time * a->fps);
