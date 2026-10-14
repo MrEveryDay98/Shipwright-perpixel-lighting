@@ -26,7 +26,7 @@ class XMLElement;
 namespace Game::Data {
 
 // Version of the extracted data. Bump it when the extraction changes, so old archives are redone.
-constexpr int kDataVersion = 9;
+constexpr int kDataVersion = 10;
 
 // A run of bytes at its original place in the ROM. Untyped data is kept this way until it gets a
 // resource type of its own.
@@ -48,6 +48,8 @@ bool Extract(const std::vector<uint8_t>& ines, std::map<std::string, std::string
 
 // Files of the game's data that aren't resources themselves but are referred to by one (the ".png" images).
 bool IsImageFile(const std::string& path);
+// Files of the game's data that are resources (not the version, images or room meshes).
+bool IsResourceFile(const std::string& path);
 
 // Reads a DataBlock resource (the XML root element).
 bool ReadBlock(const tinyxml2::XMLElement* root, Block& out, std::string& error);

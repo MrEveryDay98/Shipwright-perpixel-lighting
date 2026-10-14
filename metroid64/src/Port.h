@@ -19,9 +19,6 @@ class Port : public GameView {
     // Runs one 60 Hz frame with these NES buttons held (bit 0 A ... bit 7 Right).
     void Tick(uint8_t buttons) override;
 
-    // The area bank mapped at $8000 (1 Brinstar, 2 Norfair, 3 Tourian, 4 Kraid, 5 Ridley).
-    uint8_t AreaBank() const;
-
     const uint8_t* Chr() const override;
     const uint8_t* Palette() const override;
     const uint8_t* Oam() const override;
@@ -35,6 +32,7 @@ class Port : public GameView {
     }
     void RenderFrame(uint32_t* out) const override;
     RoomInfo RoomOnPage(int page) const override;
+    int AreaBank() const override;
     std::vector<int16_t>& AudioSamples() override {
         return mApu.Samples();
     }

@@ -4,6 +4,7 @@
 #include "Gbi.h"
 #include "Mat4.h"
 #include "Model.h"
+#include "game/data/RoomMesh.h"
 
 #include <array>
 #include <memory>
@@ -13,10 +14,12 @@
 
 namespace Metroid {
 
-// Presents the game in 3D. The play field comes straight from the video memory's nametables: every
-// solid 8x8 background tile becomes a textured block, passable tiles become cards set back from
-// the play plane. Sprites come from OAM and are drawn as flat cards, or replaced by models. Screens
-// that aren't the play field (title, password, ending) are shown as the original 2D picture.
+// Presents the game in 3D. The play field is the scrolling section Samus is in (game/data/Layout.h), drawn
+// whole from its room mesh: solid 8x8 background tiles are textured blocks, passable tiles cards set back
+// from the play plane. What the game has drawn differently in room RAM (blasted blocks...) replaces the
+// mesh there. Going through a door, the section fades out and the next one fades in. Sprites come from
+// OAM and are drawn as flat cards, or replaced by models. Screens that aren't the play field (title,
+// password, ending) are shown as the original 2D picture.
 class Renderer {
   public:
     void Init();
@@ -52,6 +55,30 @@ class Renderer {
     void SetTexturedState(Gfx*& g, bool zbuffer);
     Mtx* AllocMtx(const Mat4& m);
 
+    // A section's 8x8-tile block: the mesh drawn there, and its display list for the current tiles.
+    struct SectionChunk {
+        Game::Data::MeshChunk base; // from the room mesh
+        Game::Data::MeshChunk live; // remade from room RAM, when that differs
+        bool useLive = false;
+        std::vector<Vtx> vtx;
+        std::vector<Gfx> dl;
+        uint64_t dlHash = 0; // the tile pictures the list was made with (0: not made)
+    };
+    struct SectionView {
+        bool valid = false;
+        Game::Data::Section section;
+        std::vector<Game::Data::ScreenTiles> layout, live;
+        std::vector<SectionChunk> chunks; // [screen * 16 + cy * 4 + cx]
+        uint64_t pageHash[2] = {};
+        float fade = 0; // opacity
+    };
+    void UpdateSection(const GameView& emu);
+    bool LoadSection(const GameView& emu, const Game::Data::Section& s, SectionView& out);
+    void UpdateLiveTiles(const GameView& emu, SectionView& v);
+    bool SectionScreenOrigin(const GameView& emu, const SectionView& v, int& x, int& y) const;
+    void DrawSection(Gfx*& g, const GameView& emu, SectionView& v);
+    void DrawOutsideFog(Gfx*& g);
+
     void DrawPlayField(Gfx*& g, const GameView& emu);
     void DrawSprites(Gfx*& g, const GameView& emu, bool hudPass, bool hideSamus);
     void DrawSamusModel(Gfx*& g, const GameView& emu, const Model& model, float alpha);
@@ -62,6 +89,9 @@ class Renderer {
     std::unordered_map<std::string, std::unique_ptr<uint8_t[]>> mTextures;
     std::array<Chunk, 4 * 4 * 2> mChunks;
     uint64_t mGfxHash = 0;
+    SectionView mSection, mOutgoing;
+    bool mInDoor = false;
+    uint64_t mSectionFrame = 0;
 
     // The original picture, for 2D screens: 4x4 textures of 64x64 (one texture load each).
     std::array<std::unique_ptr<uint8_t[]>, 16> mFrameTex;

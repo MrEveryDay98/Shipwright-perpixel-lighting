@@ -1,5 +1,7 @@
 #include "game/data/Data.h"
 
+#include "game/data/RoomMesh.h"
+
 #include "game/Memory.h"
 #include "game/data/Image.h"
 
@@ -56,6 +58,10 @@ bool IsImageFile(const std::string& path) {
     return path.size() >= 4 && path.compare(path.size() - 4, 4, ".png") == 0;
 }
 
+bool IsResourceFile(const std::string& path) {
+    return path != "metroid/version" && !IsImageFile(path) && !IsRoomMeshFile(path);
+}
+
 const char* BankFolder(int bank) {
     static const char* const kFolders[8] = { "title", "brinstar", "norfair",  "tourian",
                                              "kraid", "ridley",   "graphics", "engine" };
@@ -107,6 +113,20 @@ bool Extract(const std::vector<uint8_t>& ines, std::map<std::string, std::string
             i = j;
         }
     }
+    // The room meshes, from the level just extracted.
+    Level level;
+    for (const auto& [path, text] : files) {
+        if (path.rfind("metroid/data/", 0) == 0 || !IsResourceFile(path)) {
+            continue;
+        }
+        tinyxml2::XMLDocument doc;
+        std::string ignored;
+        if (doc.Parse(text.c_str(), text.size()) == tinyxml2::XML_SUCCESS) {
+            ReadLevelResource(doc.FirstChildElement(), level, ignored);
+        }
+    }
+    ExtractRoomMeshes(level, [prg](uint16_t a) { return prg[7 * 0x4000 + (a & 0x3FFF)]; }, files);
+
     char version[64];
     snprintf(version, sizeof(version), "<Version Version=\"0\" Data=\"%d\"/>\n", kDataVersion);
     files["metroid/version"] = version;
@@ -297,7 +317,7 @@ bool InstallFromRom(const std::vector<uint8_t>& ines, std::string& error) {
         return true;
     };
     for (const auto& [path, text] : files) {
-        if (path == "metroid/version" || IsImageFile(path)) {
+        if (!IsResourceFile(path)) {
             continue;
         }
         tinyxml2::XMLDocument doc;

@@ -3,11 +3,13 @@
 #include "Picture.h"
 
 #include "Menu.h"
+#include "game/data/Data.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <libultraship/bridge/consolevariablebridge.h>
+#include <libultraship/libultraship.h>
 #include <map>
 
 namespace Metroid {
@@ -18,19 +20,20 @@ constexpr int kNativeW = 320;
 constexpr int kNativeH = 240;
 constexpr int kScreenW = 256; // NES picture
 constexpr int kScreenH = 240;
-constexpr float kBlockFront = 8.0f; // solid blocks span z = -8..+8 around the play plane
-constexpr float kBlockBack = -8.0f;
-constexpr float kDecorZ = -6.0f;  // passable background tiles sit just behind the play plane
-constexpr float kBehindZ = -7.0f; // sprites the game puts behind the background
+constexpr float kBlockFront = Game::Data::kBlockFront; // solid blocks span z = -8..+8 around the play plane
+constexpr float kBlockBack = Game::Data::kBlockBack;
+constexpr float kDecorZ = Game::Data::kDecorZ; // passable background tiles sit just behind the play plane
+constexpr float kBehindZ = -7.0f;              // sprites the game puts behind the background
 constexpr int kChunkPx = 64;
 constexpr size_t kFrameGfxCapacity = 1 << 16;
 constexpr size_t kFrameVtxCapacity = 1 << 16;
 
-// Metroid's collision rule (bank 7 $E7F9): patterns below $A0 are solid.
-constexpr uint8_t kFirstPassableTile = 0xA0;
-
-// Face brightness gives the blocks depth without needing lights.
-constexpr uint8_t kShadeFront = 255, kShadeTop = 210, kShadeSide = 160, kShadeBottom = 110, kShadeDecor = 190;
+using Game::Data::kFirstPassableTile;
+using Game::Data::kShadeBottom;
+using Game::Data::kShadeDecor;
+using Game::Data::kShadeFront;
+using Game::Data::kShadeSide;
+using Game::Data::kShadeTop;
 
 void SetVtx(Vtx& v, float x, float y, float z, int s, int t, uint8_t shade) {
     v.v.ob[0] = (short)std::lround(x);
@@ -403,6 +406,340 @@ void Renderer::DrawPlayField(Gfx*& g, const GameView& emu) {
     }
 }
 
+// --- Sections ------------------------------------------------------------------------------------
+
+namespace {
+
+constexpr int kFadeFrames = 48; // game frames for a section to fade in or out
+
+std::shared_ptr<Ship::File> LoadArchiveFile(const std::string& path) {
+    return Ship::Context::GetRawInstance()->GetResourceManager()->GetArchiveManager()->LoadFile(path);
+}
+
+// Index of map screen (x, y) in the section, or -1.
+int SectionIndex(const Game::Data::Section& s, uint8_t x, uint8_t y) {
+    for (int i = 0; i < s.length; i++) {
+        if (s.ScreenX(i) == x && s.ScreenY(i) == y) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int WrapDelta(int d, int size) {
+    d %= size;
+    if (d < -size / 2) {
+        d += size;
+    } else if (d >= size / 2) {
+        d -= size;
+    }
+    return d;
+}
+
+} // namespace
+
+bool Renderer::LoadSection(const GameView& emu, const Game::Data::Section& s, SectionView& out) {
+    const Game::Data::Level* level = Game::Data::InstalledLevel();
+    out = SectionView{};
+    if (level == nullptr) {
+        return false;
+    }
+    auto engine = [&emu](uint16_t a) { return emu.Peek(a); };
+    if (!Game::Data::SectionScreens(*level, s, engine, out.layout)) {
+        return false;
+    }
+    // The mesh from the game's data; made here if it's missing or was made from other tiles (a mod
+    // changed the rooms).
+    Game::Data::RoomMesh mesh;
+    auto file = LoadArchiveFile(Game::Data::RoomMeshPath(s));
+    bool loaded = false;
+    if (file != nullptr && file->IsLoaded && file->Buffer != nullptr) {
+        std::string data(file->Buffer->begin() + file->BufferOffset, file->Buffer->end());
+        loaded = Game::Data::DecodeRoomMesh(data, mesh) && mesh.section == s &&
+                 mesh.layoutHash == Game::Data::LayoutHash(out.layout);
+    }
+    if (!loaded) {
+        mesh = Game::Data::BuildRoomMesh(s, out.layout);
+    }
+    out.section = s;
+    out.live = out.layout;
+    out.chunks.resize((size_t)s.length * 16);
+    for (Game::Data::MeshChunk& c : mesh.chunks) {
+        size_t i = (size_t)c.screen * 16 + c.cy * 4 + c.cx;
+        if (i < out.chunks.size()) {
+            out.chunks[i].base = std::move(c);
+        }
+    }
+    out.valid = true;
+    return true;
+}
+
+void Renderer::UpdateSection(const GameView& emu) {
+    uint64_t frame = emu.FrameCount();
+    int steps = (int)std::min<uint64_t>(frame - mSectionFrame, 60);
+    mSectionFrame = frame;
+
+    const Game::Data::Level* level = Game::Data::InstalledLevel();
+    int bank = emu.AreaBank();
+    if (level == nullptr || bank < 1 || bank > 5) {
+        mSection.valid = mOutgoing.valid = false;
+        return;
+    }
+    // In a door (DoorStatus set, until Samus comes out: 5), the section fades out; the next one is
+    // known once the door has scrolled the screen to it and the scrolling direction is set.
+    uint8_t door = emu.Peek(Ram::kDoorStatus);
+    bool inDoor = door != 0 && door != 5;
+    if (inDoor) {
+        if (!mInDoor && mSection.valid) {
+            mOutgoing = std::move(mSection);
+            mSection = SectionView{};
+        }
+        // The next section, as soon as the door's direction is known (SamusEnterDoor/ScrollDoor: 1 right,
+        // 2 left; 3 and 4 first centre a vertical shaft, then go on as 1 or 2), so it can fade in while the
+        // door scrolls to it. From a horizontal section the scrolling turns vertical through an $A0 door
+        // and stays horizontal through an $A1 door; from a vertical one it turns horizontal.
+        uint8_t dir = door & 0x0F;
+        if (!mSection.valid && mOutgoing.valid && (dir == 1 || dir == 2)) {
+            uint8_t mx = emu.Peek(Ram::kMapPosX) & 0x1F, my = emu.Peek(Ram::kMapPosY) & 0x1F;
+            int nx = dir == 1 ? mx + 1 : mx - 1;
+            if (nx >= 0 && nx <= 31 && level->world.rooms[my][nx] != 0xFF) {
+                bool horizontal = true;
+                if (mOutgoing.section.horizontal) {
+                    auto engine = [&emu](uint16_t a) { return emu.Peek(a); };
+                    horizontal = Game::Data::DoorTile(*level, bank, level->world.rooms[my][mx], dir == 1 ? 1 : 2,
+                                                      engine) == 0xA1;
+                }
+                LoadSection(emu, Game::Data::FindSection(*level, bank, (uint8_t)nx, my, horizontal), mSection);
+            }
+        }
+    } else {
+        uint8_t mx = emu.Peek(Ram::kMapPosX) & 0x1F, my = emu.Peek(Ram::kMapPosY) & 0x1F;
+        if (level->world.rooms[my][mx] != 0xFF) {
+            bool horizontal = (emu.Peek(Ram::kScrollDir) & 0x02) != 0;
+            Game::Data::Section s = Game::Data::FindSection(*level, bank, mx, my, horizontal);
+            if (!mSection.valid || !(mSection.section == s)) {
+                if (mSection.valid && !mOutgoing.valid) {
+                    mOutgoing = std::move(mSection); // a change without a door (an elevator, a new area)
+                }
+                LoadSection(emu, s, mSection);
+            }
+        }
+    }
+    mInDoor = inDoor;
+    float step = (float)steps / kFadeFrames;
+    if (mOutgoing.valid) {
+        mOutgoing.fade = std::max(0.0f, mOutgoing.fade - step);
+        if (mOutgoing.fade <= 0.0f) {
+            mOutgoing.valid = false;
+        }
+    }
+    if (mSection.valid) {
+        mSection.fade = std::min(1.0f, mSection.fade + step);
+    }
+    if (mSection.valid) {
+        UpdateLiveTiles(emu, mSection);
+    }
+}
+
+void Renderer::UpdateLiveTiles(const GameView& emu, SectionView& v) {
+    const Game::Data::Section& s = v.section;
+    for (int page = 0; page < 2; page++) {
+        RoomInfo room = emu.RoomOnPage(page);
+        if (!room.valid || !room.complete || room.bank != s.bank) {
+            continue;
+        }
+        int i = SectionIndex(s, room.mapX, room.mapY);
+        if (i < 0) {
+            continue;
+        }
+        Game::Data::ScreenTiles ram;
+        for (int k = 0; k < 0x400; k++) {
+            ram.ram[k] = emu.Peek((uint16_t)(0x6000 + page * 0x400 + k));
+        }
+        uint64_t h = Fnv(0xCBF29CE484222325ull ^ (uint64_t)i, ram.ram, sizeof(ram.ram));
+        if (h == v.pageHash[page]) {
+            continue;
+        }
+        v.pageHash[page] = h;
+        v.live[i] = ram;
+        // Blocks whose tiles (or the tiles around them, which decide their faces) differ from the
+        // room mesh's are made from room RAM.
+        for (int cy = 0; cy < 4; cy++) {
+            for (int cx = 0; cx < 4; cx++) {
+                bool differs = false;
+                for (int ty = std::max(0, cy * 8 - 1); ty < std::min(30, cy * 8 + 9) && !differs; ty++) {
+                    for (int tx = std::max(0, cx * 8 - 1); tx < std::min(32, cx * 8 + 9); tx++) {
+                        if (ram.Tile(tx, ty) != v.layout[i].Tile(tx, ty) ||
+                            ram.Palette(tx, ty) != v.layout[i].Palette(tx, ty)) {
+                            differs = true;
+                            break;
+                        }
+                    }
+                }
+                SectionChunk& c = v.chunks[(size_t)i * 16 + cy * 4 + cx];
+                if (differs) {
+                    c.live = Game::Data::BuildMeshChunk(s, v.live, i, cx, cy);
+                    c.useLive = true;
+                    c.dlHash = 0;
+                } else if (c.useLive) {
+                    c.useLive = false;
+                    c.dlHash = 0;
+                }
+            }
+        }
+    }
+}
+
+bool Renderer::SectionScreenOrigin(const GameView& emu, const SectionView& v, int& x, int& y) const {
+    // Where the top-left of the screen is in the section: found from a name table page that holds one of
+    // the section's rooms, and where the scroll is relative to that page.
+    uint8_t mirroring = emu.Mirroring();
+    int planeX = emu.PlaneScrollX(), planeY = emu.PlaneScrollY();
+    for (int page = 0; page < 2; page++) {
+        RoomInfo room = emu.RoomOnPage(page);
+        if (!room.valid || room.bank != v.section.bank) {
+            continue;
+        }
+        int i = SectionIndex(v.section, room.mapX, room.mapY);
+        if (i < 0) {
+            continue;
+        }
+        int originX = mirroring == 2 ? page * 256 : 0;
+        int originY = mirroring == 3 ? page * 240 : 0;
+        int dx = WrapDelta(planeX - originX, mirroring == 2 ? 512 : 256);
+        int dy = WrapDelta(planeY - originY, mirroring == 3 ? 480 : 240);
+        x = (v.section.horizontal ? i * 256 : 0) + dx;
+        y = (v.section.horizontal ? 0 : i * 240) + dy;
+        return true;
+    }
+    return false;
+}
+
+void Renderer::DrawSection(Gfx*& g, const GameView& emu, SectionView& v) {
+    int sx = 0, sy = 0;
+    if (!v.valid || v.fade <= 0.0f || !SectionScreenOrigin(emu, v, sx, sy)) {
+        return;
+    }
+    const uint8_t* pal = emu.Palette();
+    uint64_t gfx = Fnv(0xCBF29CE484222325ull, emu.Chr() + 0x1000, 0x1000);
+    gfx = Fnv(gfx, pal, 16) | 1;
+
+    // Blocks the camera can see, with room to spare so none appear or vanish in view.
+    float fov = CVarGetFloat("gMetroid64.Camera.Fov", 52.0f);
+    float dist = CVarGetFloat("gMetroid64.Camera.Distance", 270.0f);
+    float halfH = (dist + kBlockFront + 64) * std::tan(fov * 3.14159265f / 360.0f);
+    float halfW = halfH * kNativeW / kNativeH;
+    float cx = sx + kScreenW / 2.0f, cy = sy + kScreenH / 2.0f;
+
+    Mtx* m = AllocMtx(Translate((float)-sx, (float)sy, 0));
+    if (m == nullptr) {
+        return;
+    }
+    gDPPipeSync(g++);
+    if (v.fade < 1.0f) {
+        gDPSetCombineLERP(g++, TEXEL0, 0, SHADE, 0, TEXEL0, 0, PRIMITIVE, 0, TEXEL0, 0, SHADE, 0, TEXEL0, 0, PRIMITIVE,
+                          0);
+        gDPSetPrimColor(g++, 0, 0, 255, 255, 255, (uint8_t)std::lround(v.fade * 255));
+        gDPSetRenderMode(g++, G_RM_AA_ZB_XLU_SURF, G_RM_AA_ZB_XLU_SURF2);
+    }
+    gSPMatrix(g++, m, G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_PUSH);
+    const Game::Data::Section& s = v.section;
+    for (int i = 0; i < s.length; i++) {
+        for (int cyi = 0; cyi < 4; cyi++) {
+            for (int cxi = 0; cxi < 4; cxi++) {
+                float x0 = (float)((s.horizontal ? i * 256 : 0) + cxi * 64);
+                float y0 = (float)((s.horizontal ? 0 : i * 240) + cyi * 64);
+                if (x0 + 64 < cx - halfW || x0 > cx + halfW || y0 + 64 < cy - halfH || y0 > cy + halfH) {
+                    continue;
+                }
+                SectionChunk& c = v.chunks[(size_t)i * 16 + cyi * 4 + cxi];
+                if (c.dlHash != gfx) {
+                    const Game::Data::MeshChunk& mesh = c.useLive ? c.live : c.base;
+                    std::map<const uint8_t*, std::vector<Quad>> groups;
+                    size_t quadCount = 0;
+                    for (const Game::Data::MeshGroup& grp : mesh.groups) {
+                        uint16_t pat = 0x1000 + grp.tile * 16;
+                        bool decor = grp.tile >= Game::Data::kFirstPassableTile;
+                        if (decor && TileBlank(emu, pat)) {
+                            continue;
+                        }
+                        uint8_t pal4[4] = { pal[0], pal[grp.palette * 4 + 1], pal[grp.palette * 4 + 2],
+                                            pal[grp.palette * 4 + 3] };
+                        auto& out = groups[TileTexture(emu, pat, pal4, decor)];
+                        for (const Game::Data::MeshQuad& mq : grp.quads) {
+                            Quad q;
+                            for (int k = 0; k < 4; k++) {
+                                SetVtx(q.v[k], mq.pos[k][0], mq.pos[k][1], mq.pos[k][2], mq.uv[k][0], mq.uv[k][1],
+                                       mq.shade);
+                            }
+                            out.push_back(q);
+                        }
+                        quadCount += grp.quads.size();
+                    }
+                    c.vtx.clear();
+                    c.vtx.reserve(quadCount * 4);
+                    c.dl.assign(groups.size() * 18 + (quadCount / 8 + 1) * 10 + 4, Gfx{});
+                    Gfx* d = c.dl.data();
+                    for (auto& [tex, quads] : groups) {
+                        EmitTexturedQuads(d, tex, 8, quads, c.vtx);
+                    }
+                    gSPEndDisplayList(d++);
+                    c.dl.resize(d - c.dl.data());
+                    c.dlHash = gfx;
+                }
+                if (c.dl.size() <= 1 || g + 8 >= mFrameEnd) {
+                    continue;
+                }
+                gSPDisplayList(g++, c.dl.data());
+            }
+        }
+    }
+    gSPPopMatrix(g++, G_MTX_MODELVIEW);
+    SetTexturedState(g, true);
+}
+
+void Renderer::DrawOutsideFog(Gfx*& g) {
+    // Darkness over everything outside the original screen (0..256 x 0..240), in front of the blocks,
+    // fading in over a few pixels from its edge.
+    constexpr float kEdge = 24.0f, kFar = 4096.0f, kZ = kBlockFront + 1;
+    constexpr uint8_t kDark = 230;
+    const float inner[4] = { 0, (float)kScreenW, 0, -(float)kScreenH }; // left, right, top, bottom
+    const float outer[4] = { -kEdge, kScreenW + kEdge, kEdge, -(kScreenH + kEdge) };
+    const float far[4] = { -kFar, kScreenW + kFar, kFar, -(kScreenH + kFar) };
+    gDPPipeSync(g++);
+    gSPTexture(g++, 0, 0, 0, G_TX_RENDERTILE, G_OFF);
+    gDPSetCombineMode(g++, G_CC_SHADE, G_CC_SHADE);
+    gDPSetRenderMode(g++, G_RM_ZB_XLU_SURF, G_RM_ZB_XLU_SURF2);
+    auto vtx = [](Vtx& v, float x, float y, uint8_t a) {
+        SetVtx(v, x, y, kZ, 0, 0, 0);
+        v.v.cn[3] = a;
+    };
+    // A ring of quads: (inner -> outer) fades in, (outer -> far) is solid. Corners go clockwise.
+    auto ring = [&](const float* a, const float* b, uint8_t alphaA, uint8_t alphaB) {
+        const float ax[4] = { a[0], a[1], a[1], a[0] }, ay[4] = { a[2], a[2], a[3], a[3] };
+        const float bx[4] = { b[0], b[1], b[1], b[0] }, by[4] = { b[2], b[2], b[3], b[3] };
+        if (mFrameVtx.size() + 16 > mFrameVtx.capacity()) {
+            return;
+        }
+        Vtx* base = mFrameVtx.data() + mFrameVtx.size();
+        for (int k = 0; k < 4; k++) {
+            Vtx va, vb;
+            vtx(va, ax[k], ay[k], alphaA);
+            vtx(vb, bx[k], by[k], alphaB);
+            mFrameVtx.push_back(va);
+            mFrameVtx.push_back(vb);
+        }
+        gSPVertex(g++, base, 8, 0);
+        for (int k = 0; k < 4; k++) {
+            int n = (k + 1) % 4;
+            gSP2Triangles(g++, k * 2, k * 2 + 1, n * 2 + 1, 0, k * 2, n * 2 + 1, n * 2, 0);
+        }
+    };
+    ring(inner, outer, 0, kDark);
+    ring(outer, far, kDark, kDark);
+    SetTexturedState(g, true);
+}
+
 // --- Sprites ----------------------------------------------------------------------------------
 
 void Renderer::DrawSprites(Gfx*& g, const GameView& emu, bool hudPass, bool hideSamus) {
@@ -562,7 +899,13 @@ Gfx* Renderer::BuildFrame(const GameView& emu, float alpha) {
         gSPMatrix(g++, &mView, G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH);
         SetTexturedState(g, true);
 
-        DrawPlayField(g, emu);
+        if (Game::Data::InstalledLevel() != nullptr && emu.AreaBank() >= 1 && emu.AreaBank() <= 5) {
+            UpdateSection(emu);
+            DrawSection(g, emu, mOutgoing);
+            DrawSection(g, emu, mSection);
+        } else {
+            DrawPlayField(g, emu); // no level data: the name tables as the game shows them
+        }
 
         // The ball while the game shows Samus rolled up, the Varia once she has it (SamusGear bit 5, the
         // bit the game picks her palette by), else the power suit.
@@ -581,6 +924,10 @@ Gfx* Renderer::BuildFrame(const GameView& emu, float alpha) {
         DrawSprites(g, emu, false, samus != nullptr);
         if (samus != nullptr && samusVisible) {
             DrawSamusModel(g, emu, *samus, alpha);
+        }
+
+        if (CVarGetInteger(kCVarOutsideView, 0) == 0) {
+            DrawOutsideFog(g);
         }
 
         BeginOverlay(g);

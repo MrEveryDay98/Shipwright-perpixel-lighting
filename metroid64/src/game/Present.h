@@ -33,7 +33,8 @@ struct RoomTag {
     bool valid = false;
     uint8_t bank = 0; // area bank: 1 Brinstar, 2 Norfair, 3 Tourian, 4 Kraid, 5 Ridley
     uint8_t mapX = 0, mapY = 0;
-    uint8_t room = 0; // room number in the area's room table
+    uint8_t room = 0;      // room number in the area's room table
+    bool complete = false; // all of it is in room RAM (EndOfRoom ran)
 };
 extern RoomTag gRooms[2];
 // SetupRoom started drawing RoomNumber (at MapPosX/MapPosY) into the room RAM CartRAMPtr points to.

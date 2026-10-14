@@ -345,6 +345,11 @@ void CheckRoom(const Game::Present::RoomTag& tag, int page) {
     }
     Game::Data::ScreenTiles screen;
     if (!Game::Data::DrawScreen(*level, tag.bank, tag.room, [](uint16_t a) { return Game::Read(a); }, screen)) {
+        // A room number past the area's room table: the game reads the next table as room pointers.
+        printf("room not in the room table drawn: bank %d room %02X (map %02X,%02X), ScrollDir %d, ElevatorStatus "
+               "%02X, PPUMASK %02X\n",
+               tag.bank, tag.room, tag.mapX, tag.mapY, Game::Vars::ScrollDir, (uint8_t)Game::Mem(0x0320),
+               Game::Vars::PPUCNT1ZP);
         return;
     }
     sRoomsChecked++;
@@ -396,6 +401,7 @@ void CheckScroll(uint8_t dir, bool entered) {
 std::set<Game::Data::Section> sAllSections;
 std::set<Game::Data::Section> sMissedSections;
 int sSectionFrames = 0;
+bool sBlankTileWarned = false;
 
 void CheckSection() {
     using namespace Game::Vars;
@@ -642,6 +648,15 @@ int main(int argc, char** argv) {
             return 1;
         }
         CheckSection();
+        // The room meshes leave out tile $FF (what room RAM is filled with): it must be blank in play.
+        if (Game::Vars::GameMode == 0 && Game::Vars::MainRoutine == 0x03) {
+            for (int a = 0x1FF0; a < 0x2000; a++) {
+                if (emu.Chr()[a] != 0 && !sBlankTileWarned) {
+                    sBlankTileWarned = true;
+                    printf("background tile $FF isn't blank (area bank %d)\n", Game::Hw::gPrgBank);
+                }
+            }
+        }
         compared++;
     }
     printf("OK: %d frames matched (%d resyncs after lag frames), ended at frame %d (GameMode %02X MainRoutine "

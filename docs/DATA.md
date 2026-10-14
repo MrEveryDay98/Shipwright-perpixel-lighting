@@ -443,6 +443,24 @@ tables in the five area banks (`ObjectAnimIdxTbl` `$8572`, `FramePtrTable` `$860
 grow go into free space; an enemy pointer table that gets more entries moves too (with its `AreaPointers`
 entry), the objects' tables (at fixed addresses) can't grow.
 
+## Room meshes: `metroid/meshes/<area>/<h|v>_<XX>_<YY>`
+
+The 3D geometry of each scrolling section (see [ENGINE.md](ENGINE.md)): `h` or `v` for horizontal or
+vertical, and the map position of its first screen. They are made from the rooms, structures and macros
+when the data is extracted, so they aren't edited by hand: if a mod changes the rooms, a section whose
+tiles differ from those its mesh was made from gets a new mesh when it is entered. To give a room a
+different look, use a room model (see [MODELS.md](MODELS.md)).
+
+The file is binary (little endian): `RMSH`, version (16 bits, 1), area bank, horizontal (0/1), first screen
+X and Y, length in screens, a padding byte, a 64-bit hash of the tiles it was made from (four 16-bit
+words, low first), then the 8x8-tile blocks: screen, block column, block row, group count (16 bits), and
+per group the tile number, palette (0-3), quad count (16 bits) and the quads: four corners of x, y, z
+(signed 16 bits, pixels; y up, so the section's top-left is 0,0 and y is negative) and texel u, v (8 bits
+each), then a brightness byte. Solid tiles (below `$A0`) are blocks from z -8 to +8 with faces only
+where they don't touch another solid tile; other tiles are flat at z -6; tile `$FF` (the blank tile
+room RAM is filled with) has no faces. The pictures come from the game's pattern table and palettes when
+they are drawn.
+
 ## Everything else: `metroid/data/<bank>/<name>`
 
 Data without a type of its own yet is kept as the bytes of a table, named after the disassembly's label:

@@ -72,7 +72,7 @@ void Port::Tick(uint8_t buttons) {
     TrackScroll((v.ctrl & 0x01) * 256 + v.scrollX, ((v.ctrl >> 1) & 0x01) * 240 + v.scrollY);
 }
 
-uint8_t Port::AreaBank() const {
+int Port::AreaBank() const {
     return Game::Hw::gPrgBank;
 }
 
@@ -99,7 +99,7 @@ uint8_t Port::PpuPeek(uint16_t addr) const {
 }
 RoomInfo Port::RoomOnPage(int page) const {
     const auto& t = Game::Present::gRooms[page & 1];
-    return { t.valid, t.bank, t.mapX, t.mapY, t.room };
+    return { t.valid, t.bank, t.mapX, t.mapY, t.room, t.complete };
 }
 
 uint8_t Port::Peek(uint16_t addr) const {

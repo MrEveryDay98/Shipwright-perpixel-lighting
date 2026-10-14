@@ -162,6 +162,14 @@ void Menu::DrawGraphicsMenu() {
     ImGui::SeparatorText("View");
     CVarCheckbox("3D play field", kCVarDisplay3D, true);
     ImGui::SetItemTooltip("Off shows the original 2D picture. Title, password and ending screens are always 2D.");
+    const char* outside[] = { "Fog", "Show everything" };
+    int outsideMode = std::clamp(CVarGetInteger(kCVarOutsideView, 0), 0, 1);
+    if (ImGui::Combo("Outside the original screen", &outsideMode, outside, 2)) {
+        CVarSetInteger(kCVarOutsideView, outsideMode);
+        Save();
+    }
+    ImGui::SetItemTooltip("The 3D view shows more of the room than the original screen did. The game only runs enemies "
+                          "and items on that screen, so fog hides them appearing at its edges.");
     CVarSliderFloat("Field of view", M64_CVAR("Camera.Fov"), 30.0f, 90.0f, 52.0f, "%.0f deg");
     CVarSliderFloat("Distance", M64_CVAR("Camera.Distance"), 150.0f, 600.0f, 270.0f, "%.0f");
     CVarSliderFloat("Height", M64_CVAR("Camera.Height"), -60.0f, 160.0f, 30.0f, "%.0f");

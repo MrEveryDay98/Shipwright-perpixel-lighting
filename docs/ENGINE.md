@@ -51,15 +51,23 @@ frames earlier. What happens in the game is the same; only the pacing differs.
 
 ## From the game to 3D
 
-- **Play field**: read straight from the nametables, attribute tables, palette and CHR RAM. A background
-  tile below pattern `$A0` is solid in Metroid (bank 7 `$E7F9`), so it becomes a block; other tiles become
-  cards behind the play plane. Geometry is cached per 64x64-pixel piece of each nametable and rebuilt
-  when its tiles, the palette or CHR change, so doors, destroyed blocks and palette fades just work.
+- **Rooms**: the 3D view shows the scrolling section Samus is in: the screens the game scrolls through
+  without passing a door (`game/data/Layout.cpp`). Horizontal sections end at a door on that side
+  (`GetRoomNum`, `$E720`), vertical ones at a map screen with no room. Each section's mesh is made from the
+  rooms when the data is extracted (`metroid/meshes/...`, see [DATA.md](DATA.md)) and drawn whole, so the
+  view can show past the original screen's edges. Nothing of other sections is drawn.
+- **Tiles the game changes**: blasted and regrowing blocks, Mother Brain's room and the like are written to
+  room RAM (`$6000`/`$6400`, one room per name table). Where room RAM differs from the room's own tiles,
+  that 8x8-tile block of the mesh is remade from room RAM; it keeps what was last seen there after the
+  room has scrolled out of the name tables.
+- **Doors**: as soon as the door's direction is known, the next section is worked out the way the game will
+  scroll (an `$A0` door turns horizontal scrolling vertical, `$A1` keeps it, a shaft's doors turn it
+  horizontal) and fades in while the old one fades out. Elevators and new areas switch the same way.
+- **Outside the original screen**: the game only runs enemies and items on its 256x240 screen, so by
+  default the view darkens everything outside it (Graphics > View > Outside the original screen).
 - **Camera**: the scroll at the top of the picture, unwrapped across nametable boundaries and
   interpolated between game frames.
-- **What is shown**: a horizontal room (vertical mirroring) is 512x240 pixels of nametable, a vertical shaft
-  256x480. Each distinct piece is drawn once, at the copy nearest the middle of the screen, so the view can
-  extend past the NES screen edges without showing the same tiles twice.
+- **Without the game's data** (no level loaded) the play field is drawn from the name tables instead.
 - **Sprites**: OAM entries are drawn as flat cards. The game's status display (energy, missiles) is drawn
   as a 2D overlay.
 
@@ -80,8 +88,9 @@ are copied when the game starts the sprite DMA, so they match the sprites on scr
 ## Which room is on screen
 
 Each of the two name tables shows one room of the world map. When `SetupRoom` starts drawing a room,
-`Present` notes its area, map position and room number for that name table; custom room geometry (see
-[MODELS.md](MODELS.md)) is looked up from that.
+`Present` notes its area, map position and room number for that name table, and when `EndOfRoom` runs,
+that the room is complete in room RAM. The renderer places the section from this (which screen of the
+section each name table holds) and reads the changed tiles from room RAM.
 
 Door bubbles have the "behind background" bit. On the NES they show through the door frame's
 transparent pixels. Blocks are opaque in 3D, so Metroid64 draws them on the face of the wall instead.

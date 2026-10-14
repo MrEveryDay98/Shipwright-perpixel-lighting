@@ -172,8 +172,8 @@ bool LoadGameData(std::string& error) {
     auto paths = Archives()->ListFiles("metroid/*");
     Game::Data::Assets assets;
     for (const std::string& path : *paths) {
-        if (path == "metroid/version" || Game::Data::IsImageFile(path)) {
-            continue; // not resources (the images are read by the Graphics resources)
+        if (!Game::Data::IsResourceFile(path)) {
+            continue; // the version, images (read by the Graphics resources) and room meshes
         }
         auto res = std::dynamic_pointer_cast<GameDataResource>(resources->LoadResource(path));
         if (res == nullptr) {

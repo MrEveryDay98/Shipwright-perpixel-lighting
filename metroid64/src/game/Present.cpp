@@ -37,6 +37,7 @@ void (*gRoomFinishedHook)(const RoomTag& tag, int page) = nullptr;
 
 void OnRoomFinished() {
     int page = (Vars::CartRAMPtrUB >> 2) & 0x01;
+    gRooms[page].complete = true;
     if (gRoomFinishedHook != nullptr) {
         gRoomFinishedHook(gRooms[page], page);
     }
@@ -53,6 +54,7 @@ void OnScroll(uint8_t dir, bool entered) {
 void OnRoomDrawn() {
     RoomTag& t = gRooms[(Vars::CartRAMPtrUB >> 2) & 0x01];
     t.valid = true;
+    t.complete = false;
     t.bank = Hw::gPrgBank;
     t.mapX = Vars::MapPosX;
     t.mapY = Vars::MapPosY;

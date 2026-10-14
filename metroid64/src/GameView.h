@@ -52,8 +52,12 @@ constexpr uint16_t kSamusAnimReset = 0x0305; // animation offset into the object
 constexpr uint16_t kSamusHi = 0x030C;        // bit 0: which nametable Samus is in
 constexpr uint16_t kSamusY = 0x030D;
 constexpr uint16_t kSamusX = 0x030E;
-constexpr uint16_t kEnergy = 0x0106; // BCD: low byte, high byte
+constexpr uint16_t kEnergy = 0x0106;    // BCD: low byte, high byte
 constexpr uint16_t kSamusGear = 0x6878; // power-ups Samus has; bit 5 the Varia
+constexpr uint16_t kScrollDir = 0x49;   // 0 up, 1 down, 2 left, 3 right
+constexpr uint16_t kMapPosY = 0x4F;
+constexpr uint16_t kMapPosX = 0x50;
+constexpr uint16_t kDoorStatus = 0x56; // 0 not in a door; 5 coming out of one
 } // namespace Ram
 
 // The world-map room drawn in one physical name table page (256x240), for per-room custom geometry.
@@ -62,6 +66,7 @@ struct RoomInfo {
     uint8_t bank = 0; // area bank: 1 Brinstar, 2 Norfair, 3 Tourian, 4 Kraid, 5 Ridley
     uint8_t mapX = 0, mapY = 0;
     uint8_t room = 0;
+    bool complete = false; // the whole room is in room RAM ($6000 for page 0, $6400 for page 1)
 };
 
 class GameView {
@@ -95,6 +100,10 @@ class GameView {
     virtual RoomInfo RoomOnPage(int page) const {
         (void)page;
         return {};
+    }
+    // The area bank mapped in (1 Brinstar, 2 Norfair, 3 Tourian, 4 Kraid, 5 Ridley; 0 title).
+    virtual int AreaBank() const {
+        return 0;
     }
 
     // OAM ownership, for the frame on screen.
