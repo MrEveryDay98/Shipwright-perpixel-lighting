@@ -212,7 +212,7 @@ void Menu::DrawControlsMenu() {
     if (!ImGui::BeginMenu("Controls")) {
         return;
     }
-    if (ImGui::MenuItem("Controller configuration...")) {
+    if (ImGui::MenuItem("Remap controls...")) {
         ToggleWindow("Input Editor");
     }
     CVarCheckbox("Navigate menus with controller", LusCVar::kControllerNav, false);

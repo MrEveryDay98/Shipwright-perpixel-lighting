@@ -21,7 +21,8 @@
 #include <libultraship/bridge/consolevariablebridge.h>
 #include <libultraship/controller/controldeck/ControlDeck.h>
 #include <libultraship/libultraship.h>
-#include <libultraship/window/gui/InputEditorWindow.h>
+#include <libultraship/controller/controldevice/controller/mapping/ControllerDefaultMappings.h>
+#include "InputEditor.h"
 #include <ship/Context.h>
 #include <ship/audio/Audio.h>
 #include <ship/resource/ResourceManager.h>
@@ -190,7 +191,7 @@ struct InputState {
         b |= (p.stick_y < -40 || (p.button & BTN_DDOWN)) ? Metroid::BtnDown : 0;
         b |= (p.button & BTN_A) ? Metroid::BtnA : 0;
         b |= (p.button & BTN_B) ? Metroid::BtnB : 0;
-        b |= (p.button & (BTN_Z | BTN_R)) ? Metroid::BtnSelect : 0;
+        b |= (p.button & BTN_Z) ? Metroid::BtnSelect : 0;
         b |= (p.button & BTN_START) ? Metroid::BtnStart : 0;
         pressed |= b & ~held;
         held = b;
@@ -250,7 +251,46 @@ int main(int argc, char** argv) {
     context->InitConsoleVariables();
     context->InitLogging(spdlog::level::debug, spdlog::level::info);
 
-    context->InitControlDeck(std::make_shared<LUS::ControlDeck>());
+    // The NES pad on libultraship's N64 button bits (see InputEditor.h), with NES-style default bindings.
+    using Ship::KbScancode;
+    auto defaults = std::make_shared<LUS::ControllerDefaultMappings>(
+        std::unordered_map<CONTROLLERBUTTONS_T, std::unordered_set<KbScancode>>{
+            { BTN_A, { KbScancode::LUS_KB_X } },
+            { BTN_B, { KbScancode::LUS_KB_Z } },
+            { BTN_Z, { KbScancode::LUS_KB_RSHIFT, KbScancode::LUS_KB_BACKSPACE } },
+            { BTN_START, { KbScancode::LUS_KB_ENTER } },
+            { BTN_DUP, { KbScancode::LUS_KB_ARROWKEY_UP } },
+            { BTN_DDOWN, { KbScancode::LUS_KB_ARROWKEY_DOWN } },
+            { BTN_DLEFT, { KbScancode::LUS_KB_ARROWKEY_LEFT } },
+            { BTN_DRIGHT, { KbScancode::LUS_KB_ARROWKEY_RIGHT } },
+        },
+        std::unordered_map<Ship::StickIndex, std::vector<std::pair<Ship::Direction, KbScancode>>>{},
+        std::unordered_map<CONTROLLERBUTTONS_T, std::unordered_set<SDL_GameControllerButton>>{
+            { BTN_A, { SDL_CONTROLLER_BUTTON_A } },
+            { BTN_B, { SDL_CONTROLLER_BUTTON_B, SDL_CONTROLLER_BUTTON_X } },
+            { BTN_Z, { SDL_CONTROLLER_BUTTON_BACK } },
+            { BTN_START, { SDL_CONTROLLER_BUTTON_START } },
+            { BTN_DUP, { SDL_CONTROLLER_BUTTON_DPAD_UP } },
+            { BTN_DDOWN, { SDL_CONTROLLER_BUTTON_DPAD_DOWN } },
+            { BTN_DLEFT, { SDL_CONTROLLER_BUTTON_DPAD_LEFT } },
+            { BTN_DRIGHT, { SDL_CONTROLLER_BUTTON_DPAD_RIGHT } },
+        },
+        std::unordered_map<Ship::StickIndex, std::vector<std::pair<Ship::Direction, SDL_GameControllerButton>>>{},
+        std::unordered_map<CONTROLLERBUTTONS_T, std::vector<std::pair<SDL_GameControllerAxis, int32_t>>>{
+            { BTN_Z, { { SDL_CONTROLLER_AXIS_TRIGGERLEFT, 1 } } },
+        },
+        std::unordered_map<Ship::StickIndex,
+                           std::vector<std::pair<Ship::Direction, std::pair<SDL_GameControllerAxis, int32_t>>>>{});
+    context->InitControlDeck(std::make_shared<LUS::ControlDeck>(
+        std::vector<CONTROLLERBUTTONS_T>(), defaults,
+        std::unordered_map<CONTROLLERBUTTONS_T, std::string>{ { BTN_A, "A" },
+                                                              { BTN_B, "B" },
+                                                              { BTN_Z, "Select" },
+                                                              { BTN_START, "Start" },
+                                                              { BTN_DUP, "Up" },
+                                                              { BTN_DDOWN, "Down" },
+                                                              { BTN_DLEFT, "Left" },
+                                                              { BTN_DRIGHT, "Right" } }));
     context->InitResourceManager(CollectArchives(), {}, 1, false);
     RegisterResourceFactories();
     Metroid::RegisterSkeletonResourceFactories();
@@ -258,8 +298,8 @@ int main(int argc, char** argv) {
     context->InitConsole();
 
     sHud = std::make_shared<Metroid::Hud>();
-    auto inputEditor =
-        std::make_shared<LUS::InputEditorWindow>(Metroid::LusCVar::kInputEditorOpen, "Input Editor", ImVec2(820, 630));
+    auto inputEditor = std::make_shared<Metroid::InputEditorWindow>(Metroid::LusCVar::kInputEditorOpen, "Input Editor",
+                                                                    ImVec2(820, 630));
     auto window =
         std::make_shared<Fast::Fast3dWindow>(std::vector<std::shared_ptr<Ship::GuiWindow>>({ sHud, inputEditor }));
     context->InitWindow(window);

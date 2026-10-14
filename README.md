@@ -54,16 +54,20 @@ with MSVC and a static vcpkg. macOS keeps the CMake setup inherited from Shipwri
 
 ## Controls
 
-The game sees a standard NES controller. Defaults use libultraship's N64-style mapping. Gamepads work out of the
-box. Press **F1** for the menu, then **Controls → Controller configuration** to remap anything.
+The game sees a standard NES controller. Press **F1** for the menu, then **Controls → Remap controls** for the
+controller configuration window (like Ship of Harkinian's): each NES button can be bound to any keys,
+gamepad buttons or stick directions, per controller port, with sensitivity and deadzone for the stick.
+**Set Defaults** puts back these:
 
-| NES button | Does | Keyboard | N64 button |
+| NES button | Does | Keyboard | Gamepad |
 | --- | --- | --- | --- |
-| D-pad | move, aim up, morph (down) | W A S D | Stick or D-pad |
-| A | jump | X | A |
-| B | shoot, or lay a bomb as the ball | C | B |
-| Select | toggle missiles | R or Z | R / Z |
-| Start | start, pause | Space | Start |
+| D-pad | move, aim up, morph (down) | arrow keys, or W A S D (stick) | D-pad or left stick |
+| A | jump | X | A (bottom) |
+| B | shoot, or lay a bomb as the ball | Z | B or X |
+| Select | toggle missiles | Right Shift or Backspace | Back or left trigger |
+| Start | start, pause | Enter | Start |
+
+Bindings saved by an earlier version stay as they were until you press Set Defaults.
 
 ## Menu (F1)
 
