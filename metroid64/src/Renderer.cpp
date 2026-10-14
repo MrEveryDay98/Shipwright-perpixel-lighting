@@ -644,7 +644,28 @@ void Renderer::DrawSection(Gfx*& g, const GameView& emu, SectionView& v) {
     }
     gSPMatrix(g++, m, G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_PUSH);
     const Game::Data::Section& s = v.section;
+    const Game::Data::Level* level = Game::Data::InstalledLevel();
     for (int i = 0; i < s.length; i++) {
+        // A room model (MODELS.md) replaces the screen's blocks, or adds to them with keep_tiles.
+        uint8_t mapX = s.ScreenX(i), mapY = s.ScreenY(i);
+        uint8_t roomNumber = level != nullptr ? level->world.rooms[mapY & 0x1F][mapX & 0x1F] : 0xFF;
+        const Model* roomModel = mModels.Room((uint8_t)s.bank, mapX, mapY, roomNumber);
+        if (roomModel != nullptr) {
+            ModelInstance mi;
+            mi.anim = "Idle";
+            mi.time = (float)emu.FrameCount() / 60.0f;
+            mi.x = (float)(s.horizontal ? i * 256 : 0);
+            mi.y = (float)(s.horizontal ? 0 : i * 240);
+            roomModel->Draw(*this, g, mi);
+            if (v.fade < 1.0f) {
+                gDPSetCombineLERP(g++, TEXEL0, 0, SHADE, 0, TEXEL0, 0, PRIMITIVE, 0, TEXEL0, 0, SHADE, 0, TEXEL0, 0,
+                                  PRIMITIVE, 0);
+                gDPSetRenderMode(g++, G_RM_AA_ZB_XLU_SURF, G_RM_AA_ZB_XLU_SURF2);
+            }
+            if (!roomModel->KeepTiles()) {
+                continue;
+            }
+        }
         for (int cyi = 0; cyi < 4; cyi++) {
             for (int cxi = 0; cxi < 4; cxi++) {
                 float x0 = (float)((s.horizontal ? i * 256 : 0) + cxi * 64);
