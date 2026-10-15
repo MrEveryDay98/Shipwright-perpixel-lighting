@@ -162,6 +162,10 @@ class GameView {
         float OffsetX(float alpha) const;
         float OffsetY(float alpha) const;
     };
+    // Where Samus is in the picture on screen (relative to its top-left): her position of the game frame
+    // the picture comes from (a frame behind RAM).
+    float SamusDrawX() const;
+    float SamusDrawY() const;
     const Motion& SamusMotion() const {
         return mSamusMotion;
     }
@@ -186,6 +190,13 @@ class GameView {
     bool mScrollCut = false;
     Motion mSamusMotion;
     Motion mEnemyMotion[6];
+    // Positions read from RAM at the last frame, for the next one (name table bit, x, y).
+    struct PendingObject {
+        bool present = false;
+        uint8_t hi = 0, x = 0, y = 0;
+    };
+    PendingObject mPendingSamus;
+    PendingObject mPendingEnemies[6];
 };
 
 } // namespace Metroid

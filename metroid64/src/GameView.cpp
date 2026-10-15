@@ -104,16 +104,28 @@ float GameView::Motion::OffsetY(float alpha) const {
 }
 
 void GameView::TrackObjects() {
+    // The picture of a frame (sprites and scroll, written in the vblank) comes from the game's previous pass
+    // through its main loop, while RAM already holds this pass's positions: so the positions used are the
+    // ones read a frame ago, placed with this frame's scroll.
     float wx = (float)mWorldX, wy = (float)mWorldY;
-    mSamusMotion.Set(true, SamusScreenX() + wx, SamusScreenY() + wy, mScrollCut);
+    mSamusMotion.Set(mPendingSamus.present, ScreenXOf(mPendingSamus.hi, mPendingSamus.x) + wx,
+                     ScreenYOf(mPendingSamus.hi, mPendingSamus.y) + wy, mScrollCut);
+    mPendingSamus = { true, Peek(Ram::kSamusHi), Peek(Ram::kSamusX), Peek(Ram::kSamusY) };
     for (int i = 0; i < 6; i++) {
+        const PendingObject& p = mPendingEnemies[i];
+        mEnemyMotion[i].Set(p.present, ScreenXOf(p.hi, p.x) + wx, ScreenYOf(p.hi, p.y) + wy, mScrollCut);
         uint8_t slot = (uint8_t)(i * 0x10);
-        bool present = Peek((uint16_t)(0x6AF4 + slot)) != 0; // Enstatus
-        uint8_t hi = Peek((uint16_t)(0x6AFB + slot));        // EnNameTable
-        float x = ScreenXOf(hi, Peek((uint16_t)(0x0401 + slot))) + wx;
-        float y = ScreenYOf(hi, Peek((uint16_t)(0x0400 + slot))) + wy;
-        mEnemyMotion[i].Set(present, x, y, mScrollCut);
+        mPendingEnemies[i] = { Peek((uint16_t)(0x6AF4 + slot)) != 0, Peek((uint16_t)(0x6AFB + slot)),
+                               Peek((uint16_t)(0x0401 + slot)), Peek((uint16_t)(0x0400 + slot)) };
     }
+}
+
+float GameView::SamusDrawX() const {
+    return mSamusMotion.x - (float)mWorldX;
+}
+
+float GameView::SamusDrawY() const {
+    return mSamusMotion.y - (float)mWorldY;
 }
 
 bool GameView::InGameplay() const {

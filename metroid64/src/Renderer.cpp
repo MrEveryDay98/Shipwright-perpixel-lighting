@@ -975,9 +975,8 @@ void Renderer::DrawSamusModel(Gfx*& g, const GameView& emu, const Model& model, 
     ModelInstance m;
     m.anim = SamusAnimName(anim);
     m.time = ((float)(emu.FrameCount() - mSamusAnimStart) + alpha) / 60.0f;
-    m.x = emu.SamusScreenX() + MotionX(emu.SamusMotion());
-    m.y =
-        emu.SamusScreenY() + MotionY(emu.SamusMotion()) + emu.Peek(Ram::kSamusRadY) + 1; // models stand on their origin
+    m.x = emu.SamusDrawX() + MotionX(emu.SamusMotion());
+    m.y = emu.SamusDrawY() + MotionY(emu.SamusMotion()) + emu.Peek(Ram::kSamusRadY) + 1; // models stand on their origin
     m.facingLeft = emu.SamusFacingLeft();
     model.Draw(*this, g, m);
 }
@@ -1059,7 +1058,16 @@ Gfx* Renderer::BuildFrame(const GameView& emu, float alpha) {
         static const bool debugMotion = getenv("METROID64_DEBUG_MOTION") != nullptr;
         if (debugMotion) {
             // Samus as drawn relative to the camera, per drawn frame (smooth motion: small, steady steps).
-            float sx = emu.SamusScreenX() + MotionX(emu.SamusMotion()) - cx;
+            float sx = emu.SamusDrawX() + MotionX(emu.SamusMotion()) - cx;
+            // Samus's sprites as drawn (OAM), leftmost x, with the same correction.
+            int minX = 999;
+            for (int i = 0; i < 64; i++) {
+                if (emu.SpriteTags()[i].owner == SpriteOwner::Samus && emu.Oam()[i * 4] < 0xEF) {
+                    minX = std::min<int>(minX, emu.Oam()[i * 4 + 3]);
+                }
+            }
+            float spriteRel = minX + MotionX(emu.SamusMotion()) - cx;
+            SPDLOG_INFO("motion2 frame {} sprite-camera {:.3f}", emu.FrameCount(), spriteRel);
             SPDLOG_INFO("motion frame {} alpha {:.3f} samus-camera {:.3f} scroll {:.1f} camera {:.3f}",
                         emu.FrameCount(), alpha, sx, emu.WorldScrollX(), emu.WorldScrollX() + offX);
         }
