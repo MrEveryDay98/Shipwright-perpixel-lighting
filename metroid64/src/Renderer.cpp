@@ -924,7 +924,7 @@ void Renderer::DrawSprites(Gfx*& g, const GameView& emu, bool hudPass, bool hide
     }
     if (!hudPass) {
         for (const auto& e : Game::Present::gExtraSprites) {
-            sprites.push_back({ e.y, e.x, e.tile, e.attr, { SpriteOwner::Projectile, 0 } });
+            sprites.push_back({ e.y, e.x, e.tile, e.attr, { (SpriteOwner)e.owner, 0xFF } });
         }
     }
     for (const Spr& sp : sprites) {

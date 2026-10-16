@@ -2,6 +2,7 @@
 
 #include "game/Enemies.h"
 
+#include "game/AllActive.h"
 #include "game/Area.h"
 #include "game/Collision.h"
 #include "game/Constants.h"
@@ -1179,6 +1180,9 @@ bool EnemyObjectExplode(uint8_t x) {
     return EnemyObjectDraw(0x01);
 }
 
+
+} // namespace
+
 // $F949. Returns true when DrawEnemy pops this routine's return address.
 bool DoOneEnemyObject(uint8_t x) {
     PageIndex = x;
@@ -1203,8 +1207,6 @@ bool DoOneEnemyObject(uint8_t x) {
             return false;
     }
 }
-
-} // namespace
 
 bool UpdateObjectsF93B() {
     uint8_t x = 0xB0;
@@ -1316,8 +1318,9 @@ void DoOneSpawn(uint8_t y) {
     }
     uint8_t x = SpawnSlot[y];
     uint8_t a = Enstatus[x];
-    if (a != 0 && (En0405[x] & 0x02)) {
-        return;
+    int rx = 0, ry = 0;
+    if (a != 0 && ((En0405[x] & 0x02) || AllActive::KeepPastEdge(x, rx, ry))) {
+        return; // (not part of the original: Everything active keeps it while the 3D view shows it)
     }
     En0404[x] = 0; // A is 0 on both paths here
     if (EnDataIndex[x] != 0xFF) {

@@ -17,6 +17,8 @@ void BulletExplode();
 void CheckProjectileHit();
 void ExplodeProjectile(uint8_t x);
 void KillIfOffScreen();
+// Not part of the original (Options::gShotsPastEdge): see Projectiles.cpp.
+bool PastEdge(uint8_t hi, uint8_t x, uint8_t y, int& rx, int& ry);
 bool PastEdgePosition(uint8_t x, int& rx, int& ry);
 bool MoveProjectile();
 bool MoveObjectByTiles();

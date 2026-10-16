@@ -26,6 +26,8 @@ bool gEnabled = false;
 namespace {
 
 constexpr uint8_t kEnemySlots[] = { 0x00, 0x10, 0x20, 0x30, 0x40, 0x50 };
+// Enemy projectiles ($F93B UpdateObjectsF93B): the same two blocks per slot as the enemies.
+constexpr uint8_t kShotSlots[] = { 0x60, 0x70, 0x80, 0x90, 0xA0, 0xB0 };
 // Enemies only use the game's slots while well inside the screen: the game draws only what is on its
 // 256x240 screen (and drops sprites past its left edge), and the 3D view shows beyond it, so near an edge
 // with more of the section past it the roster runs and draws them whole. An enemy leaves the slots when
@@ -44,7 +46,8 @@ constexpr int kStatus = 0;                  // Enstatus in block b
 
 struct RosterEnemy {
     EnemyState state;
-    int screen = 0; // in the section
+    int screen = 0;    // in the section
+    bool shot = false; // an enemy projectile (runs in slot $60 through DoOneEnemyObject)
     std::vector<Sprite> sprites;
 };
 
@@ -134,6 +137,21 @@ bool ViewOrigin(int& vx, int& vy) {
     vx = i * ScreenWidth() + (sSection.horizontal ? (int)ScrollX : 0);
     vy = i * ScreenHeight() + (sSection.horizontal ? 0 : (int)ScrollY);
     return true;
+}
+
+// Tourian (bank 3): each Metroid has a byte outside its slot ($77F8 + slot / 16, Tourian.cpp MetroidState):
+// non-zero while it is latched on Samus. A latched one is on Samus, so it stays the game's; off screen the
+// bytes are 0. Rinkas (enemy type 4) are sent by their spawners into whatever slot isn't on screen, so they
+// stay the game's like the pipes' enemies.
+constexpr uint16_t kMetroidState = 0x77F8;
+constexpr int kEnDataIndex = 0x6B02 - 0x6AF4; // in block b
+constexpr uint8_t kRinkaType = 0x04;
+
+bool TourianKeeps(uint8_t slot, const EnemyState& e) {
+    if (Hw::gPrgBank != 3) {
+        return false;
+    }
+    return Mem((uint16_t)(kMetroidState + (slot >> 4))) != 0 || e.b[kEnDataIndex] == kRinkaType;
 }
 
 bool IsRosterType(const EnemyState& e) {
@@ -246,14 +264,15 @@ void BuildRoster() {
     for (uint8_t s : kEnemySlots) {
         EnemyState e;
         ReadSlot(s, e);
-        if (e.b[kStatus] != 0 && IsRosterType(e)) {
+        if (e.b[kStatus] != 0 && IsRosterType(e) && !TourianKeeps(s, e)) {
             Enstatus[s] = 0;
         }
     }
 }
 
-// Runs a roster enemy one frame in a stand-in for the game, centred on it.
-void RunOffscreen(RosterEnemy& r) {
+// Runs a roster enemy (or enemy projectile) one frame in a stand-in for the game, centred on it. Projectiles
+// an enemy fires there are added to `fired`.
+void RunOffscreen(RosterEnemy& r, std::vector<RosterEnemy>& fired) {
     const bool h = sSection.horizontal;
     const int span = h ? 256 : 240;
     const int length = sSection.length * span;
@@ -316,15 +335,38 @@ void RunOffscreen(RosterEnemy& r) {
     for (int s = 0xD0; s <= 0xF0; s += 0x10) {
         ObjAction[s] = 0;
     }
+    if (Hw::gPrgBank == 3) {
+        for (int m = 0; m < 6; m++) {
+            Mem((uint16_t)(kMetroidState + m)) = 0; // no Metroid latched on Samus here
+        }
+    }
     EnemyState e = r.state;
     int page = r.screen - first;
     e.b[kNameTable] = (uint8_t)(page & 0x01);
-    WriteSlot(0x00, e);
+    const uint8_t slot = r.shot ? kShotSlots[0] : kEnemySlots[0];
+    WriteSlot(slot, e);
     SpritePagePos = 0;
 
-    DoOneEnemy(0x00);
+    if (r.shot) {
+        DoOneEnemyObject(slot);
+    } else {
+        DoOneEnemy(slot);
+        // What it fired: the original's projectiles are only drawn and kept on its screen, so the roster
+        // runs them too.
+        for (uint8_t s : kShotSlots) {
+            EnemyState shot;
+            ReadSlot(s, shot);
+            if (shot.b[kStatus] != 0) {
+                RosterEnemy f;
+                f.state = shot;
+                f.screen = first + (shot.b[kNameTable] & 0x01);
+                f.shot = true;
+                fired.push_back(f);
+            }
+        }
+    }
 
-    ReadSlot(0x00, e);
+    ReadSlot(slot, e);
     uint8_t spritesEnd = SpritePagePos;
     r.sprites.clear();
     if (e.b[kStatus] != 0) {
@@ -350,6 +392,13 @@ void RunOffscreen(RosterEnemy& r) {
 }
 
 } // namespace
+
+bool KeepPastEdge(uint8_t slot, int& rx, int& ry) {
+    if (!gEnabled || !sActive || slot > 0x50 || !IsSpawnerSlot(slot) || Enstatus[slot] == 0) {
+        return false;
+    }
+    return PastEdge(EnNameTable[slot], EnXRoomPos[slot], EnYRoomPos[slot], rx, ry);
+}
 
 bool SuppressRoomEnemies() {
     return sActive && !sBuilding;
@@ -377,6 +426,10 @@ size_t RosterSize() {
     return sRoster.size();
 }
 
+size_t RosterShots() {
+    return (size_t)std::count_if(sRoster.begin(), sRoster.end(), [](const RosterEnemy& r) { return r.shot; });
+}
+
 int RostersBuilt() {
     return sRostersBuilt;
 }
@@ -392,8 +445,7 @@ void BeforeFrame() {
     const Data::Level* level = Data::InstalledLevel();
     int bank = Hw::gPrgBank;
     bool playing = GameMode == 0 && MainRoutine == 0x03;
-    // Not in Tourian yet (its enemies keep more state than their slots).
-    bool usable = gEnabled && level != nullptr && bank >= 1 && bank <= 5 && bank != 3;
+    bool usable = gEnabled && level != nullptr && bank >= 1 && bank <= 5;
     if (!usable) {
         sActive = false;
         sRoster.clear();
@@ -450,22 +502,29 @@ void BeforeFrame() {
         return x >= vx + (moreLeft ? margin : kOpen) && x < vx + 256 - (moreRight ? margin : kOpen) &&
                y >= vy + (moreUp ? margin : kOpen) && y < vy + 240 - (moreDown ? margin : kOpen);
     };
-    // Enemies near or past an edge go to the roster.
-    for (uint8_t slot : kEnemySlots) {
+    // Enemies and their projectiles near or past an edge go to the roster.
+    auto handOut = [&](uint8_t slot, bool shot) {
         EnemyState e;
         ReadSlot(slot, e);
-        if (e.b[kStatus] == 0 || !IsRosterType(e) || IsSpawnerSlot(slot)) {
-            continue;
+        if (e.b[kStatus] == 0 || (!shot && (!IsRosterType(e) || IsSpawnerSlot(slot) || TourianKeeps(slot, e)))) {
+            return;
         }
         int ex = 0, ey = 0;
         if (!ToSection(e.b[kNameTable] & 0x01, e.a[1], e.a[0], ex, ey) || inside(ex, ey, kOutMargin)) {
-            continue;
+            return;
         }
         RosterEnemy r;
         r.state = e;
         r.screen = ScreenOfPage(e.b[kNameTable] & 0x01, false);
+        r.shot = shot;
         sRoster.push_back(r);
         Enstatus[slot] = 0;
+    };
+    for (uint8_t slot : kEnemySlots) {
+        handOut(slot, false);
+    }
+    for (uint8_t slot : kShotSlots) {
+        handOut(slot, true);
     }
     // Roster enemies well inside the screen, on a screen the game has loaded, go into free slots.
     for (size_t i = 0; i < sRoster.size();) {
@@ -478,25 +537,39 @@ void BeforeFrame() {
             }
         }
         uint8_t freeSlot = 0xFF;
-        for (uint8_t slot : kEnemySlots) {
-            if (Enstatus[slot] == 0 && !IsSpawnerSlot(slot)) {
-                freeSlot = slot;
-                break;
+        if (r.shot) {
+            for (uint8_t slot : kShotSlots) {
+                if (Enstatus[slot] == 0) {
+                    freeSlot = slot;
+                    break;
+                }
+            }
+        } else {
+            for (uint8_t slot : kEnemySlots) {
+                if (Enstatus[slot] == 0 && !IsSpawnerSlot(slot)) {
+                    freeSlot = slot;
+                    break;
+                }
             }
         }
         if (page >= 0 && freeSlot != 0xFF && inside(ex, ey, kInMargin)) {
             EnemyState e = r.state;
             e.b[kNameTable] = (uint8_t)page;
             WriteSlot(freeSlot, e);
+            if (Hw::gPrgBank == 3 && !r.shot) {
+                Mem((uint16_t)(kMetroidState + (freeSlot >> 4))) = 0; // not latched
+            }
             sRoster.erase(sRoster.begin() + (long)i);
             continue;
         }
         i++;
     }
-    // The rest run where they are.
+    // The rest run where they are. Projectiles fired meanwhile run from the next frame on (the game's own
+    // are drawn the frame they are fired, from their place by the enemy: so are these).
     sSprites.clear();
+    std::vector<RosterEnemy> fired;
     for (size_t i = 0; i < sRoster.size();) {
-        RunOffscreen(sRoster[i]);
+        RunOffscreen(sRoster[i], fired);
         if (sRoster[i].state.b[kStatus] == 0) {
             sRoster.erase(sRoster.begin() + (long)i);
             continue;
@@ -504,6 +577,7 @@ void BeforeFrame() {
         sSprites.insert(sSprites.end(), sRoster[i].sprites.begin(), sRoster[i].sprites.end());
         i++;
     }
+    sRoster.insert(sRoster.end(), fired.begin(), fired.end());
 }
 
 } // namespace Game::AllActive

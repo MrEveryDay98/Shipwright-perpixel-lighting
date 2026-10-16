@@ -2,6 +2,8 @@
 
 // Bank 7: object animation and sprite drawing.
 
+#include "game/Present.h"
+
 #include <cstdint>
 
 namespace Game {
@@ -12,7 +14,7 @@ uint8_t GetSpriteCntrlData();
 uint8_t ReduceYRadius(uint8_t radius);
 bool AnimDrawObject(uint8_t delay);
 bool DrawFrame();
-void DrawPastEdge();
+void DrawPastEdge(int rx, int ry, Present::Owner owner);
 void DrawSpriteObject(uint8_t x);
 void ClearObjectCntrl();
 uint8_t YDisplacement(uint8_t y);

@@ -192,16 +192,16 @@ void KillIfOffScreen() {
     }
 }
 
-// Not part of the original (Options::gShotsPastEdge): where object x is relative to the screen's top-left,
-// if it is outside the screen by at most kPastEdge pixels along the scrolling and the name table it is on
-// holds the map screen that is really there.
-bool PastEdgePosition(uint8_t x, int& rx, int& ry) {
+// Not part of the original (Options::gShotsPastEdge): where something at (x, y) on name table `hi` is
+// relative to the screen's top-left, if it is outside the screen by at most kPastEdge pixels along the
+// scrolling and that name table holds the map screen that is really there.
+bool PastEdge(uint8_t hi, uint8_t objX, uint8_t objY, int& rx, int& ry) {
     bool horizontal = ScrollDir & 0x02;
     int span = horizontal ? 256 : 240;
     int page = PPUCNT0ZP & 0x01; // the name table the screen starts on
     int scroll = horizontal ? ScrollX : ScrollY;
-    int pos = (ObjectHi[x] & 0x01) == page ? (horizontal ? ObjectX[x] : ObjectY[x])
-                                            : (horizontal ? ObjectX[x] : ObjectY[x]) + span;
+    int along = horizontal ? objX : objY;
+    int pos = (hi & 0x01) == page ? along : along + span;
     // Relative to the screen's edge, the nearer way round the two name tables.
     int r = pos - scroll;
     if (r >= span + span / 2) {
@@ -210,28 +210,32 @@ bool PastEdgePosition(uint8_t x, int& rx, int& ry) {
     if (r < -span / 2) {
         r += 2 * span;
     }
-    if (r >= -Options::kPastEdge && r < span + Options::kPastEdge) {
-        // Map screen expected there: the one the screen starts on, or the next or previous one.
-        int k = (scroll + r) >= span ? 1 : (scroll + r) < 0 ? -1 : 0;
-        const Present::RoomTag& start = Present::gRooms[page];
-        const Present::RoomTag& here = Present::gRooms[ObjectHi[x] & 0x01];
-        if (!start.valid || !here.valid) {
-            return false;
-        }
-        int ex = start.mapX + (horizontal ? k : 0), ey = start.mapY + (horizontal ? 0 : k);
-        if (here.mapX != ex || here.mapY != ey) {
-            return false;
-        }
-        if (horizontal) {
-            rx = r;
-            ry = (uint8_t)(ObjectY[x] - ScrollY);
-        } else {
-            ry = r;
-            rx = (uint8_t)(ObjectX[x] - ScrollX);
-        }
-        return true;
+    if (r < -Options::kPastEdge || r >= span + Options::kPastEdge) {
+        return false;
     }
-    return false;
+    // Map screen expected there: the one the screen starts on, or the next or previous one.
+    int k = (scroll + r) >= span ? 1 : (scroll + r) < 0 ? -1 : 0;
+    const Present::RoomTag& start = Present::gRooms[page];
+    const Present::RoomTag& here = Present::gRooms[hi & 0x01];
+    if (!start.valid || !here.valid) {
+        return false;
+    }
+    int ex = start.mapX + (horizontal ? k : 0), ey = start.mapY + (horizontal ? 0 : k);
+    if (here.mapX != ex || here.mapY != ey) {
+        return false;
+    }
+    if (horizontal) {
+        rx = r;
+        ry = (uint8_t)(objY - ScrollY);
+    } else {
+        ry = r;
+        rx = (uint8_t)(objX - ScrollX);
+    }
+    return true;
+}
+
+bool PastEdgePosition(uint8_t x, int& rx, int& ry) {
+    return PastEdge(ObjectHi[x], ObjectX[x], ObjectY[x], rx, ry);
 }
 
 // $D609: moves the projectile, or hits the tile in its way. Returns the carry: set when it moved.

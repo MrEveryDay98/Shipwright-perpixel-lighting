@@ -33,6 +33,7 @@ void OnSpriteDma();
 struct ExtraSprite {
     int x = 0, y = 0;
     uint8_t tile = 0, attr = 0;
+    Owner owner = Owner::Projectile;
 };
 extern std::vector<ExtraSprite> gExtraBuffer;
 extern std::vector<ExtraSprite> gExtraSprites;

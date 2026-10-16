@@ -736,6 +736,7 @@ int main(int argc, char** argv) {
         Game::AllActive::gEnabled = true;
         Game::SetNmiHook([&](int nmiIndex) { Game::Hw::gPads[0] = buttonsAt(portFrameButtons + nmiIndex); });
         size_t maxRoster = 0;
+        int shotFrames = 0, pipeFrames = 0;
         int sectionsWithRoster = 0;
         for (int n = 0; n < frames; n++) {
             for (const auto& [a, v] : pokes) {
@@ -745,12 +746,19 @@ int main(int argc, char** argv) {
             Game::AllActive::BeforeFrame();
             frame += std::max(Game::RunFrame(), 1);
             maxRoster = std::max(maxRoster, Game::AllActive::RosterSize());
+            shotFrames += Game::AllActive::RosterShots() > 0 ? 1 : 0;
+            bool pipe = false;
+            for (const auto& e : Game::Present::gExtraBuffer) {
+                pipe |= e.owner == Game::Present::Owner::Enemy;
+            }
+            pipeFrames += pipe ? 1 : 0;
             sectionsWithRoster += Game::AllActive::RosterSize() > 0 ? 1 : 0;
         }
-        printf("ALL-ACTIVE: %d frames, %d rosters built, at most %zu enemies off screen, %d frames with some; ended "
-               "GameMode %02X MainRoutine %02X area bank %d\n",
-               frames, Game::AllActive::RostersBuilt(), maxRoster, sectionsWithRoster, (uint8_t)Game::Vars::GameMode,
-               (uint8_t)Game::Vars::MainRoutine, Game::Hw::gPrgBank);
+        printf("ALL-ACTIVE: %d frames, %d rosters built, at most %zu enemies off screen, %d frames with some, %d with "
+               "enemy shots off screen, %d with pipe enemies past the edge; ended GameMode %02X MainRoutine %02X area "
+               "bank %d\n",
+               frames, Game::AllActive::RostersBuilt(), maxRoster, sectionsWithRoster, shotFrames, pipeFrames,
+               (uint8_t)Game::Vars::GameMode, (uint8_t)Game::Vars::MainRoutine, Game::Hw::gPrgBank);
         return 0;
     }
     for (int n = 0; n < frames; n++) {

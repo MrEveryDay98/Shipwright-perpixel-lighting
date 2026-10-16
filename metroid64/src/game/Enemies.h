@@ -16,6 +16,8 @@ void UpdateMellows();       // $FC65 Mellows / Memus
 // ($60) is reached by falling through, so when its explosion ends DrawEnemy's pop takes UpdateWorld's
 // return address (the caller must then return at once).
 bool UpdateObjectsF93B();
+// $F949: one enemy projectile. Returns true when DrawEnemy pops this routine's return address.
+bool DoOneEnemyObject(uint8_t x);
 void UpdateSpinners(); // $FBDD
 // $FE1B. Returns true when the original leaves UpdateWorld here: the last tile slot (0) is reached by
 // falling through, so when its animation ends UpdateTileAnim's pop takes UpdateWorld's return address.

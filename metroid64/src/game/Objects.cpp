@@ -3,6 +3,7 @@
 #include "game/Objects.h"
 
 #include "game/Constants.h"
+#include "game/AllActive.h"
 #include "game/Area.h"
 #include "game/Enemies.h"
 #include "game/Engine.h"
@@ -246,6 +247,10 @@ static bool DrawEnemyFrame() {
     x = PageIndex;
     Mem((uint16_t)(0x0405 + x)) = (uint8_t)((Mem((uint16_t)(0x0405 + x)) & 0xFD) | Mem(0x08));
     if (Mem(0x08) == 0) {
+        int rx = 0, ry = 0;
+        if (AllActive::KeepPastEdge(x, rx, ry)) {
+            DrawPastEdge(rx, ry, Present::Owner::Enemy); // not part of the original
+        }
         ClearObjectCntrl();
         return false;
     }
@@ -319,8 +324,9 @@ bool DrawFrame() {
     uint8_t visible = IsObjectVisible();
     ObjectOnScreen[PageIndex] = visible;
     if (visible == 0) {
-        if (Options::gShotsPastEdge && PageIndex >= 0xD0) {
-            DrawPastEdge(); // not part of the original
+        int rx = 0, ry = 0;
+        if (Options::gShotsPastEdge && PageIndex >= 0xD0 && PastEdgePosition(PageIndex, rx, ry)) {
+            DrawPastEdge(rx, ry, Present::Owner::Projectile); // not part of the original
         }
         ClearObjectCntrl();
         return false;
@@ -329,12 +335,12 @@ bool DrawFrame() {
     return false;
 }
 
-// Not part of the original (Options::gShotsPastEdge): draws Samus's projectile at PageIndex, outside the
-// screen, into Present::gExtraBuffer instead of sprite RAM. It is drawn the usual way around the middle of
+// Not part of the original (Options::gShotsPastEdge, Everything active): draws the frame set up for the
+// object being drawn (DrawFrame / DrawEnemyFrame, up to their visibility check), which is at (rx, ry) outside
+// the screen, into Present::gExtraBuffer instead of sprite RAM. It is drawn the usual way around the middle of
 // the screen and moved from there.
-void DrawPastEdge() {
-    int rx = 0, ry = 0;
-    if (SpritePagePos > 0xD0 || !PastEdgePosition(PageIndex, rx, ry)) {
+void DrawPastEdge(int rx, int ry, Present::Owner owner) {
+    if (SpritePagePos > 0xD0) {
         return; // (room for its sprites without wrapping onto the others)
     }
     constexpr uint8_t kMidX = 0x80, kMidY = 0x70;
@@ -349,6 +355,7 @@ void DrawPastEdge() {
         s.tile = SpriteRAM[k + 1];
         s.attr = SpriteRAM[k + 2];
         s.x = rx + (SpriteRAM[k + 3] - kMidX);
+        s.owner = owner;
         Present::gExtraBuffer.push_back(s);
     }
     SpritePagePos = start; // sprite RAM is left as it was for the game

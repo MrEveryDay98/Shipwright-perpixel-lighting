@@ -101,8 +101,19 @@ section Samus is in keeps running, not only those on the two screens the origina
   loaded are drawn again from the game each frame (doors opening, items taken, the elevator moving) and
   keep how they last looked when they scroll out. The game's own sprites for them (which only cover its
   screen) aren't drawn meanwhile.
-- Not covered yet: Tourian; enemies from Zeb holes (pipes), which the pipe removes off screen as in the
-  original; Memus; enemy shots fired off screen (dropped).
+- Enemy projectiles (slots $60-$B0) are handed to the roster and back the same way, and what a roster
+  enemy fires in its stand-in joins the roster (run through `DoOneEnemyObject`), so shots fired off screen
+  fly on and the game's own don't vanish at the screen's edge.
+- Enemies from Zeb holes (pipes) stay in the game's slots: the pipe takes its enemy back once it is off
+  screen and sends another. With this on, it keeps it while it is within the 3D view's extra width past the
+  edge (`KeepPastEdge`, on a room the game has loaded there), and it is drawn there.
+- Tourian: a Metroid latched on Samus has a byte outside its slot (`$77F8 + slot / 16`); latched Metroids
+  stay the game's, and the stand-in clears those bytes so none thinks it is on Samus. Rinkas are sent by their
+  spawners into any slot not on screen, so they stay the game's.
+- Memus need nothing: they hover near the top of the screen and dive at Samus (`$FD25` works from
+  `ScrollY`), so they are never off screen; they come from the screen's special items, which the roster
+  doesn't change.
+- Kraid, Ridley and Mother Brain, the cannons and the Zebetites stay the game's.
 - With it off nothing of this runs; the lockstep tool's `--all-active` plays the port alone with it on.
 
 ## Saved games

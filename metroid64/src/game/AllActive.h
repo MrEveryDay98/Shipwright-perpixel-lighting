@@ -15,8 +15,9 @@
 // Doors, power-ups, the elevator and the statues are loaded with each screen and drawn across the section in
 // their current state.
 //
-// Not covered yet: Tourian, Kraid and Ridley themselves, Memus, Zeb holes' enemies off screen, and enemy
-// shots fired off screen (they are dropped).
+// Enemy projectiles go to the roster too. Kraid and Ridley themselves, Tourian's latched Metroids and
+// Rinkas, Memus (always on screen) and the enemies Zeb holes send stay in the game's slots; a Zeb hole's
+// enemy is kept and drawn a little past the screen's edge (KeepPastEdge).
 
 #include <cstdint>
 #include <vector>
@@ -33,6 +34,11 @@ void BeforeFrame();
 // Forgets the roster (the game's state was replaced, e.g. a saved game loaded): the next frame builds it
 // again for the section Samus is in.
 void Reset();
+
+// An enemy a Zeb hole (pipe) sent, in game slot `slot`, outside the screen but within the 3D view's
+// extra width (Projectiles.h PastEdge): the pipe keeps it instead of taking it back, and it is drawn there
+// (rx, ry: its place relative to the screen).
+bool KeepPastEdge(uint8_t slot, int& rx, int& ry);
 
 // True while the room loader must not place enemies (the roster has them).
 bool SuppressRoomEnemies();
@@ -54,6 +60,7 @@ bool Active();
 
 // For tests: enemies in the roster now, and rosters built so far.
 size_t RosterSize();
+size_t RosterShots(); // of which enemy projectiles
 int RostersBuilt();
 
 } // namespace Game::AllActive
