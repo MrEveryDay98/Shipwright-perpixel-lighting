@@ -1,7 +1,11 @@
 #include "Hud.h"
 
+#include "Menu.h"
+
 #include <algorithm>
 #include <cfloat>
+#include <cmath>
+#include <libultraship/bridge/consolevariablebridge.h>
 #include <imgui.h>
 
 namespace Metroid {
@@ -49,7 +53,20 @@ void Hud::Draw() {
     if (mFrozen) {
         CenteredText(dl, big, vp->Pos.y + vp->Size.y * 0.1f, white, "GAME FROZEN (F1 > Game)");
     }
-    if (mPause.paused && mPause.paused()) {
+    bool paused = mPause.paused && mPause.paused();
+    double time = ImGui::GetTime();
+    if (paused && CVarGetInteger(kCVarPauseMap, 1) != 0) {
+        float w = std::min(vp->Size.x * 0.8f, vp->Size.y * 1.1f), h = vp->Size.y * 0.7f;
+        ImVec2 min(vp->Pos.x + (vp->Size.x - w) * 0.5f, vp->Pos.y + vp->Size.y * 0.1f);
+        mMap.DrawArea(ImGui::GetForegroundDrawList(), min, ImVec2(min.x + w, min.y + h), time);
+    }
+    if (!paused && mPause.playing && mPause.playing() && CVarGetInteger(kCVarMinimap, 1) != 0) {
+        float cell = std::floor(14.0f * scale);
+        constexpr int kCols = 5, kRows = 3;
+        ImVec2 min(vp->Pos.x + vp->Size.x - cell * kCols - 12.0f * scale, vp->Pos.y + 28.0f * scale);
+        mMap.DrawMinimap(ImGui::GetForegroundDrawList(), min, cell, kCols, kRows, time);
+    }
+    if (paused) {
         DrawPauseMenu(scale);
     }
 }

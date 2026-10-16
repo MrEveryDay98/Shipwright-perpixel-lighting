@@ -106,6 +106,12 @@ void Menu::DrawGameMenu() {
         mActions.load();
     }
     CVarCheckbox("After dying, go back to the save", kCVarDeathToSave, true);
+    ImGui::SeparatorText("Map");
+    CVarCheckbox("Minimap", kCVarMinimap, true);
+    ImGui::SetItemTooltip("The screens around Samus, in the top right corner while playing.");
+    CVarCheckbox("Area map when paused", kCVarPauseMap, true);
+    CVarCheckbox("Show screens not visited", kCVarMapShowAll, false);
+    ImGui::SetItemTooltip("Shows the whole area in blue, like after finding a map station in Super Metroid.");
     ImGui::SetItemTooltip("Instead of the game over screen, the game goes back to where you last saved, "
                           "with the energy, missiles and items you had then (like Super Metroid).");
     ImGui::Separator();

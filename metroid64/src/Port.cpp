@@ -9,6 +9,7 @@
 #include "game/Memory.h"
 #include "game/Options.h"
 #include "game/AllActive.h"
+#include "game/Explored.h"
 #include "game/Present.h"
 #include "game/Ram.h"
 #include "game/SaveState.h"
@@ -54,6 +55,7 @@ void Port::PowerOn() {
     Game::Hw::SetApuSink(ApuSink, ApuStatus);
     Game::SetNmiHook([this](int) { Game::Hw::gPads[0] = mButtons; });
     Game::PowerOn();
+    Game::Explored::Reset();
     ResetView();
     mLagTicks = 0;
     mFrame = 0;
@@ -89,6 +91,7 @@ void Port::Tick(uint8_t buttons) {
     mFrame++;
     mLagTicks = nmis - 1;
     mApu.Clock(kCpuCyclesPerFrame);
+    Game::Explored::Update();
     for (int i = 0; i < 64; i++) {
         mOamTags[i] = { (SpriteOwner)Game::Present::gOamTags[i].owner, Game::Present::gOamTags[i].slot };
     }
@@ -99,6 +102,10 @@ void Port::Tick(uint8_t buttons) {
 
 bool Port::Paused() const {
     return Game::Vars::GameMode == 0 && Game::Vars::MainRoutine == 0x05;
+}
+
+bool Port::Playing() const {
+    return Game::Vars::GameMode == 0 && Game::Vars::MainRoutine == 0x03;
 }
 
 bool Port::CanSave() const {

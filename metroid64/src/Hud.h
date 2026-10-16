@@ -1,5 +1,7 @@
 #pragma once
 
+#include "MapView.h"
+
 #include <ship/window/gui/GuiWindow.h>
 #include <cstdint>
 #include <functional>
@@ -28,6 +30,7 @@ class Hud : public Ship::GuiWindow {
     // `ticksSinceSave` (-1: none) shows that it worked.
     struct PauseMenu {
         std::function<bool()> paused, canSave;
+        std::function<bool()> playing; // in play (not paused): the minimap shows
         std::function<void()> save;
         std::function<int64_t()> ticksSinceSave;
     };
@@ -51,6 +54,7 @@ class Hud : public Ship::GuiWindow {
     int mRunFrames = 0;
     std::string mRomError;
     PauseMenu mPause;
+    MapView mMap;
 };
 
 } // namespace Metroid

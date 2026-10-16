@@ -42,8 +42,9 @@ class Port : public GameView {
     void SetSavePath(const std::string& path) {
         mSavePath = path;
     }
-    // Paused in play (Start).
+    // Paused in play (Start); playing.
     bool Paused() const;
+    bool Playing() const;
     bool CanSave() const;
     bool SaveGame();
     bool HasSave() const;

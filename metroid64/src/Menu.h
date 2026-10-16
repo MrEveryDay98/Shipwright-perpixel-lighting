@@ -20,6 +20,10 @@ constexpr const char* kCVarNoFlicker = M64_CVAR("NoFlicker");
 constexpr const char* kCVarSmoothAnimation = M64_CVAR("SmoothAnimation");
 // After dying, go back to the saved game (if there is one) instead of the game over screen. On by default.
 constexpr const char* kCVarDeathToSave = M64_CVAR("DeathToSave");
+// The map: the minimap while playing, the area map on the pause screen, and showing screens not visited yet.
+constexpr const char* kCVarMinimap = M64_CVAR("Minimap");
+constexpr const char* kCVarPauseMap = M64_CVAR("PauseMap");
+constexpr const char* kCVarMapShowAll = M64_CVAR("MapShowAll");
 constexpr const char* kCVarVolume = M64_CVAR("Volume");
 constexpr const char* kCVarMute = M64_CVAR("Mute");
 

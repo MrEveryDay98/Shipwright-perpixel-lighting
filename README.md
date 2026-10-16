@@ -77,9 +77,17 @@ that save, paused, instead of the game over screen (like Super Metroid; Game →
 save" turns that off). **Game → Load saved game** loads it any time, also after restarting the app. Saving
 isn't possible during the escape. Passwords still work as in the original.
 
+## Map
+
+Like Super Metroid's: a minimap of the screens around Samus in the top right corner while playing, and the
+whole area when paused. Screens Samus has been to are pink, with walls where the room ends, doors (red ones
+need missiles until opened), elevators (arrows) and a dot for each power-up not taken yet; Samus is the yellow
+square. Game → Map has switches for both, and for showing the screens not visited yet (in blue, like after a
+map station). The map is kept in saved games.
+
 ## Menu (F1)
 
-- **Game**: Open ROM, Reset (power cycle), Freeze game, Save game, Load saved game, "After dying, go back to the save", Quit.
+- **Game**: Open ROM, Reset (power cycle), Freeze game, Save game, Load saved game, "After dying, go back to the save", the map's switches, Quit.
 - **Audio**: volume, mute.
 - **Graphics**:
   - Fullscreen and VSync.

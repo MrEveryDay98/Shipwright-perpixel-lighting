@@ -1,6 +1,7 @@
 #include "game/SaveState.h"
 
 #include "game/AllActive.h"
+#include "game/Explored.h"
 #include "game/Hw.h"
 #include "game/Memory.h"
 #include "game/Present.h"
@@ -13,7 +14,8 @@ namespace Game::SaveState {
 namespace {
 
 constexpr char kMagic[4] = { 'M', '6', '4', 'S' };
-constexpr uint8_t kVersion = 1;
+// 1: the game; 2: and the map's visited screens and their scrolling (Explored.h).
+constexpr uint8_t kVersion = 2;
 
 void Put(std::string& out, const void* p, size_t n) {
     out.append((const char*)p, n);
@@ -83,6 +85,9 @@ std::string Capture() {
     }
     PutTags(out, Present::gBufferTags);
     PutTags(out, Present::gOamTags);
+    uint8_t visited[Explored::kBytes];
+    Explored::Get(visited);
+    Put(out, visited, sizeof(visited));
     return out;
 }
 
@@ -90,7 +95,8 @@ bool Restore(const std::string& data) {
     Reader r{ data };
     char magic[4] = {};
     r.Get(magic, sizeof(magic));
-    if (!r.ok || memcmp(magic, kMagic, sizeof(kMagic)) != 0 || r.U8() != kVersion) {
+    uint8_t version = r.U8();
+    if (!r.ok || memcmp(magic, kMagic, sizeof(kMagic)) != 0 || version < 1 || version > kVersion) {
         return false;
     }
     // Read into copies first, so a short file changes nothing.
@@ -125,6 +131,10 @@ bool Restore(const std::string& data) {
     Present::Tag bufferTags[64], oamTags[64];
     GetTags(r, bufferTags);
     GetTags(r, oamTags);
+    uint8_t visited[Explored::kBytes] = {};
+    if (version >= 2) {
+        r.Get(visited, sizeof(visited));
+    }
     if (!r.ok || r.p != data.size()) {
         return false;
     }
@@ -136,6 +146,7 @@ bool Restore(const std::string& data) {
     memcpy(Present::gRooms, rooms, sizeof(rooms));
     memcpy(Present::gBufferTags, bufferTags, sizeof(bufferTags));
     memcpy(Present::gOamTags, oamTags, sizeof(oamTags));
+    Explored::Set(visited);
     AllActive::Reset();
     return true;
 }

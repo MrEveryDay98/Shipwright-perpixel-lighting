@@ -12,7 +12,8 @@ namespace Game::SaveState {
 // doesn't let the password screen be reached then either).
 bool CanSave();
 
-// The game's memory, picture memory and mapper state, and the presentation's bookkeeping (Present.h).
+// The game's memory, picture memory and mapper state, the presentation's bookkeeping (Present.h) and the
+// map's visited screens (Explored.h).
 std::string Capture();
 // Puts a Capture back. False (and nothing changed) if the data isn't one. "Everything active" builds
 // the section's roster again, so the section's enemies are back where their rooms place them.

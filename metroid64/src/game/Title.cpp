@@ -8,6 +8,7 @@
 
 #include "game/Constants.h"
 #include "game/Engine.h"
+#include "game/Explored.h"
 #include "game/Hw.h"
 #include "game/Original.h"
 #include "game/Ram.h"
@@ -961,6 +962,7 @@ void InitializeGame() {
 
 // $932B: a new game.
 static void InitializeStats() {
+    Explored::Reset(); // the map (not part of the original)
     SamusStat00 = 0;
     TankCount = 0;
     SamusGear = 0;

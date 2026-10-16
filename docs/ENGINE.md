@@ -120,6 +120,20 @@ chip is reset on a load (the game is paused, so it is silent anyway), and the pr
 (`GameView::Generation`). With Everything active on, the section's roster is built again after a load, so its
 enemies are back where their rooms place them.
 
+## The map
+
+`game/Explored.cpp` marks, after each frame of play, the map screen Samus is in: the room on the name table
+she's on (`Present::gRooms[ObjectHi]`). It also keeps how that screen scrolled (`ScrollDir` bit 1, not while
+a door is scrolling): a room's data doesn't say whether it is part of a shaft or a corridor (the door that
+leads in decides), so walls are drawn only for screens Samus has been to, from the section the game scrolls
+through from there that way (`FindSection`). The marks are cleared for a new game (`InitializeStats`) and kept in
+saved games (version 2 of the format).
+
+`MapView` draws it: each area's screens are those of its sections (`AllSections`); doors and their colour come
+from the room's door entries (palette 1 and 3 are blue, the others need missiles: `LoadDoorData`), elevators and
+power-ups from the special items table. A red door that was opened and a power-up that was taken are found in
+the item history the way `CheckForItem` looks (`CreateItemID`'s ID).
+
 ## No sprite flicker
 
 Graphics > View > **No sprite flicker** (on by default; `game/Options.h`) draws every frame what the
