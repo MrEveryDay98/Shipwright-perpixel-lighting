@@ -43,11 +43,16 @@ structures, palettes, graphics, music) replace these generic blocks one kind at 
 
 ## Known difference: slowdown
 
-On the console, when the main loop has more to do than fits in a frame (loading a room, many enemies), it
-finishes in the next frame and the game slows down. The port does the same work, but it can only tell when
-the original would have run out of time where the original explicitly waits for the next frame. So
-Metroid64 shows less slowdown than the console, mostly in busy rooms, and starts the title screen a few
-frames earlier. What happens in the game is the same; only the pacing differs.
+On the console, when the main loop has more to do than fits in a frame (many enemies, loading a room), it
+finishes in the next frame and the game slows down. The port does the same work in one frame of the app,
+since it can only tell when the original would have run out of time where the original explicitly waits for
+the next frame (`WaitNMIPass`: turning the screen off and on, e.g. while an elevator changes area). So
+Metroid64 has none of the console's slowdown in play, and starts the title screen a few frames earlier. What
+happens in the game is the same; only the pacing differs.
+
+Measured with the lockstep tool (random play from each area's password, 4000 frames): the original lagged
+6 to 287 times per run; the port, playing alone (`--solo`), only waited while the screen was off for an
+elevator.
 
 ## From the game to 3D
 

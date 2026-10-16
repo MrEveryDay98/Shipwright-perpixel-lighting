@@ -23,7 +23,8 @@
 //     --all-active               plays the port alone with "everything active" on (game/AllActive.h),
 //                                which changes the game: nothing is compared; it reports how it went
 //     --solo                     plays the port alone (nothing is compared) and reports how often Samus
-//                                wasn't drawn while playing and not hurt; with --no-flicker that is never
+//                                wasn't drawn while playing and not hurt (with --no-flicker, only in
+//                                doors), and the frames that took more than one NMI while playing
 //     --no-flicker               (with --solo) no sprite flicker (game/Options.h)
 //     --check-lag                also compares at the frames where the original lagged and prints the
 //                                differences without failing (a few are expected: the original ran extra
@@ -624,13 +625,15 @@ int main(int argc, char** argv) {
         }
     };
     if (solo) {
-        int playing = 0, samusHidden = 0;
+        int playing = 0, samusHidden = 0, lagged = 0;
         for (int n = 0; n < frames; n++) {
             for (const auto& [a, v] : pokes) {
                 Game::Mem(a) = v;
             }
             portFrameButtons = frame;
-            frame += std::max(Game::RunFrame(), 1);
+            int nmis = Game::RunFrame();
+            frame += std::max(nmis, 1);
+            lagged += nmis > 1 && Game::Vars::MainRoutine == 0x03 ? 1 : 0;
             // Playing (MainRoutine 3) or Samus appearing (8, once the fade lets her show: Timer3 below $1F),
             // Samus alive and not blinking after a hit ($77 bit 7).
             bool appearing = Game::Vars::MainRoutine == 0x08 && Game::Vars::Timer3 < 0x1F;
@@ -648,9 +651,9 @@ int main(int argc, char** argv) {
             }
             samusHidden += drawn ? 0 : 1;
         }
-        printf("SOLO: %d frames, %d playing, Samus not drawn in %d; ended GameMode %02X MainRoutine %02X area "
+        printf("SOLO: %d frames, %d playing, Samus not drawn in %d, %d frames longer than one while playing; ended GameMode %02X MainRoutine %02X area "
                "bank %d\n",
-               frames, playing, samusHidden, (uint8_t)Game::Vars::GameMode, (uint8_t)Game::Vars::MainRoutine,
+               frames, playing, samusHidden, lagged, (uint8_t)Game::Vars::GameMode, (uint8_t)Game::Vars::MainRoutine,
                Game::Hw::gPrgBank);
         return 0;
     }
