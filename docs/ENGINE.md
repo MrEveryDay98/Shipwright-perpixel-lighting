@@ -114,6 +114,9 @@ section Samus is in keeps running, not only those on the two screens the origina
   `ScrollY`), so they are never off screen; they come from the screen's special items, which the roster
   doesn't change.
 - Kraid, Ridley and Mother Brain, the cannons and the Zebetites stay the game's.
+- While Samus rides an elevator the roster is dropped, as in a door: the area bank changes on the way before
+  the area's enemy tables ($41-$46) do, and an enemy run then would read its frames from the wrong tables
+  (the sprite drawing never finds the end of the frame).
 - With it off nothing of this runs; the lockstep tool's `--all-active` plays the port alone with it on.
 
 ## Saved games

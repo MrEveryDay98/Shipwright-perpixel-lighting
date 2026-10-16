@@ -1,5 +1,6 @@
 #include "game/AllActive.h"
 
+#include "game/Constants.h"
 #include "game/EnemyRam.h"
 #include "game/Enemies.h"
 #include "game/Hw.h"
@@ -455,8 +456,10 @@ void BeforeFrame() {
     if (!playing) {
         return; // paused, the intro, dying: everything waits
     }
-    if (DoorStatus != 0) {
-        // Going through a door: the game clears the enemies; the next section gets its own roster.
+    if (DoorStatus != 0 || ObjAction == Const::sa_Elevator) {
+        // Going through a door: the game clears the enemies; the next section gets its own roster. Riding an
+        // elevator: the area bank changes on the way, before the area's enemy tables ($41-$46) do, so the
+        // roster's enemies can't run (their frames would be read from the wrong tables).
         sActive = false;
         sRoster.clear();
         sSprites.clear();
