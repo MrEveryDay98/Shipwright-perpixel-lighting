@@ -25,6 +25,8 @@
 //     --solo                     plays the port alone (nothing is compared) and reports how often Samus
 //                                wasn't drawn while playing and not hurt (with --no-flicker, only in
 //                                doors), and the frames that took more than one NMI while playing
+//     --save-test <n>            (with --solo) saves the game (game/SaveState.h) after n frames, plays on,
+//                                loads it, plays the same frames again and checks the game ends up the same
 //     --no-flicker               (with --solo) no sprite flicker (game/Options.h)
 //     --check-lag                also compares at the frames where the original lagged and prints the
 //                                differences without failing (a few are expected: the original ran extra
@@ -41,6 +43,7 @@
 #include "game/AllActive.h"
 #include "game/Present.h"
 #include "game/Ram.h"
+#include "game/SaveState.h"
 #include "game/Title.h"
 #include "nes/Nes.h"
 
@@ -452,6 +455,7 @@ int main(int argc, char** argv) {
     bool rawRom = false;
     bool allActive = false;
     bool solo = false;
+    int saveTest = -1;
     for (int i = 2; i < argc; i += 2) {
         std::string opt = argv[i];
         if (opt == "--all-active") {
@@ -482,6 +486,10 @@ int main(int argc, char** argv) {
         if (opt == "--picture") {
             picture = true;
             i--;
+            continue;
+        }
+        if (opt == "--save-test" && i + 1 < argc) {
+            saveTest = atoi(argv[i + 1]);
             continue;
         }
         if (i + 1 >= argc) {
@@ -624,6 +632,47 @@ int main(int argc, char** argv) {
             Game::Mem(a) = v;
         }
     };
+    if (solo && saveTest >= 0) {
+        // Save at saveTest, play to `frames`, remember the state; play as far again; load and play the same
+        // frames to `frames` again: the state must be the same.
+        auto play = [&](int n0, int n1) {
+            for (int n = n0; n < n1; n++) {
+                for (const auto& [a, v] : pokes) {
+                    Game::Mem(a) = v;
+                }
+                portFrameButtons = frame;
+                frame += std::max(Game::RunFrame(), 1);
+            }
+        };
+        play(0, saveTest);
+        std::string save = Game::SaveState::Capture();
+        int savedFrame = frame;
+        uint8_t savedMode = Game::Vars::GameMode, savedRoutine = Game::Vars::MainRoutine;
+        play(saveTest, frames);
+        std::string first = Game::SaveState::Capture();
+        play(frames, frames * 2 - saveTest);
+        if (!Game::SaveState::Restore(save)) {
+            printf("SAVE-TEST: FAIL (the save didn't load)\n");
+            return 1;
+        }
+        frame = savedFrame;
+        play(saveTest, frames);
+        std::string second = Game::SaveState::Capture();
+        size_t diff = 0;
+        while (diff < first.size() && first[diff] == second[diff]) {
+            diff++;
+        }
+        bool same = first == second;
+        printf("SAVE-TEST: %s (saved at frame %d in GameMode %02X MainRoutine %02X, %zu-byte save, %d frames "
+               "replayed)",
+               same ? "OK" : "FAIL", saveTest, savedMode, savedRoutine,
+               save.size(), frames - saveTest);
+        if (!same) {
+            printf(" first difference at byte %zu of the save", diff);
+        }
+        printf("\n");
+        return same ? 0 : 1;
+    }
     if (solo) {
         int playing = 0, samusHidden = 0, lagged = 0;
         for (int n = 0; n < frames; n++) {

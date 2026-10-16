@@ -37,9 +37,27 @@ class Port : public GameView {
         return mApu.Samples();
     }
 
+    // Saved games (game/SaveState.h), in a file. SaveGame works while the game is paused in play
+    // (CanSave); LoadGame puts the game back as it was saved (paused). False if that couldn't be done.
+    void SetSavePath(const std::string& path) {
+        mSavePath = path;
+    }
+    // Paused in play (Start).
+    bool Paused() const;
+    bool CanSave() const;
+    bool SaveGame();
+    bool HasSave() const;
+    bool LoadGame();
+    // Ticks since the last save, or -1 if none was made since starting (for the "saved" message).
+    int64_t TicksSinceSave() const {
+        return mSavedAt < 0 ? -1 : (int64_t)(mFrame - (uint64_t)mSavedAt);
+    }
+
   private:
     Nes::Apu mApu;
-    uint8_t mButtons = 0;
+    uint8_t mButtons = 0, mPrevButtons = 0;
+    std::string mSavePath;
+    int64_t mSavedAt = -1;
     uint64_t mFrame = 0;
     int mLagTicks = 0; // vblanks the frame just run also took
 };

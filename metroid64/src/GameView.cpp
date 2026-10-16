@@ -28,6 +28,15 @@ int WrapAround(int d, int centre, int period) {
 void GameView::ResetView() {
     mOamTags.fill({});
     mHaveScroll = false;
+    mSamusMotion = {};
+    for (Motion& m : mEnemyMotion) {
+        m = {};
+    }
+    mPendingSamus = {};
+    for (PendingObject& p : mPendingEnemies) {
+        p = {};
+    }
+    mGeneration++;
 }
 
 void GameView::TrackScroll(int x, int y) {

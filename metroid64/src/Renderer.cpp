@@ -477,6 +477,15 @@ bool Renderer::LoadSection(const GameView& emu, const Game::Data::Section& s, Se
 }
 
 void Renderer::UpdateSection(const GameView& emu) {
+    if (emu.Generation() != mGeneration) {
+        // The game's state was replaced: start over from what it shows now.
+        mGeneration = emu.Generation();
+        mSection = SectionView{};
+        mOutgoing = SectionView{};
+        mInDoor = false;
+        mSamusAnim = 0xFF;
+        mSamusModel = nullptr;
+    }
     uint64_t frame = emu.FrameCount();
     int steps = (int)std::min<uint64_t>(frame - mSectionFrame, 60);
     mSectionFrame = frame;

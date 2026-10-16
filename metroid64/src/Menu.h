@@ -18,6 +18,8 @@ constexpr const char* kCVarOutsideView = M64_CVAR("OutsideView");
 constexpr const char* kCVarNoFlicker = M64_CVAR("NoFlicker");
 // Models blend between animations and turn around instead of switching at once. On by default.
 constexpr const char* kCVarSmoothAnimation = M64_CVAR("SmoothAnimation");
+// After dying, go back to the saved game (if there is one) instead of the game over screen. On by default.
+constexpr const char* kCVarDeathToSave = M64_CVAR("DeathToSave");
 constexpr const char* kCVarVolume = M64_CVAR("Volume");
 constexpr const char* kCVarMute = M64_CVAR("Mute");
 
@@ -41,6 +43,8 @@ class Menu : public Ship::GuiMenuBar {
         std::function<void()> reset;
         std::function<bool()> loaded; // a ROM is running
         bool* frozen = nullptr;       // game stopped from the menu
+        std::function<bool()> canSave, hasSave;
+        std::function<void()> save, load;
     };
 
     Menu(Actions actions);

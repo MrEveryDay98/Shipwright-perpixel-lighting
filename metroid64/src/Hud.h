@@ -1,6 +1,8 @@
 #pragma once
 
 #include <ship/window/gui/GuiWindow.h>
+#include <cstdint>
+#include <functional>
 #include <string>
 
 namespace Metroid {
@@ -22,6 +24,16 @@ class Hud : public Ship::GuiWindow {
     void SetRomError(const std::string& error) {
         mRomError = error;
     }
+    // The pause menu: shown while `paused`, with a button that calls `save` (enabled when `canSave`);
+    // `ticksSinceSave` (-1: none) shows that it worked.
+    struct PauseMenu {
+        std::function<bool()> paused, canSave;
+        std::function<void()> save;
+        std::function<int64_t()> ticksSinceSave;
+    };
+    void SetPauseMenu(PauseMenu menu) {
+        mPause = std::move(menu);
+    }
 
   protected:
     void InitElement() override {
@@ -32,10 +44,13 @@ class Hud : public Ship::GuiWindow {
     }
 
   private:
+    void DrawPauseMenu(float scale);
+
     bool mRunning = false;
     bool mFrozen = false;
     int mRunFrames = 0;
     std::string mRomError;
+    PauseMenu mPause;
 };
 
 } // namespace Metroid

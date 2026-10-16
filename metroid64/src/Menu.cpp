@@ -98,6 +98,17 @@ void Menu::DrawGameMenu() {
     ImGui::MenuItem("Freeze game", nullptr, mActions.frozen, loaded);
     ImGui::SetItemTooltip("Stops the NES entirely (the game's own pause is Start).");
     ImGui::Separator();
+    if (ImGui::MenuItem("Save game", "Select", false, loaded && mActions.canSave())) {
+        mActions.save();
+    }
+    ImGui::SetItemTooltip("While the game is paused (Start). Not during the escape.");
+    if (ImGui::MenuItem("Load saved game", nullptr, false, loaded && mActions.hasSave())) {
+        mActions.load();
+    }
+    CVarCheckbox("After dying, go back to the save", kCVarDeathToSave, true);
+    ImGui::SetItemTooltip("Instead of the game over screen, the game goes back to where you last saved, "
+                          "with the energy, missiles and items you had then (like Super Metroid).");
+    ImGui::Separator();
     if (ImGui::MenuItem("Quit")) {
         Ship::Context::GetRawInstance()->GetWindow()->Close();
     }

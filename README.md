@@ -64,14 +64,22 @@ gamepad buttons or stick directions, per controller port, with sensitivity and d
 | D-pad | move, aim up, morph (down) | arrow keys, or W A S D (stick) | D-pad or left stick |
 | A | jump | X | A (bottom) |
 | B | shoot, or lay a bomb as the ball | Z | B or X |
-| Select | toggle missiles | Right Shift or Backspace | Back or left trigger |
+| Select | toggle missiles; while paused, save the game | Right Shift or Backspace | Back or left trigger |
 | Start | start, pause | Enter | Start |
 
 Bindings saved by an earlier version stay as they were until you press Set Defaults.
 
+## Saving
+
+Pause with Start: the pause menu's **Save game** button (or Select) saves where you are, with your energy,
+missiles and items, to `metroid64.sav` next to the game's settings. When Samus dies, the game goes back to
+that save, paused, instead of the game over screen (like Super Metroid; Game → "After dying, go back to the
+save" turns that off). **Game → Load saved game** loads it any time, also after restarting the app. Saving
+isn't possible during the escape. Passwords still work as in the original.
+
 ## Menu (F1)
 
-- **Game**: Open ROM, Reset (power cycle), Freeze game, Quit.
+- **Game**: Open ROM, Reset (power cycle), Freeze game, Save game, Load saved game, "After dying, go back to the save", Quit.
 - **Audio**: volume, mute.
 - **Graphics**:
   - Fullscreen and VSync.
@@ -93,7 +101,6 @@ Bindings saved by an earlier version stay as they were until you press Set Defau
 
 ## Not done yet
 
-- Save states (the game's own passwords are the only way to save).
 - The console's slowdown in busy rooms is not reproduced (see [docs/ENGINE.md](docs/ENGINE.md)).
 - Models for enemies and items.
 - In vertical shafts the view doesn't extend past the NES screen's left and right edges, because the game only keeps one screen's width there.

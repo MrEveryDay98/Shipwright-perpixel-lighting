@@ -174,6 +174,12 @@ class GameView {
         return mEnemyMotion[i];
     }
 
+    // Changes when the game's state was replaced (power on, a saved game loaded), so the presentation
+    // starts over instead of following on from the last frame.
+    uint32_t Generation() const {
+        return mGeneration;
+    }
+
   protected:
     // Called after each frame with the scroll at the top of the picture, in the nametable plane; then the
     // objects' motion is recorded with it (TrackObjects).
@@ -197,6 +203,7 @@ class GameView {
     };
     PendingObject mPendingSamus;
     PendingObject mPendingEnemies[6];
+    uint32_t mGeneration = 0;
 };
 
 } // namespace Metroid

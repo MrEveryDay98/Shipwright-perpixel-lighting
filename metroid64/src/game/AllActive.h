@@ -30,6 +30,10 @@ extern bool gEnabled;
 // the roster and the game's slots, and runs the roster's enemies.
 void BeforeFrame();
 
+// Forgets the roster (the game's state was replaced, e.g. a saved game loaded): the next frame builds it
+// again for the section Samus is in.
+void Reset();
+
 // True while the room loader must not place enemies (the roster has them).
 bool SuppressRoomEnemies();
 

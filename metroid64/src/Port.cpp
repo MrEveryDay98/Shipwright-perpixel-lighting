@@ -10,11 +10,15 @@
 #include "game/Options.h"
 #include "game/AllActive.h"
 #include "game/Present.h"
+#include "game/Ram.h"
+#include "game/SaveState.h"
 
 #include <algorithm>
 #include <libultraship/bridge/consolevariablebridge.h>
+#include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <spdlog/spdlog.h>
 
 namespace Metroid {
 
@@ -56,7 +60,20 @@ void Port::PowerOn() {
 }
 
 void Port::Tick(uint8_t buttons) {
+    mPrevButtons = mButtons;
     mButtons = buttons;
+    // Select while paused saves (the original does nothing with it then).
+    constexpr uint8_t kSelect = 0x04;
+    if ((buttons & kSelect) && !(mPrevButtons & kSelect) && CanSave()) {
+        SaveGame();
+    }
+    // Game over (MainRoutine 4, after the death animation): back to the save instead, if wanted.
+    if (Game::Vars::GameMode == 0 && Game::Vars::MainRoutine == 0x04 &&
+        CVarGetInteger(kCVarDeathToSave, 1) != 0 && HasSave() && LoadGame()) {
+        mFrame++;
+        mApu.Clock(kCpuCyclesPerFrame);
+        return;
+    }
     if (mLagTicks > 0) {
         // The original was still busy with the last frame (a lag frame): it spent this vblank too, so the
         // game waits here as long as it did on the console.
@@ -78,6 +95,61 @@ void Port::Tick(uint8_t buttons) {
     const auto& v = Game::Hw::gVideo;
     TrackScroll((v.ctrl & 0x01) * 256 + v.scrollX, ((v.ctrl >> 1) & 0x01) * 240 + v.scrollY);
     TrackObjects();
+}
+
+bool Port::Paused() const {
+    return Game::Vars::GameMode == 0 && Game::Vars::MainRoutine == 0x05;
+}
+
+bool Port::CanSave() const {
+    return !mSavePath.empty() && Game::SaveState::CanSave();
+}
+
+bool Port::SaveGame() {
+    if (!CanSave()) {
+        return false;
+    }
+    std::string data = Game::SaveState::Capture();
+    std::string tmp = mSavePath + ".tmp";
+    {
+        std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
+        if (!f.write(data.data(), (std::streamsize)data.size())) {
+            SPDLOG_ERROR("Couldn't write {}", tmp);
+            return false;
+        }
+    }
+    std::error_code ec;
+    std::filesystem::rename(tmp, mSavePath, ec); // replaces the old save only once the new one is whole
+    if (ec) {
+        SPDLOG_ERROR("Couldn't save to {}: {}", mSavePath, ec.message());
+        return false;
+    }
+    mSavedAt = (int64_t)mFrame;
+    SPDLOG_INFO("Saved the game to {}", mSavePath);
+    return true;
+}
+
+bool Port::HasSave() const {
+    std::error_code ec;
+    return !mSavePath.empty() && std::filesystem::is_regular_file(mSavePath, ec);
+}
+
+bool Port::LoadGame() {
+    std::ifstream f(mSavePath, std::ios::binary);
+    std::string data((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    if (!f.good() && !f.eof()) {
+        return false;
+    }
+    if (!Game::SaveState::Restore(data)) {
+        SPDLOG_ERROR("{} is not a saved game", mSavePath);
+        return false;
+    }
+    mApu.Reset();
+    ResetView();
+    mLagTicks = 0;
+    mSavedAt = -1;
+    SPDLOG_INFO("Loaded the game from {}", mSavePath);
+    return true;
 }
 
 int Port::AreaBank() const {

@@ -105,6 +105,21 @@ section Samus is in keeps running, not only those on the two screens the origina
   original; Memus; enemy shots fired off screen (dropped).
 - With it off nothing of this runs; the lockstep tool's `--all-active` plays the port alone with it on.
 
+## Saved games
+
+`game/SaveState.cpp` captures the whole game: CPU RAM and cartridge RAM, picture memory (name tables,
+palettes, CHR RAM, sprites, PPU registers), the mapper's bank and control, and the presentation's room and
+sprite tags; restoring puts all of it back (about 21 KB). The game keeps nothing else between frames, so
+play after a load is exactly what it was after the save: the lockstep tool's `--solo --save-test <n>` saves
+after n frames, plays on, loads, replays the same input and checks the state comes out the same.
+
+The app (`Port`) saves while the game is paused in play (MainRoutine 5), not during the escape, writing
+`metroid64.sav` through a temporary file. When the game reaches game over (MainRoutine 4, after the death
+animation) and a save exists, it loads the save instead (Game > "After dying, go back to the save"). The sound
+chip is reset on a load (the game is paused, so it is silent anyway), and the presentation starts over
+(`GameView::Generation`). With Everything active on, the section's roster is built again after a load, so its
+enemies are back where their rooms place them.
+
 ## No sprite flicker
 
 Graphics > View > **No sprite flicker** (on by default; `game/Options.h`) draws every frame what the

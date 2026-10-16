@@ -60,6 +60,7 @@ bool StartGame() {
         return false;
     }
     sGame = std::move(game);
+    sGame->SetSavePath(Ship::Context::GetPathRelativeToAppDirectory("metroid64.sav", kAppShortName));
     sGame->PowerOn();
     sRenderer.Init();
     sHud->SetRunning(true);
@@ -319,6 +320,26 @@ int main(int argc, char** argv) {
     };
     actions.loaded = []() { return sPlaying; };
     actions.frozen = &sFrozen;
+    actions.canSave = []() { return sPlaying && sGame->CanSave(); };
+    actions.hasSave = []() { return sPlaying && sGame->HasSave(); };
+    actions.save = []() {
+        if (sPlaying) {
+            sGame->SaveGame();
+        }
+    };
+    actions.load = []() {
+        if (sPlaying) {
+            sGame->LoadGame();
+        }
+    };
+    sHud->SetPauseMenu({ []() { return sPlaying && sGame->Paused(); },
+                         []() { return sPlaying && sGame->CanSave(); },
+                         []() {
+                             if (sPlaying) {
+                                 sGame->SaveGame();
+                             }
+                         },
+                         []() { return sPlaying ? sGame->TicksSinceSave() : (int64_t)-1; } });
     window->GetGui()->SetMenuBar(std::make_shared<Metroid::Menu>(actions));
     window->SetTextureFilter((Fast::FilteringMode)CVarGetInteger(Metroid::LusCVar::kTextureFilter, Fast::FILTER_NONE));
 

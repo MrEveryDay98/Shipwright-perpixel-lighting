@@ -381,6 +381,13 @@ int RostersBuilt() {
     return sRostersBuilt;
 }
 
+void Reset() {
+    sActive = false;
+    sRoster.clear();
+    sSprites.clear();
+    sObjects.clear();
+}
+
 void BeforeFrame() {
     const Data::Level* level = Data::InstalledLevel();
     int bank = Hw::gPrgBank;

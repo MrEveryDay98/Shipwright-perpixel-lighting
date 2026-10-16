@@ -1,5 +1,6 @@
 #include "Hud.h"
 
+#include <algorithm>
 #include <cfloat>
 #include <imgui.h>
 
@@ -48,6 +49,38 @@ void Hud::Draw() {
     if (mFrozen) {
         CenteredText(dl, big, vp->Pos.y + vp->Size.y * 0.1f, white, "GAME FROZEN (F1 > Game)");
     }
+    if (mPause.paused && mPause.paused()) {
+        DrawPauseMenu(scale);
+    }
+}
+
+void Hud::DrawPauseMenu(float scale) {
+    const ImGuiViewport* vp = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(ImVec2(vp->Pos.x + vp->Size.x * 0.5f, vp->Pos.y + vp->Size.y * 0.9f), ImGuiCond_Always,
+                            ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowBgAlpha(0.75f);
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+                             ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+                             ImGuiWindowFlags_NoNav;
+    if (ImGui::Begin("##PauseMenu", nullptr, flags)) {
+        ImGui::SetWindowFontScale(std::max(1.0f, scale));
+        ImGui::TextUnformatted("PAUSED");
+        bool canSave = mPause.canSave && mPause.canSave();
+        ImGui::BeginDisabled(!canSave);
+        if (ImGui::Button("Save game (Select)") && mPause.save) {
+            mPause.save();
+        }
+        ImGui::EndDisabled();
+        int64_t since = mPause.ticksSinceSave ? mPause.ticksSinceSave() : -1;
+        if (!canSave) {
+            ImGui::TextDisabled("Can't save during the escape");
+        } else if (since >= 0 && since < 120) {
+            ImGui::TextColored(ImVec4(0.5f, 1.0f, 0.5f, 1.0f), "Game saved");
+        } else {
+            ImGui::TextDisabled("Start: resume");
+        }
+    }
+    ImGui::End();
 }
 
 } // namespace Metroid
