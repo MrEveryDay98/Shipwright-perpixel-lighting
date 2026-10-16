@@ -70,11 +70,15 @@ bool StartGame() {
 
 // First run (or new data version): makes metroid.o2r from the ROM, then starts the game. The ROM isn't
 // needed after that.
+// Set when the game's data couldn't be written (not the ROM's fault): no point trying other ROMs.
+bool sDataWriteFailed = false;
+
 bool TryLoadRom(const std::string& path) {
     std::string error;
     if (!Metroid::ExtractGameData(path, error)) {
         SPDLOG_WARN("ROM {} rejected: {}", path, error);
         sHud->SetRomError(error);
+        sDataWriteFailed = error.rfind("Could not write", 0) == 0;
         return false;
     }
     auto config = Ship::Context::GetRawInstance()->GetConfig();
@@ -103,7 +107,7 @@ void OpenRomDialog() {
 void FindRom() {
     auto config = Ship::Context::GetRawInstance()->GetConfig();
     std::string saved = config->GetString(kRomPathConfigKey, "");
-    if (!saved.empty() && TryLoadRom(saved)) {
+    if (!saved.empty() && (TryLoadRom(saved) || sDataWriteFailed)) {
         return;
     }
     std::vector<std::filesystem::path> dirs = { Ship::Context::GetAppDirectoryPath(kAppShortName),
@@ -114,12 +118,12 @@ void FindRom() {
             continue;
         }
         for (const char* name : { "metroid.nes", "Metroid (USA).nes", "Metroid.nes" }) {
-            if (std::filesystem::exists(dir / name, ec) && TryLoadRom((dir / name).string())) {
+            if (std::filesystem::exists(dir / name, ec) && (TryLoadRom((dir / name).string()) || sDataWriteFailed)) {
                 return;
             }
         }
         for (const auto& entry : std::filesystem::directory_iterator(dir, ec)) {
-            if (entry.path().extension() == ".nes" && TryLoadRom(entry.path().string())) {
+            if (entry.path().extension() == ".nes" && (TryLoadRom(entry.path().string()) || sDataWriteFailed)) {
                 return;
             }
         }

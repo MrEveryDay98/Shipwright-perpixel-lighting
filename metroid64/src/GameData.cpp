@@ -89,6 +89,20 @@ bool WriteArchive(const std::string& path, const std::map<std::string, std::stri
 }
 
 // Puts metroid.o2r right after metroid64.o2r, so mods (loaded after it) override its files.
+// Takes the loaded metroid.o2r out of the archive manager, which closes it, so a new one can replace the file
+// (Windows doesn't let an open file be replaced).
+void ReleaseGameDataArchive() {
+    auto archives = Archives();
+    auto list = std::make_shared<std::vector<std::shared_ptr<Ship::Archive>>>();
+    auto current = archives->GetArchives(); // (kept: a temporary would be gone before the loop's body)
+    for (const auto& a : *current) {
+        if (std::filesystem::path(a->GetPath()).filename() != "metroid.o2r") {
+            list->push_back(a);
+        }
+    }
+    archives->SetArchives(list);
+}
+
 void AddArchiveBeforeMods(const std::string& path) {
     auto archives = Archives();
     auto list = std::make_shared<std::vector<std::shared_ptr<Ship::Archive>>>();
@@ -156,10 +170,13 @@ bool ExtractGameData(const std::string& romPath, std::string& error) {
     if (!WriteArchive(temp, files, error)) {
         return false;
     }
+    ReleaseGameDataArchive();
     std::error_code ec;
     std::filesystem::rename(temp, path, ec);
     if (ec) {
         error = "Could not write " + path + ": " + ec.message();
+        std::filesystem::remove(temp, ec);
+        AddArchiveBeforeMods(path); // the old one, as it was
         return false;
     }
     SPDLOG_INFO("Extracted the game's data from {} into {} ({} files)", romPath, path, files.size());
