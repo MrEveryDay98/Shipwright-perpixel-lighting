@@ -61,6 +61,8 @@ struct Section {
 
 // Door sides of a room ($10 of a door's info: left; else right): bit 0 right, bit 1 left.
 uint8_t RoomDoors(const Level& level, int bank, uint8_t number);
+// Door sides of a map screen: its room's and those in the area's special items table for that screen.
+uint8_t ScreenDoors(const Level& level, int bank, uint8_t x, uint8_t y);
 
 // The section containing map screen (x, y) when the game scrolls that way.
 Section FindSection(const Level& level, int bank, uint8_t x, uint8_t y, bool horizontal);

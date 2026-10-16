@@ -139,6 +139,26 @@ uint8_t RoomDoors(const Level& level, int bank, uint8_t number) {
     return sides;
 }
 
+uint8_t ScreenDoors(const Level& level, int bank, uint8_t x, uint8_t y) {
+    if (x > 31 || y > 31) {
+        return 0;
+    }
+    uint8_t sides = RoomDoors(level, bank, level.world.rooms[y][x]);
+    // Doors in the special items table load the same way (LoadDoorData: $10 of the info is the left side).
+    auto items = level.specialItems.find(bank);
+    if (items != level.specialItems.end()) {
+        auto screen = items->second.screens.find({ y, x });
+        if (screen != items->second.screens.end()) {
+            for (const SpecialItem& it : screen->second) {
+                if (it.kind == SpecialItem::Kind::Door) {
+                    sides |= (it.info & 0x10) ? 0x02 : 0x01;
+                }
+            }
+        }
+    }
+    return sides;
+}
+
 Section FindSection(const Level& level, int bank, uint8_t x, uint8_t y, bool horizontal) {
     auto cell = [&](int cx, int cy) -> uint8_t {
         if (cx < 0 || cx > 31 || cy < 0 || cy > 31) {
@@ -152,10 +172,10 @@ Section FindSection(const Level& level, int bank, uint8_t x, uint8_t y, bool hor
     if (horizontal) {
         // GetRoomNum: scrolling stops at a door on the room's side, or at a screen with no room.
         int left = x, right = x;
-        while (!(RoomDoors(level, bank, cell(left, y)) & 0x02) && cell(left - 1, y) != 0xFF) {
+        while (!(ScreenDoors(level, bank, (uint8_t)left, y) & 0x02) && cell(left - 1, y) != 0xFF) {
             left--;
         }
-        while (!(RoomDoors(level, bank, cell(right, y)) & 0x01) && cell(right + 1, y) != 0xFF) {
+        while (!(ScreenDoors(level, bank, (uint8_t)right, y) & 0x01) && cell(right + 1, y) != 0xFF) {
             right++;
         }
         s.x = (uint8_t)left;
@@ -259,7 +279,7 @@ std::vector<Section> AllSections(const Level& level, const EngineRead& engine) {
             uint8_t x = s.ScreenX(i), y = s.ScreenY(i);
             uint8_t room = level.world.rooms[y][x];
             AddElevatorRide(level, s.bank, x, y, add);
-            uint8_t doors = RoomDoors(level, s.bank, room);
+            uint8_t doors = ScreenDoors(level, s.bank, x, y);
             for (uint8_t side = 1; side <= 2; side++) {
                 if (!(doors & side)) {
                     continue;

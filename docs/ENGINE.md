@@ -58,7 +58,8 @@ elevator.
 
 - **Rooms**: the 3D view shows the scrolling section Samus is in: the screens the game scrolls through
   without passing a door (`game/data/Layout.cpp`). Horizontal sections end at a door on that side
-  (`GetRoomNum`, `$E720`), vertical ones at a map screen with no room. Each section's mesh is made from the
+  (`GetRoomNum`, `$E720`; the door can be in the room or in the area's special items table, as most of
+  Tourian's are: both load through `LoadDoorData`), vertical ones at a map screen with no room. Each section's mesh is made from the
   rooms when the data is extracted (`metroid/meshes/...`, see [DATA.md](DATA.md)) and drawn whole, so the
   view can show past the original screen's edges. Nothing of other sections is drawn.
 - **Tiles the game changes**: blasted and regrowing blocks, Mother Brain's room and the like are written to
