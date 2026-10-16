@@ -16,6 +16,8 @@ constexpr const char* kCVarDisplay3D = M64_CVAR("Display3D");
 constexpr const char* kCVarOutsideView = M64_CVAR("OutsideView");
 // No sprite flicker (game/Options.h). On by default.
 constexpr const char* kCVarNoFlicker = M64_CVAR("NoFlicker");
+// Models blend between animations and turn around instead of switching at once. On by default.
+constexpr const char* kCVarSmoothAnimation = M64_CVAR("SmoothAnimation");
 constexpr const char* kCVarVolume = M64_CVAR("Volume");
 constexpr const char* kCVarMute = M64_CVAR("Mute");
 

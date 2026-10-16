@@ -967,17 +967,42 @@ void Renderer::DrawSprites(Gfx*& g, const GameView& emu, bool hudPass, bool hide
 }
 
 void Renderer::DrawSamusModel(Gfx*& g, const GameView& emu, const Model& model, float alpha) {
+    // Smooth animation: a new animation blends in from the last pose over kBlendTicks, and a turn takes
+    // kTurnTicks (game frames).
+    constexpr float kBlendTicks = 6, kTurnTicks = 6;
+    bool smooth = CVarGetInteger(kCVarSmoothAnimation, 1) != 0;
+    double now = (double)emu.FrameCount() + alpha;
+    bool sameModel = mSamusModel == &model;
+    mSamusModel = &model;
     uint8_t anim = emu.Peek(Ram::kSamusAnimReset);
     if (anim != mSamusAnim) {
         mSamusAnim = anim;
         mSamusAnimStart = emu.FrameCount();
+        mSamusFromPose = mSamusPose;
+        mSamusBlendStart = sameModel ? now : -1e9;
+    }
+    bool left = emu.SamusFacingLeft();
+    float dt = (float)std::clamp(now - mSamusLastTime, 0.0, 10.0);
+    mSamusLastTime = now;
+    if (!smooth || !sameModel) {
+        mSamusTurn = left ? 1.0f : 0.0f;
+    } else {
+        float step = dt / kTurnTicks;
+        mSamusTurn = left ? std::min(1.0f, mSamusTurn + step) : std::max(0.0f, mSamusTurn - step);
     }
     ModelInstance m;
     m.anim = SamusAnimName(anim);
     m.time = ((float)(emu.FrameCount() - mSamusAnimStart) + alpha) / 60.0f;
     m.x = emu.SamusDrawX() + MotionX(emu.SamusMotion());
     m.y = emu.SamusDrawY() + MotionY(emu.SamusMotion()) + emu.Peek(Ram::kSamusRadY) + 1; // models stand on their origin
-    m.facingLeft = emu.SamusFacingLeft();
+    m.facingLeft = left;
+    m.turn = mSamusTurn;
+    float blend = (float)((now - mSamusBlendStart) / kBlendTicks);
+    if (smooth && blend < 1) {
+        m.fromPose = &mSamusFromPose;
+        m.blend = blend;
+    }
+    m.drawnPose = &mSamusPose;
     model.Draw(*this, g, m);
 }
 

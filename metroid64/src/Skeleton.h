@@ -122,6 +122,12 @@ class SkeletonPose {
   public:
     // Joint values for the animation at a fractional frame, interpolated between whole frames.
     void Sample(const Skeleton& skel, const Animation& anim, float frame, bool loop);
+    // Mixes `from` into this pose: weight 0 is `from`, 1 this pose (rotations take the short way round).
+    // Does nothing if the two poses are of different skeletons.
+    void BlendFrom(const SkeletonPose& from, float weight);
+    bool Empty() const {
+        return mJoints.empty();
+    }
     // Draws every limb. `model` places the skeleton in the scene and `view` is the camera; limb
     // matrices are loaded whole (model * view), as the flex skeleton display lists expect.
     void Draw(Gfx*& g, const Skeleton& skel, const Mat4& model, const Mat4& view,

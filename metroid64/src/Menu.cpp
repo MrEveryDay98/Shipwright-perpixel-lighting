@@ -173,6 +173,9 @@ void Menu::DrawGraphicsMenu() {
         "and items on that screen, so fog hides them appearing at its edges. Everything active changes "
         "the game: every enemy of the room keeps running wherever it is, and stays dead until you leave "
         "the room.");
+    CVarCheckbox("Smooth model animation", kCVarSmoothAnimation, true);
+    ImGui::SetItemTooltip("Models blend from one animation into the next and turn around instead of "
+                          "switching at once, like the original's sprites do.");
     CVarCheckbox("No sprite flicker", kCVarNoFlicker, true);
     ImGui::SetItemTooltip(
         "The original draws the elevator, a blinking statue and Samus appearing only every other frame, "

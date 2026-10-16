@@ -169,7 +169,13 @@ const Model::Anim* Model::Find(const std::string& name) const {
 void Model::Draw(Renderer& r, Gfx*& g, const ModelInstance& v) const {
     const Anim* a = Find(v.anim);
     Mat4 m = Scale(mScale, mScale, mScale);
-    m = Mul(m, RotateY(v.facingLeft ? mYawLeft : mYawRight));
+    float yaw = v.facingLeft ? mYawLeft : mYawRight;
+    if (v.turn >= 0) {
+        float t = std::clamp(v.turn, 0.0f, 1.0f);
+        t = t * t * (3 - 2 * t); // ease in and out
+        yaw = mYawRight + (mYawLeft - mYawRight) * t;
+    }
+    m = Mul(m, RotateY(yaw));
     m = Mul(m, Translate(v.x + mOffset.x, -v.y + mOffset.y, mOffset.z));
 
     if (mSkeleton != nullptr) {
@@ -177,6 +183,12 @@ void Model::Draw(Renderer& r, Gfx*& g, const ModelInstance& v) const {
         SkeletonPose pose;
         if (a != nullptr && a->skelAnim != nullptr) {
             pose.Sample(*mSkeleton, *a->skelAnim, v.time * a->fps, a->loop);
+        }
+        if (v.fromPose != nullptr && !pose.Empty()) {
+            pose.BlendFrom(*v.fromPose, v.blend);
+        }
+        if (v.drawnPose != nullptr) {
+            *v.drawnPose = pose;
         }
         r.DrawSkeleton(g, *mSkeleton, pose, m, [this](const std::string& path) { return LimbDisplayList(path); });
         return;

@@ -117,6 +117,12 @@ class Renderer {
     // Samus's model animation clock.
     uint8_t mSamusAnim = 0xFF;
     uint64_t mSamusAnimStart = 0;
+    // Smooth animation: the pose last drawn, the one blended from since the animation changed (at
+    // mSamusBlendStart, in ticks), the model they belong to, and the facing turning from right (0) to left (1).
+    SkeletonPose mSamusPose, mSamusFromPose;
+    double mSamusBlendStart = -1e9, mSamusLastTime = 0;
+    const Model* mSamusModel = nullptr;
+    float mSamusTurn = 0;
 
     // Per-frame storage (the interpreter consumes the list synchronously each frame).
     std::vector<Gfx> mFrameDl;

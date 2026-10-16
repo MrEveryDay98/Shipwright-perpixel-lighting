@@ -296,6 +296,22 @@ void SkeletonPose::Sample(const Skeleton& skel, const Animation& anim, float fra
     }
 }
 
+void SkeletonPose::BlendFrom(const SkeletonPose& from, float weight) {
+    if (from.mJoints.size() != mJoints.size() || weight >= 1.0f) {
+        return;
+    }
+    float t = std::max(weight, 0.0f);
+    for (size_t i = 0; i < mJoints.size(); i++) {
+        int16_t a = from.mJoints[i], b = mJoints[i];
+        if (i < 3) {
+            mJoints[i] = (int16_t)std::lround(a + (b - a) * t);
+        } else {
+            int16_t d = (int16_t)(b - a);
+            mJoints[i] = (int16_t)(a + (int)std::lround(d * t));
+        }
+    }
+}
+
 namespace {
 struct LimbDraw {
     const std::string* dList;

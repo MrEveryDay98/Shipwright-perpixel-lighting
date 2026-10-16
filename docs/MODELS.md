@@ -79,6 +79,12 @@ animations exported for Shipwright (for example with Fast64) load unchanged:
 - Curve and Skin limbs, and Link's own animation format, are not supported.
 - Animation resources can also be written as XML (`<Animation FrameCount StaticIndexMax>` with `<Values>` and `<JointIndices>` lists), which is handy for hand-made tests.
 
+- **Smooth animation** (Graphics > View > Smooth model animation, on by default): when Samus's animation
+  changes, the new one blends in from the pose last drawn over 6 game frames (0.1 s), and when she turns
+  around the model turns from `yaw_right` to `yaw_left` over the same time, instead of flipping. Blending
+  needs the same skeleton on both sides, so switching models (to the morph ball) still cuts; flipbook models
+  switch frames as before but turn smoothly.
+
 `docs/example-mod/skeltest` is a hand-written two-limb skeleton (a body and a swinging arm) with `Stand` and `Run` animations, all in XML.
 
 ## Room geometry

@@ -23,6 +23,14 @@ struct ModelInstance {
     float time = 0;     // seconds since the animation started
     float x = 0, y = 0; // anchor in camera-local pixels (NES orientation, y down)
     bool facingLeft = false;
+    // Smooth animation: the facing as a fraction from right (0) to left (1), the model turning in between
+    // (negative: just `facingLeft`); and a pose to blend from, `blend` being the new pose's weight
+    // (skeletal models; flipbooks just switch).
+    float turn = -1;
+    const SkeletonPose* fromPose = nullptr;
+    float blend = 1;
+    // If set, receives the pose drawn (skeletal models), to blend from later.
+    SkeletonPose* drawnPose = nullptr;
 };
 
 // A model made of display-list resources (e.g. exported with Fast64), described by a JSON
