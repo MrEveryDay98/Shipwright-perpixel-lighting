@@ -71,16 +71,19 @@ Bindings saved by an earlier version stay as they were until you press Set Defau
 
 ## Saving
 
-Metroid64 saves the game instead of using passwords. `metroid64.sav` (next to the game's settings) holds where
-you are, with your energy, missiles and items, and the map.
+Metroid64 saves the game instead of using passwords. As in Super Metroid, a save keeps your progress, not a
+snapshot: `metroid64.sav` (next to the game's settings) holds the room you were in, your energy, missiles and
+items, and the map. Loading starts that room afresh, the way a password starts an area: Samus appears with the
+area's music, and the enemies are where the room puts them.
 
-- **Pause menu:** pause with Start; **Save game** (or Select) saves where you are. Game → "Save anywhere from
-  the pause screen" turns this off, leaving only save points.
+- **Pause menu:** pause with Start; **Save game** (or Select) saves. Away from a save point, the save starts
+  you at the door you last came into the room through (or where you got off the elevator, or where the game
+  started you). Game → "Save anywhere from the pause screen" turns this off, leaving only save points.
 - **Save points:** stand on one and press Up. A mod adds them with `metroid64/savepoints.json` (see
   [docs/example-mod/savepoint](docs/example-mod/savepoint)); the original game has none, so there are none
   until a mod or the editor adds them. They're drawn as a glowing pad and shown on the map with an "S".
 - **Continue:** CONTINUE on the START/CONTINUE screen loads the save (Game → Load saved game does too).
-- **Dying:** you go back to the save, paused, like Super Metroid (Game → "After dying, go back to the save");
+- **Dying:** you go back to the save, like Super Metroid (Game → "After dying, go back to the save");
   with no save, back to the START/CONTINUE screen.
 - There are no passwords: game over and quitting from the pause screen (A + Up on controller 2) go back to the
   START/CONTINUE screen. Saving isn't possible during the escape.

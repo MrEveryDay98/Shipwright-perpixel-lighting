@@ -122,11 +122,23 @@ section Samus is in keeps running, not only those on the two screens the origina
 
 ## Saved games
 
-`game/SaveState.cpp` captures the whole game: CPU RAM and cartridge RAM, picture memory (name tables,
-palettes, CHR RAM, sprites, PPU registers), the mapper's bank and control, and the presentation's room and
-sprite tags; restoring puts all of it back (about 21 KB). The game keeps nothing else between frames, so
-play after a load is exactly what it was after the save: the lockstep tool's `--solo --save-test <n>` saves
-after n frames, plays on, loads, replays the same input and checks the state comes out the same.
+A save keeps Samus's progress, as in Super Metroid, not a snapshot (`game/Progress.cpp`, "M64P" files): the
+stats a password holds and more (`$6876-$68FC`: tanks, gear, missiles, statues, the unique item history),
+`InArea`, `JustInBailey`, her energy, the map screen she was in, her place in it and whether it scrolls
+across, and the map. `Progress::Start` loads one the way `InitializeGame` starts a game from a password
+(clear RAM and stats, put the stats in, switch to the area's bank, MoreInit, SamusInit, the intro), except that
+`MoreInit` takes the saved map screen for the area's start (`MapPosX/Y`) and `SamusInit` puts Samus at the saved
+place, scrolling the saved way, with the saved energy (`Progress::gStart`, used once). The room loads anew:
+enemies where it places them, the area's music, Samus appearing. The lockstep tool's `--solo --progress-test
+<n>` saves after n frames, plays on, loads and checks she is back in play in that screen, at that place, with
+that energy, gear, missiles and area.
+
+`Progress::TrackEntry` (after each frame) keeps where Samus came into the room she's in: her place the first
+frame of play after a door (`DoorStatus` back to 0), an elevator ride or a start. A save made away from a save
+point (the pause screen) is put there (`Capture(..., atEntry)`; `--progress-entry` tests it), so loading it
+starts her at that door; a save point saves where she stands. Saves of earlier versions, which were snapshots
+(`game/SaveState.cpp`, still used for the lockstep tool's `--save-test`), load with the progress taken out of
+them.
 
 There are no passwords in the app (`Options::gNoPasswords`; the lockstep tool runs with the original's):
 CONTINUE on the START/CONTINUE screen sets `Options::gContinueRequested`, for the app to load the save, instead of
@@ -141,11 +153,9 @@ within 4 of its floor; pressing Up there saves. The renderer draws them in their
 
 The app (`Port`) saves while the game is paused in play (MainRoutine 5), not during the escape, writing
 `metroid64.sav` through a temporary file. When the game reaches game over (MainRoutine 4, after the death
-animation) and a save exists, it loads the save instead (Game > "After dying, go back to the save"). The sound
-chip is set up again on a load from the sound registers the game last wrote (`Hw::gApuRegs`, kept in the save:
-channels on first, then each channel's registers), so the music goes on; the presentation starts over
-(`GameView::Generation`) with the room shown at once. With Everything active on, the section's roster is built again after a load, so its
-enemies are back where their rooms place them.
+animation) and a save exists, it loads the save instead (Game > "After dying, go back to the save"). The
+presentation starts over (`GameView::Generation`) and Everything active's rosters are dropped
+(`AllActive::Reset`).
 
 ## The map
 
@@ -154,7 +164,7 @@ she's on (`Present::gRooms[ObjectHi]`). It also keeps how that screen scrolled (
 a door is scrolling): a room's data doesn't say whether it is part of a shaft or a corridor (the door that
 leads in decides), so walls are drawn only for screens Samus has been to, from the section the game scrolls
 through from there that way (`FindSection`). The marks are cleared for a new game (`InitializeStats`) and kept in
-saved games (version 2 of the format).
+saved games.
 
 `MapView` draws it: each area's screens are those of its sections (`AllSections`); doors and their colour come
 from the room's door entries (palette 1 and 3 are blue, the others need missiles: `LoadDoorData`), elevators and

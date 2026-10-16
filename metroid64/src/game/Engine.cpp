@@ -14,6 +14,7 @@
 #include "game/Options.h"
 #include "game/Original.h"
 #include "game/Present.h"
+#include "game/Progress.h"
 #include "game/data/GfxLoads.h"
 #include "game/Ram.h"
 #include "game/Objects.h"
@@ -931,6 +932,11 @@ void MoreInit() {
     ScrollDir = x;          // left
     MapPosX = Read(0x95D7); // Samus's start position on the map
     MapPosY = Read(0x95D8);
+    if (Progress::gStart.active) {
+        // Not part of the original: a saved game starts in the room it was saved in.
+        MapPosX = Progress::gStart.data.mapX;
+        MapPosY = Progress::gStart.data.mapY;
+    }
     PalToggle = Read(0x95DA);
     RoomNumber = 0xFF;
     CopyPtrs();
@@ -1008,6 +1014,21 @@ void SamusInit() {
     ObjectHi = PPUCNT0ZP & 0x01;
     HealthLo = 0x00; // 30 energy
     HealthHi = 0x03;
+    if (Progress::gStart.active) {
+        // Not part of the original: a saved game puts Samus where she was saved, with her energy, scrolling the
+        // way that room does (like the area starts: Brinstar's sideways, the others' down a shaft).
+        const Progress::Data& d = Progress::gStart.data;
+        Progress::gStart.active = false;
+        uint8_t m = d.horizontal ? 0x27 : 0x2F;
+        MirrorCntrl = m;
+        MaxMissilePickup = m;
+        MaxEnergyPickup = m;
+        ScrollDir = d.horizontal ? 0x02 : 0x01;
+        ObjectY = d.samusY;
+        ObjectX = d.samusX;
+        HealthLo = d.healthLo;
+        HealthHi = d.healthHi;
+    }
 }
 
 // --- $C92B GameEngine ------------------------------------------------------------------------------------

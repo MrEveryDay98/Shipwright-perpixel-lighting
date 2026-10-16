@@ -32,6 +32,11 @@
 //     --write-save <file>        (with --solo) writes a saved game (game/SaveState.h) at the end, for the app
 //     --editor-tiles             (with --solo) at the end, compares the pattern tables with the tiles the
 //                                extractor writes for the editor for that area (metroid/editor/tiles_<area>.png)
+//     --progress-test <n>        (with --solo) after n frames saves Samus's progress (game/Progress.h), plays on,
+//                                starts the game from it and checks she is back in that room, where she was,
+//                                with the same energy, missiles and items (Brinstar's InArea is $00 after a
+//                                start, as it is in the original, so only the area number counts)
+//     --progress-entry           (with --progress-test) save at the place she came into the room by
 //     --no-flicker               (with --solo) no sprite flicker (game/Options.h)
 //     --check-lag                also compares at the frames where the original lagged and prints the
 //                                differences without failing (a few are expected: the original ran extra
@@ -48,6 +53,8 @@
 #include "game/data/Layout.h"
 #include "game/AllActive.h"
 #include "game/Present.h"
+#include "game/Progress.h"
+#include "game/Explored.h"
 #include "game/Ram.h"
 #include "game/SaveState.h"
 #include "game/Title.h"
@@ -461,7 +468,8 @@ int main(int argc, char** argv) {
     bool rawRom = false;
     bool allActive = false;
     bool solo = false;
-    int saveTest = -1;
+    int saveTest = -1, progressTest = -1;
+    bool progressAtEntry = false;
     const char* writeSave = nullptr;
     bool editorTiles = false;
     for (int i = 2; i < argc; i += 2) {
@@ -508,6 +516,15 @@ int main(int argc, char** argv) {
         if (opt == "--picture") {
             picture = true;
             i--;
+            continue;
+        }
+        if (opt == "--progress-entry") {
+            progressAtEntry = true;
+            i--;
+            continue;
+        }
+        if (opt == "--progress-test" && i + 1 < argc) {
+            progressTest = atoi(argv[i + 1]);
             continue;
         }
         if (opt == "--save-test" && i + 1 < argc) {
@@ -654,6 +671,61 @@ int main(int argc, char** argv) {
             Game::Mem(a) = v;
         }
     };
+    if (solo && progressTest >= 0) {
+        auto play = [&](int count) {
+            for (int n = 0; n < count; n++) {
+                for (const auto& [a, v] : pokes) {
+                    Game::Mem(a) = v;
+                }
+                portFrameButtons = frame;
+                frame += std::max(Game::RunFrame(), 1);
+                Game::Explored::Update();
+                Game::Progress::TrackEntry();
+            }
+        };
+        play(progressTest);
+        Game::Progress::Data saved;
+        if (!Game::Progress::Capture(saved, progressAtEntry)) {
+            printf("PROGRESS-TEST: nothing to save at frame %d (MainRoutine %02X)\n", progressTest,
+                   (uint8_t)Game::Vars::MainRoutine);
+            return 0;
+        }
+        Game::Progress::Data back;
+        if (!Game::Progress::Decode(Game::Progress::Encode(saved), back) || memcmp(&back.stats, &saved.stats, sizeof(saved.stats))) {
+            printf("PROGRESS-TEST: FAIL (the save doesn't read back)\n");
+            return 1;
+        }
+        play(600);
+        Game::Progress::Start(back);
+        // No input while she appears.
+        pokes.clear();
+        int n = 0;
+        for (; n < 1200 && !(Game::Vars::GameMode == 0 && Game::Vars::MainRoutine == 0x03); n++) {
+            Game::Hw::gPads[0] = 0;
+            Game::SetNmiHook([](int) { Game::Hw::gPads[0] = 0; });
+            Game::RunFrame();
+        }
+        int mx = 0, my = 0;
+        bool where = Game::Explored::SamusScreen(mx, my);
+        bool ok = Game::Vars::MainRoutine == 0x03 && where && mx == saved.mapX && my == saved.mapY &&
+                  Game::Vars::ObjectX == saved.samusX && Game::Vars::ObjectY == saved.samusY &&
+                  Game::Vars::HealthLo == saved.healthLo && Game::Vars::HealthHi == saved.healthHi &&
+                  Game::Vars::SamusGear == saved.stats[0x6878 - 0x6876] &&
+                  Game::Vars::MissileCount == saved.stats[0x6879 - 0x6876] && (Game::Vars::InArea & 0x0F) == (saved.inArea & 0x0F);
+        printf("PROGRESS-TEST: %s (saved in area %02X at map %02X,%02X x %02X y %02X, %s, energy %X%X; back in play "
+               "after %d frames at %02X,%02X x %02X y %02X, energy %X%X)\n",
+               ok ? "OK" : "FAIL", saved.inArea, saved.mapX, saved.mapY, saved.samusX, saved.samusY,
+               saved.horizontal ? "horizontal" : "vertical", saved.healthHi & 0x0F, saved.healthLo >> 4, n, mx, my,
+               (uint8_t)Game::Vars::ObjectX, (uint8_t)Game::Vars::ObjectY, Game::Vars::HealthHi & 0x0F,
+               Game::Vars::HealthLo >> 4);
+        if (!ok) {
+            printf("  area %02X/%02X gear %02X/%02X missiles %02X/%02X health %02X%02X/%02X%02X routine %02X\n",
+                   saved.inArea, (uint8_t)Game::Vars::InArea, saved.stats[0x6878 - 0x6876], (uint8_t)Game::Vars::SamusGear,
+                   saved.stats[0x6879 - 0x6876], (uint8_t)Game::Vars::MissileCount, saved.healthHi, saved.healthLo,
+                   (uint8_t)Game::Vars::HealthHi, (uint8_t)Game::Vars::HealthLo, (uint8_t)Game::Vars::MainRoutine);
+        }
+        return ok ? 0 : 1;
+    }
     if (solo && saveTest >= 0) {
         // Save at saveTest, play to `frames`, remember the state; play as far again; load and play the same
         // frames to `frames` again: the state must be the same.

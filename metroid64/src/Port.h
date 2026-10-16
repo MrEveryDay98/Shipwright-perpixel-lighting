@@ -38,8 +38,8 @@ class Port : public GameView {
         return mApu.Samples();
     }
 
-    // Saved games (game/SaveState.h), in a file. SaveGame works while the game is paused in play
-    // (CanSave); LoadGame puts the game back as it was saved (paused). False if that couldn't be done.
+    // Saved games (game/Progress.h), in a file. SaveGame works while the game is paused in play (CanSave);
+    // LoadGame starts the game again from the saved progress. False if that couldn't be done.
     void SetSavePath(const std::string& path) {
         mSavePath = path;
     }
@@ -58,7 +58,10 @@ class Port : public GameView {
     }
 
   private:
-    bool WriteSave();
+    // Where Samus stands, or (atEntry) where she came into the room.
+    bool WriteSave(bool atEntry);
+    // The save point under Samus, playing or paused.
+    const SavePoint* SavePointUnder() const;
 
     Nes::Apu mApu;
     uint8_t mButtons = 0, mPrevButtons = 0;

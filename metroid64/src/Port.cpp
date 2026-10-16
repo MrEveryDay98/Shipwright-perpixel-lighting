@@ -13,6 +13,7 @@
 #include "game/AllActive.h"
 #include "game/Explored.h"
 #include "game/Present.h"
+#include "game/Progress.h"
 #include "game/Ram.h"
 #include "game/SaveState.h"
 
@@ -102,6 +103,7 @@ void Port::Tick(uint8_t buttons) {
     mLagTicks = nmis - 1;
     mApu.Clock(kCpuCyclesPerFrame);
     Game::Explored::Update();
+    Game::Progress::TrackEntry();
     // CONTINUE on the START/CONTINUE screen: the saved game, if there is one.
     if (Game::Options::gContinueRequested) {
         Game::Options::gContinueRequested = false;
@@ -113,7 +115,7 @@ void Port::Tick(uint8_t buttons) {
     // Up on a save point saves.
     constexpr uint8_t kUp = 0x10;
     if ((buttons & kUp) && !(mPrevButtons & kUp) && SavePointHere() != nullptr) {
-        WriteSave();
+        WriteSave(false);
     }
     for (int i = 0; i < 64; i++) {
         mOamTags[i] = { (SpriteOwner)Game::Present::gOamTags[i].owner, Game::Present::gOamTags[i].slot };
@@ -136,8 +138,12 @@ bool Port::CanSave() const {
 }
 
 const SavePoint* Port::SavePointHere() const {
+    return Playing() ? SavePointUnder() : nullptr;
+}
+
+const SavePoint* Port::SavePointUnder() const {
     using namespace Game::Vars;
-    if (mSavePath.empty() || !Playing() || (uint8_t)(EndTimerHi + 1) != 0) {
+    if (mSavePath.empty() || (uint8_t)(EndTimerHi + 1) != 0) {
         return nullptr; // (not during the escape, like saving from the pause screen)
     }
     int mx = 0, my = 0;
@@ -155,11 +161,16 @@ const SavePoint* Port::SavePointHere() const {
 }
 
 bool Port::SaveGame() {
-    return CanSave() && WriteSave();
+    // Away from a save point, the save starts her at the door she came into this room by.
+    return CanSave() && WriteSave(SavePointUnder() == nullptr);
 }
 
-bool Port::WriteSave() {
-    std::string data = Game::SaveState::Capture();
+bool Port::WriteSave(bool atEntry) {
+    Game::Progress::Data progress;
+    if (!Game::Progress::Capture(progress, atEntry)) {
+        return false;
+    }
+    std::string data = Game::Progress::Encode(progress);
     std::string tmp = mSavePath + ".tmp";
     {
         std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
@@ -190,18 +201,14 @@ bool Port::LoadGame() {
     if (!f.good() && !f.eof()) {
         return false;
     }
-    if (!Game::SaveState::Restore(data)) {
+    Game::Progress::Data progress;
+    if (!Game::Progress::Decode(data, progress)) {
         SPDLOG_ERROR("{} is not a saved game", mSavePath);
         return false;
     }
-    // The sound chip as the game had set it: channels on ($4015) first, then each channel's registers (the
-    // length registers start their notes again), then the frame counter.
-    mApu.Reset();
-    mApu.Write(0x4015, Game::Hw::gApuRegs[0x15]);
-    for (uint16_t reg = 0x4000; reg <= 0x4013; reg++) {
-        mApu.Write(reg, Game::Hw::gApuRegs[reg - 0x4000]);
-    }
-    mApu.Write(0x4017, Game::Hw::gApuRegs[0x17]);
+    // The game starts again from the saved progress, in the room Samus was saved in (it loads anew: enemies
+    // where the room puts them, the music from the start, Samus appearing).
+    Game::Progress::Start(progress);
     ResetView();
     mLagTicks = 0;
     mSavedAt = -1;
