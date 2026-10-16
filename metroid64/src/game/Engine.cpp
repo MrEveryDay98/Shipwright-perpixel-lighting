@@ -14,6 +14,7 @@
 #include "game/Options.h"
 #include "game/Original.h"
 #include "game/Present.h"
+#include "game/data/GfxLoads.h"
 #include "game/Ram.h"
 #include "game/Objects.h"
 #include "game/Projectiles.h"
@@ -810,7 +811,7 @@ void InitEndGFX() {
 }
 
 void InitTitleGFX() {
-    LoadGFX(0x15);
+    LoadGFX(kTitleGFX);
     LoadSamusGFX();
 }
 
@@ -826,38 +827,37 @@ void LoadSamusGFX() {
     LoadGFX(0x16);
 }
 
-static void LoadGFXList(std::initializer_list<uint8_t> entries) {
+template <typename List> static void LoadGFXList(const List& entries) {
     for (uint8_t e : entries) {
         LoadGFX(e);
     }
 }
 
 void InitBrinstarGFX() {
-    LoadGFXList({ 0x03, 0x04, 0x05, 0x06, 0x19, 0x16 });
+    LoadGFXList(kBrinstarGFX);
 }
 void InitNorfairGFX() {
-    LoadGFXList({ 0x04, 0x05, 0x07, 0x08, 0x09, 0x19, 0x16 });
+    LoadGFXList(kNorfairGFX);
 }
 void InitTourianGFX() {
-    LoadGFXList({ 0x05, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x1A, 0x1C, 0x19, 0x16 });
+    LoadGFXList(kTourianGFX);
 }
 void InitKraidGFX() {
-    LoadGFXList({ 0x04, 0x05, 0x0A, 0x0F, 0x10, 0x11, 0x19, 0x16 });
+    LoadGFXList(kKraidGFX);
 }
 void InitRidleyGFX() {
-    LoadGFXList({ 0x04, 0x05, 0x0A, 0x12, 0x13, 0x19, 0x16 });
+    LoadGFXList(kRidleyGFX);
 }
 void InitGFX6() {
-    LoadGFXList({ 0x01, 0x02, 0x19, 0x16 });
+    LoadGFXList(std::initializer_list<uint8_t>{ 0x01, 0x02, 0x19, 0x16 });
 }
 void InitGFX7() {
-    LoadGFXList({ 0x17, 0x16 });
+    LoadGFXList(std::initializer_list<uint8_t>{ 0x17, 0x16 });
 }
 
 // Copies one block of graphics into the pattern tables. GFXInfo ($C6E0) entries are 7 bytes:
 // [bank][source][PPU destination][length]; the entry is copied to $00-$06 first.
 void LoadGFX(uint8_t entry) {
-    static const uint16_t kGFXInfo = 0xC6E0;
     uint8_t offset = (uint8_t)(0xFF + (entry + 1) * 7); // last byte of the entry (8-bit, as the original)
     for (int x = 6; x >= 0; x--) {
         Mem((uint16_t)x) = Read((uint16_t)(kGFXInfo + (uint8_t)(offset - (6 - x))));

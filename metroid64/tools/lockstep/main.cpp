@@ -30,6 +30,8 @@
 //     --shots-past-edge          (with --solo) shots fly past the screen edge (game/Options.h); counts
 //                                the frames with shots drawn there
 //     --write-save <file>        (with --solo) writes a saved game (game/SaveState.h) at the end, for the app
+//     --editor-tiles             (with --solo) at the end, compares the pattern tables with the tiles the
+//                                extractor writes for the editor for that area (metroid/editor/tiles_<area>.png)
 //     --no-flicker               (with --solo) no sprite flicker (game/Options.h)
 //     --check-lag                also compares at the frames where the original lagged and prints the
 //                                differences without failing (a few are expected: the original ran extra
@@ -42,6 +44,7 @@
 #include "game/Memory.h"
 #include "game/Options.h"
 #include "game/data/Data.h"
+#include "game/data/Graphics.h"
 #include "game/data/Layout.h"
 #include "game/AllActive.h"
 #include "game/Present.h"
@@ -460,6 +463,7 @@ int main(int argc, char** argv) {
     bool solo = false;
     int saveTest = -1;
     const char* writeSave = nullptr;
+    bool editorTiles = false;
     for (int i = 2; i < argc; i += 2) {
         std::string opt = argv[i];
         if (opt == "--all-active") {
@@ -469,6 +473,11 @@ int main(int argc, char** argv) {
         }
         if (opt == "--solo") {
             solo = true;
+            i--;
+            continue;
+        }
+        if (opt == "--editor-tiles") {
+            editorTiles = true;
             i--;
             continue;
         }
@@ -720,6 +729,22 @@ int main(int argc, char** argv) {
                Game::Hw::gPrgBank);
         if (Game::Options::gShotsPastEdge) {
             printf("PAST-EDGE: shots drawn past the screen edge in %d frames\n", pastEdge);
+        }
+        if (editorTiles) {
+            static const char* const kAreas[] = { "", "brinstar", "norfair", "tourian", "kraid", "ridley" };
+            int bank = Game::Hw::gPrgBank;
+            std::map<std::string, std::string> files;
+            std::string why;
+            std::vector<uint8_t> chr;
+            bool ok = bank >= 1 && bank <= 5 && Game::Data::Extract(rom, files, why) &&
+                      Game::Data::PngToGraphics(files[std::string("metroid/editor/tiles_") + kAreas[bank] + ".png"],
+                                                512, chr, why);
+            int differ = 0;
+            for (size_t k = 0; ok && k < chr.size(); k++) {
+                differ += chr[k] != Game::Hw::gVideo.chr[k] ? 1 : 0;
+            }
+            printf("EDITOR-TILES: %s %s, %d of 8192 bytes differ %s\n", ok ? "" : "FAIL", kAreas[bank], differ,
+                   why.c_str());
         }
         if (writeSave != nullptr) {
             std::string data = Game::SaveState::Capture();

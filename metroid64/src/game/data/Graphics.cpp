@@ -1,5 +1,6 @@
 #include "game/data/Graphics.h"
 
+#include "game/data/GfxLoads.h"
 #include "game/data/Png.h"
 
 #include <algorithm>
@@ -119,6 +120,48 @@ bool PngToGraphics(const std::string& png, int tiles, std::vector<uint8_t>& chr,
         }
     }
     return true;
+}
+
+void ExtractEditorTiles(const uint8_t* prg, std::map<std::string, std::string>& files) {
+    auto read = [prg](int bank, uint16_t addr) -> uint8_t {
+        if (addr >= 0xC000) {
+            bank = 7; // the fixed bank
+        }
+        return prg[(size_t)(bank & 7) * 0x4000 + (addr & 0x3FFF)];
+    };
+    // $C7EF LoadGFX / CopyGFXBlock: one GFXInfo entry into the pattern tables.
+    auto load = [&](std::vector<uint8_t>& chr, uint8_t entry) {
+        uint8_t e[7];
+        for (int i = 0; i < 7; i++) {
+            e[i] = read(7, (uint16_t)(kGFXInfo + (uint8_t)(entry * 7 + i)));
+        }
+        uint16_t src = (uint16_t)(e[1] | (e[2] << 8)), dest = (uint16_t)(e[3] | (e[4] << 8));
+        int length = e[5] + 256 * e[6];
+        for (int i = 0; i < length; i++) {
+            chr[(dest + i) & 0x1FFF] = read(e[0], (uint16_t)(src + i));
+        }
+    };
+    static const char* const kAreas[] = { "brinstar", "norfair", "tourian", "kraid", "ridley" };
+    for (int area = 0; area < 5; area++) {
+        std::vector<uint8_t> chr(0x2000, 0);
+        load(chr, kTitleGFX);
+        for (uint8_t e : kSamusGFX) {
+            load(chr, e);
+        }
+        auto run = [&](const auto& list) {
+            for (uint8_t e : list) {
+                load(chr, e);
+            }
+        };
+        switch (area) {
+            case 0: run(kBrinstarGFX); break;
+            case 1: run(kNorfairGFX); break;
+            case 2: run(kTourianGFX); break;
+            case 3: run(kKraidGFX); break;
+            default: run(kRidleyGFX); break;
+        }
+        files[std::string("metroid/editor/tiles_") + kAreas[area] + ".png"] = GraphicsToPng(chr);
+    }
 }
 
 void ExtractGraphics(const uint8_t* prg, std::map<std::string, std::string>& files, std::vector<uint8_t>& covered) {

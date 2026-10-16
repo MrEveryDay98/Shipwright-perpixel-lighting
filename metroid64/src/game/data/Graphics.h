@@ -44,6 +44,11 @@ bool PngToGraphics(const std::string& png, int tiles, std::vector<uint8_t>& chr,
 // covers in `covered`.
 void ExtractGraphics(const uint8_t* prg, std::map<std::string, std::string>& files, std::vector<uint8_t>& covered);
 
+// For the editor: each area's pattern tables as the game has them in play (the title's, Samus's, then the area's;
+// GfxLoads.h), as metroid/editor/tiles_<area>.png: 512 tiles, the sprites' ($0000) then the background's
+// ($1000), in the image format above.
+void ExtractEditorTiles(const uint8_t* prg, std::map<std::string, std::string>& files);
+
 // The Graphics resource file for a block, referring to its image at `imagePath`.
 std::string WriteGraphics(const Graphics& g, const std::string& imagePath);
 // Reads a Graphics resource; its image comes from `load`.

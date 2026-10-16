@@ -1,6 +1,7 @@
 #include "Renderer.h"
 
 #include "Picture.h"
+#include "Props.h"
 #include "SavePoints.h"
 
 #include "Menu.h"
@@ -12,6 +13,7 @@
 #include <cmath>
 #include <cstring>
 #include <libultraship/bridge/consolevariablebridge.h>
+#include <fast/resource/type/DisplayList.h>
 #include <libultraship/libultraship.h>
 #include <map>
 
@@ -908,6 +910,53 @@ void Renderer::DrawSavePoints(Gfx*& g, const GameView& emu) {
     SetTexturedState(g, true);
 }
 
+const Gfx* Renderer::PropDisplayList(const std::string& path) {
+    auto it = mPropLists.find(path);
+    if (it != mPropLists.end()) {
+        return it->second;
+    }
+    auto res = Ship::Context::GetRawInstance()->GetResourceManager()->LoadResource(path);
+    auto dl = std::dynamic_pointer_cast<Fast::DisplayList>(res);
+    if (dl == nullptr) {
+        SPDLOG_ERROR("Prop display list {} is missing", path);
+    } else {
+        mPropResources.push_back(res);
+    }
+    const Gfx* list = dl ? (const Gfx*)dl->GetRawPointer() : nullptr;
+    mPropLists[path] = list;
+    return list;
+}
+
+void Renderer::DrawProps(Gfx*& g, const GameView& emu) {
+    // Props (Props.h) of the section on screen, at their place in it.
+    int sx = 0, sy = 0;
+    if (Props().empty() || !mSection.valid || !SectionScreenOrigin(emu, mSection, sx, sy)) {
+        return;
+    }
+    const Game::Data::Section& s = mSection.section;
+    for (const Prop& p : Props()) {
+        if (p.bank != s.bank) {
+            continue;
+        }
+        int screen = -1;
+        for (int i = 0; i < s.length; i++) {
+            if (s.ScreenX(i) == p.mapX && s.ScreenY(i) == p.mapY) {
+                screen = i;
+            }
+        }
+        const Gfx* dl = screen >= 0 ? PropDisplayList(p.displayList) : nullptr;
+        if (dl == nullptr) {
+            continue;
+        }
+        float x = (float)(s.horizontal ? screen * 256 : 0) + p.x - (float)sx;
+        float y = -((float)(s.horizontal ? 0 : screen * 240) + p.y - (float)sy);
+        Mat4 m = Scale(p.scale, p.scale, p.scale);
+        m = Mul(m, RotateY(p.yaw));
+        m = Mul(m, Translate(x, y, p.z));
+        DrawModel(g, dl, m);
+    }
+}
+
 void Renderer::DrawOutsideFog(Gfx*& g) {
     // Darkness over everything outside the original screen (0..256 x 0..240), in front of the blocks,
     // fading in over a few pixels from its edge.
@@ -1218,6 +1267,7 @@ Gfx* Renderer::BuildFrame(const GameView& emu, float alpha) {
 
         DrawOffscreenEnemies(g, emu);
         DrawSavePoints(g, emu);
+        DrawProps(g, emu);
         if (CVarGetInteger(kCVarOutsideView, 0) == 0) {
             DrawOutsideFog(g);
         }

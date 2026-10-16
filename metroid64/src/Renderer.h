@@ -95,6 +95,9 @@ class Renderer {
     void DrawOutsideFog(Gfx*& g);
     void DrawOffscreenEnemies(Gfx*& g, const GameView& emu);
     void DrawSavePoints(Gfx*& g, const GameView& emu);
+    void DrawProps(Gfx*& g, const GameView& emu);
+    // A DisplayList resource by path (null if missing), kept loaded.
+    const Gfx* PropDisplayList(const std::string& path);
 
     void DrawPlayField(Gfx*& g, const GameView& emu);
     void DrawSprites(Gfx*& g, const GameView& emu, bool hudPass, bool hideSamus);
@@ -115,6 +118,10 @@ class Renderer {
     // The original picture, for 2D screens: 4x4 textures of 64x64 (one texture load each).
     std::array<std::unique_ptr<uint8_t[]>, 16> mFrameTex;
     std::vector<uint32_t> mFramePixels;
+
+    // Props' display lists by path (null: missing), and the resources that keep them loaded.
+    std::map<std::string, const Gfx*> mPropLists;
+    std::vector<std::shared_ptr<Ship::IResource>> mPropResources;
 
     // Samus's model animation clock.
     uint8_t mSamusAnim = 0xFF;

@@ -118,6 +118,22 @@ wall.
 
 `docs/example-mod/testmodel` is a small hand-written example: a blocky stand-in for Samus with a two-frame run cycle, in XML. To try it, copy the `testmodel` folder into `mods/`.
 
+## Props
+
+Models placed in the world for decoration, from `metroid64/props.json` in a mod (the editor writes it):
+
+```json
+{ "props": [ { "area": "brinstar", "map_x": 3, "map_y": 14, "x": 80, "y": 192, "z": 0,
+               "scale": 1.0, "yaw": 0, "display_list": "mymod/props/tree" } ] }
+```
+
+- `area`, `map_x`, `map_y`: the world map screen it is in (it is drawn while that screen's section is).
+- `x`, `y`: where the model's origin goes, in that screen's pixels (x right, y down: 0-255, 0-239); `z` towards
+  the camera (the blocks are -8 to 8 deep). The model is drawn with y up, one unit per pixel, times `scale`,
+  turned `yaw` degrees around the vertical axis.
+- `display_list`: a DisplayList resource, e.g. a Fast64 export in Shipwright's XML with its vertices and
+  textures at the paths it refers to.
+
 ## Current limits
 
 - Samus and rooms can be replaced so far.

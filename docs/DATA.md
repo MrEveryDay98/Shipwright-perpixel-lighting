@@ -483,3 +483,10 @@ community disassembly) as `src/game/data/AssetMap.inc`. `src/game/data/` extract
 writes their XML, and builds what the game reads from them: every piece at the address the original used,
 so the port's translated code reads it unchanged. The lockstep test runs the port on data that went through
 the extraction and the XML, so it checks all of this against the original.
+
+## Editor tiles: `metroid/editor/tiles_<area>.png`
+
+For the editor: each area's pattern tables as the game has them in play (the title's block, Samus's, then the
+area's: `game/data/GfxLoads.h`), 512 tiles in the graphics image format above, the sprites' ($0000) then the
+background's ($1000). They are made from the ROM; graphics changed in a mod don't show in them. The lockstep
+tool's `--solo --editor-tiles` checks them against the game's pattern tables in play.

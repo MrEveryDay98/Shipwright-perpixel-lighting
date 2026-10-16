@@ -84,6 +84,7 @@ bool Extract(const std::vector<uint8_t>& ines, std::map<std::string, std::string
     ExtractLevel(prg, files, covered);
     ExtractPpu(prg, files, covered);
     ExtractGraphics(prg, files, covered);
+    ExtractEditorTiles(prg, files);
     ExtractAudio(prg, files, covered);
     ExtractEnemies(prg, files, covered);
     ExtractSprites(prg, files, covered);

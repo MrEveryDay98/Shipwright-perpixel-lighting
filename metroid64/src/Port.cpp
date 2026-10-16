@@ -3,6 +3,7 @@
 #include "GameData.h"
 #include "Menu.h"
 #include "Picture.h"
+#include "Props.h"
 #include "SavePoints.h"
 
 #include "game/Game.h"
@@ -52,6 +53,7 @@ bool Port::LoadGameData(std::string& error) {
         return false;
     }
     LoadSavePoints();
+    LoadProps();
     return true;
 }
 
