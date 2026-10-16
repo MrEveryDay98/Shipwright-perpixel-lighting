@@ -12,6 +12,7 @@ uint8_t GetSpriteCntrlData();
 uint8_t ReduceYRadius(uint8_t radius);
 bool AnimDrawObject(uint8_t delay);
 bool DrawFrame();
+void DrawPastEdge();
 void DrawSpriteObject(uint8_t x);
 void ClearObjectCntrl();
 uint8_t YDisplacement(uint8_t y);

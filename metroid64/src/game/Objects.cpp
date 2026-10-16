@@ -6,8 +6,10 @@
 #include "game/Area.h"
 #include "game/Enemies.h"
 #include "game/Engine.h"
+#include "game/Options.h"
 #include "game/Original.h"
 #include "game/Present.h"
+#include "game/Projectiles.h"
 #include "game/Ram.h"
 #include "game/Samus.h"
 
@@ -317,11 +319,41 @@ bool DrawFrame() {
     uint8_t visible = IsObjectVisible();
     ObjectOnScreen[PageIndex] = visible;
     if (visible == 0) {
+        if (Options::gShotsPastEdge && PageIndex >= 0xD0) {
+            DrawPastEdge(); // not part of the original
+        }
         ClearObjectCntrl();
         return false;
     }
     DrawSpriteObject(SpritePagePos);
     return false;
+}
+
+// Not part of the original (Options::gShotsPastEdge): draws Samus's projectile at PageIndex, outside the
+// screen, into Present::gExtraBuffer instead of sprite RAM. It is drawn the usual way around the middle of
+// the screen and moved from there.
+void DrawPastEdge() {
+    int rx = 0, ry = 0;
+    if (SpritePagePos > 0xD0 || !PastEdgePosition(PageIndex, rx, ry)) {
+        return; // (room for its sprites without wrapping onto the others)
+    }
+    constexpr uint8_t kMidX = 0x80, kMidY = 0x70;
+    Mem(0x0E) = kMidX;
+    Mem(0x10) = kMidY;
+    uint8_t start = SpritePagePos;
+    uint8_t ctrl = ObjectCntrl, at11 = Mem(0x11);
+    DrawSpriteObject(start);
+    for (int k = start; k != SpritePagePos && k < 0x100; k += 4) {
+        Present::ExtraSprite s;
+        s.y = ry + (SpriteRAM[k] - kMidY);
+        s.tile = SpriteRAM[k + 1];
+        s.attr = SpriteRAM[k + 2];
+        s.x = rx + (SpriteRAM[k + 3] - kMidX);
+        Present::gExtraBuffer.push_back(s);
+    }
+    SpritePagePos = start; // sprite RAM is left as it was for the game
+    ObjectCntrl = ctrl;
+    Mem(0x11) = at11;
 }
 
 // --- $DEE6 WriteSpriteRAM / $DF19 DrawSpriteObject -------------------------------------------------------

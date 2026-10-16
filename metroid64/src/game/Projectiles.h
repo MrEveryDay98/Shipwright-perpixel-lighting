@@ -17,6 +17,7 @@ void BulletExplode();
 void CheckProjectileHit();
 void ExplodeProjectile(uint8_t x);
 void KillIfOffScreen();
+bool PastEdgePosition(uint8_t x, int& rx, int& ry);
 bool MoveProjectile();
 bool MoveObjectByTiles();
 void StoreObjectCoords(uint8_t x);

@@ -24,6 +24,8 @@ constexpr const char* kCVarDeathToSave = M64_CVAR("DeathToSave");
 constexpr const char* kCVarMinimap = M64_CVAR("Minimap");
 constexpr const char* kCVarPauseMap = M64_CVAR("PauseMap");
 constexpr const char* kCVarMapShowAll = M64_CVAR("MapShowAll");
+// Shots fly on past the original screen's edge (game/Options.h). On by default.
+constexpr const char* kCVarShotsPastEdge = M64_CVAR("ShotsPastEdge");
 constexpr const char* kCVarVolume = M64_CVAR("Volume");
 constexpr const char* kCVarMute = M64_CVAR("Mute");
 

@@ -4,6 +4,7 @@
 
 #include "Menu.h"
 #include "game/AllActive.h"
+#include "game/Present.h"
 #include "game/data/Data.h"
 
 #include <algorithm>
@@ -908,12 +909,27 @@ void Renderer::DrawSprites(Gfx*& g, const GameView& emu, bool hudPass, bool hide
     bool tall = emu.PpuCtrl() & 0x20;
     std::map<const uint8_t*, std::vector<Quad>> groups;
 
+    // The sprites on screen, then (not on the HUD pass) those drawn outside it (Present::gExtraSprites).
+    struct Spr {
+        int y, x;
+        uint8_t tile, attr;
+        SpriteTag tag;
+    };
+    std::vector<Spr> sprites;
     for (int i = 0; i < 64; i++) {
         const uint8_t* o = &oam[i * 4];
-        if (o[0] >= 0xEF) {
-            continue;
+        if (o[0] < 0xEF) {
+            sprites.push_back({ o[0], o[3], o[1], o[2], tags[i] });
         }
-        SpriteOwner owner = tags[i].owner;
+    }
+    if (!hudPass) {
+        for (const auto& e : Game::Present::gExtraSprites) {
+            sprites.push_back({ e.y, e.x, e.tile, e.attr, { SpriteOwner::Projectile, 0 } });
+        }
+    }
+    for (const Spr& sp : sprites) {
+        const SpriteTag* tag = &sp.tag;
+        SpriteOwner owner = tag->owner;
         if ((owner == SpriteOwner::Hud) != hudPass || (hideSamus && owner == SpriteOwner::Samus)) {
             continue;
         }
@@ -921,7 +937,7 @@ void Renderer::DrawSprites(Gfx*& g, const GameView& emu, bool hudPass, bool hide
         if (Game::AllActive::Active() && (owner == SpriteOwner::Scenery || owner == SpriteOwner::Item)) {
             continue;
         }
-        uint8_t attr = o[2];
+        uint8_t attr = sp.attr;
         uint8_t pal4[4] = { 0, pal[16 + (attr & 3) * 4 + 1], pal[16 + (attr & 3) * 4 + 2],
                             pal[16 + (attr & 3) * 4 + 3] };
         // Depth per kind of sprite, so overlapping sprites don't fight; priority sprites go behind
@@ -943,20 +959,20 @@ void Renderer::DrawSprites(Gfx*& g, const GameView& emu, bool hudPass, bool hide
         if (owner == SpriteOwner::Samus) {
             mx = MotionX(emu.SamusMotion());
             my = MotionY(emu.SamusMotion());
-        } else if (owner == SpriteOwner::Enemy && tags[i].slot < 0x60 && (tags[i].slot & 0x0F) == 0) {
-            mx = MotionX(emu.EnemyMotion(tags[i].slot >> 4));
-            my = MotionY(emu.EnemyMotion(tags[i].slot >> 4));
+        } else if (owner == SpriteOwner::Enemy && tag->slot < 0x60 && (tag->slot & 0x0F) == 0) {
+            mx = MotionX(emu.EnemyMotion(tag->slot >> 4));
+            my = MotionY(emu.EnemyMotion(tag->slot >> 4));
         }
         for (int part = 0; part < parts; part++) {
             uint16_t pat;
             if (tall) {
                 int half = vflip ? 1 - part : part;
-                pat = ((o[1] & 1) ? 0x1000 : 0) + (o[1] & 0xFE) * 16 + half * 16;
+                pat = ((sp.tile & 1) ? 0x1000 : 0) + (sp.tile & 0xFE) * 16 + half * 16;
             } else {
-                pat = ((emu.PpuCtrl() & 0x08) ? 0x1000 : 0) + o[1] * 16;
+                pat = ((emu.PpuCtrl() & 0x08) ? 0x1000 : 0) + sp.tile * 16;
             }
-            float x0 = o[3] + mx, x1 = x0 + 8;
-            float yt = -(float)(o[0] + 1 + part * 8) - my, yb = yt - 8;
+            float x0 = sp.x + mx, x1 = x0 + 8;
+            float yt = -(float)(sp.y + 1 + part * 8) - my, yb = yt - 8;
             int s0 = hflip ? 8 : 0, s1 = 8 - s0;
             int t0 = vflip ? 8 : 0, t1 = 8 - t0; // t at the top edge, then the bottom edge
             Quad q;

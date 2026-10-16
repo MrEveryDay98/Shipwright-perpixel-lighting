@@ -193,6 +193,10 @@ void Menu::DrawGraphicsMenu() {
     CVarCheckbox("Smooth model animation", kCVarSmoothAnimation, true);
     ImGui::SetItemTooltip("Models blend from one animation into the next and turn around instead of "
                           "switching at once, like the original's sprites do.");
+    CVarCheckbox("Shots fly past the screen edge", kCVarShotsPastEdge, true);
+    ImGui::SetItemTooltip("The original removes Samus's shots the moment they leave its screen, which the "
+                          "wider view shows. With this they fly on into the rest of the view and can hit "
+                          "what's there.");
     CVarCheckbox("No sprite flicker", kCVarNoFlicker, true);
     ImGui::SetItemTooltip(
         "The original draws the elevator, a blinking statue and Samus appearing only every other frame, "

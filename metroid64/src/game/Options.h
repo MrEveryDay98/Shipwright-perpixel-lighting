@@ -12,4 +12,11 @@ namespace Game::Options {
 // something).
 extern bool gNoFlicker;
 
+// Shots past the screen edge: the original removes Samus's shots as soon as they leave its 256x240 screen,
+// which the wider 3D view shows. With this they fly on up to kPastEdge pixels further, as long as the room
+// there is the one the game has loaded on that name table (so they hit its walls), and are drawn there
+// (Present::gExtraSprites).
+extern bool gShotsPastEdge;
+constexpr int kPastEdge = 160;
+
 } // namespace Game::Options

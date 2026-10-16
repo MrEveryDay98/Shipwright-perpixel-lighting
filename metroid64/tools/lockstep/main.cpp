@@ -27,6 +27,9 @@
 //                                doors), and the frames that took more than one NMI while playing
 //     --save-test <n>            (with --solo) saves the game (game/SaveState.h) after n frames, plays on,
 //                                loads it, plays the same frames again and checks the game ends up the same
+//     --shots-past-edge          (with --solo) shots fly past the screen edge (game/Options.h); counts
+//                                the frames with shots drawn there
+//     --write-save <file>        (with --solo) writes a saved game (game/SaveState.h) at the end, for the app
 //     --no-flicker               (with --solo) no sprite flicker (game/Options.h)
 //     --check-lag                also compares at the frames where the original lagged and prints the
 //                                differences without failing (a few are expected: the original ran extra
@@ -456,6 +459,7 @@ int main(int argc, char** argv) {
     bool allActive = false;
     bool solo = false;
     int saveTest = -1;
+    const char* writeSave = nullptr;
     for (int i = 2; i < argc; i += 2) {
         std::string opt = argv[i];
         if (opt == "--all-active") {
@@ -466,6 +470,15 @@ int main(int argc, char** argv) {
         if (opt == "--solo") {
             solo = true;
             i--;
+            continue;
+        }
+        if (opt == "--shots-past-edge") {
+            Game::Options::gShotsPastEdge = true;
+            i--;
+            continue;
+        }
+        if (opt == "--write-save" && i + 1 < argc) {
+            writeSave = argv[i + 1];
             continue;
         }
         if (opt == "--no-flicker") {
@@ -674,7 +687,7 @@ int main(int argc, char** argv) {
         return same ? 0 : 1;
     }
     if (solo) {
-        int playing = 0, samusHidden = 0, lagged = 0;
+        int playing = 0, samusHidden = 0, lagged = 0, pastEdge = 0;
         for (int n = 0; n < frames; n++) {
             for (const auto& [a, v] : pokes) {
                 Game::Mem(a) = v;
@@ -683,6 +696,7 @@ int main(int argc, char** argv) {
             int nmis = Game::RunFrame();
             frame += std::max(nmis, 1);
             lagged += nmis > 1 && Game::Vars::MainRoutine == 0x03 ? 1 : 0;
+            pastEdge += Game::Present::gExtraBuffer.empty() ? 0 : 1;
             // Playing (MainRoutine 3) or Samus appearing (8, once the fade lets her show: Timer3 below $1F),
             // Samus alive and not blinking after a hit ($77 bit 7).
             bool appearing = Game::Vars::MainRoutine == 0x08 && Game::Vars::Timer3 < 0x1F;
@@ -704,6 +718,18 @@ int main(int argc, char** argv) {
                "bank %d\n",
                frames, playing, samusHidden, lagged, (uint8_t)Game::Vars::GameMode, (uint8_t)Game::Vars::MainRoutine,
                Game::Hw::gPrgBank);
+        if (Game::Options::gShotsPastEdge) {
+            printf("PAST-EDGE: shots drawn past the screen edge in %d frames\n", pastEdge);
+        }
+        if (writeSave != nullptr) {
+            std::string data = Game::SaveState::Capture();
+            FILE* f = fopen(writeSave, "wb");
+            if (f == nullptr || fwrite(data.data(), 1, data.size(), f) != data.size()) {
+                printf("couldn't write %s\n", writeSave);
+                return 1;
+            }
+            fclose(f);
+        }
         return 0;
     }
     if (allActive) {

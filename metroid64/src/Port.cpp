@@ -86,6 +86,7 @@ void Port::Tick(uint8_t buttons) {
     }
     Game::AllActive::gEnabled = CVarGetInteger(kCVarOutsideView, 0) == 2;
     Game::Options::gNoFlicker = CVarGetInteger(kCVarNoFlicker, 1) != 0;
+    Game::Options::gShotsPastEdge = CVarGetInteger(kCVarShotsPastEdge, 1) != 0;
     Game::AllActive::BeforeFrame();
     int nmis = std::max(Game::RunFrame(), 1);
     mFrame++;

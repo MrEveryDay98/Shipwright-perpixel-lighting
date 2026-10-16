@@ -1171,6 +1171,7 @@ void ClearScreenData() {
 void UpdateWorld() {
     using Present::Owner;
     SpritePagePos = 0; // sprites are built from $0200 up
+    Present::gExtraBuffer.clear();
     uint8_t p = SpritePagePos;
     UpdateEnemies(); // DrawEnemy tags each enemy's sprites
     p = SpritePagePos;

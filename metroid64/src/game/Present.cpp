@@ -7,6 +7,8 @@ namespace Game::Present {
 
 Tag gBufferTags[64];
 Tag gOamTags[64];
+std::vector<ExtraSprite> gExtraBuffer;
+std::vector<ExtraSprite> gExtraSprites;
 
 void TagSprites(uint8_t from, Owner owner, uint8_t slot) {
     uint8_t to = Vars::SpritePagePos;
@@ -29,6 +31,7 @@ void OnSpriteDma() {
     for (int i = 0; i < 64; i++) {
         gOamTags[i] = gBufferTags[i];
     }
+    gExtraSprites = gExtraBuffer;
 }
 
 RoomTag gRooms[2];

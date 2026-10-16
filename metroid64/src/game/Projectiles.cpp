@@ -8,6 +8,7 @@
 #include "game/Objects.h"
 #include "game/Options.h"
 #include "game/Original.h"
+#include "game/Present.h"
 #include "game/Ram.h"
 #include "game/Samus.h"
 
@@ -185,9 +186,52 @@ void ExplodeProjectile(uint8_t x) {
 // $D5FC
 void KillIfOffScreen() {
     uint8_t x = PageIndex;
-    if (!(ObjectOnScreen[x] & 0x01)) {
+    int rx = 0, ry = 0;
+    if (!(ObjectOnScreen[x] & 0x01) && !(Options::gShotsPastEdge && PastEdgePosition(x, rx, ry))) {
         ObjAction[x] = 0;
     }
+}
+
+// Not part of the original (Options::gShotsPastEdge): where object x is relative to the screen's top-left,
+// if it is outside the screen by at most kPastEdge pixels along the scrolling and the name table it is on
+// holds the map screen that is really there.
+bool PastEdgePosition(uint8_t x, int& rx, int& ry) {
+    bool horizontal = ScrollDir & 0x02;
+    int span = horizontal ? 256 : 240;
+    int page = PPUCNT0ZP & 0x01; // the name table the screen starts on
+    int scroll = horizontal ? ScrollX : ScrollY;
+    int pos = (ObjectHi[x] & 0x01) == page ? (horizontal ? ObjectX[x] : ObjectY[x])
+                                            : (horizontal ? ObjectX[x] : ObjectY[x]) + span;
+    // Relative to the screen's edge, the nearer way round the two name tables.
+    int r = pos - scroll;
+    if (r >= span + span / 2) {
+        r -= 2 * span;
+    }
+    if (r < -span / 2) {
+        r += 2 * span;
+    }
+    if (r >= -Options::kPastEdge && r < span + Options::kPastEdge) {
+        // Map screen expected there: the one the screen starts on, or the next or previous one.
+        int k = (scroll + r) >= span ? 1 : (scroll + r) < 0 ? -1 : 0;
+        const Present::RoomTag& start = Present::gRooms[page];
+        const Present::RoomTag& here = Present::gRooms[ObjectHi[x] & 0x01];
+        if (!start.valid || !here.valid) {
+            return false;
+        }
+        int ex = start.mapX + (horizontal ? k : 0), ey = start.mapY + (horizontal ? 0 : k);
+        if (here.mapX != ex || here.mapY != ey) {
+            return false;
+        }
+        if (horizontal) {
+            rx = r;
+            ry = (uint8_t)(ObjectY[x] - ScrollY);
+        } else {
+            ry = r;
+            rx = (uint8_t)(ObjectX[x] - ScrollX);
+        }
+        return true;
+    }
+    return false;
 }
 
 // $D609: moves the projectile, or hits the tile in its way. Returns the carry: set when it moved.

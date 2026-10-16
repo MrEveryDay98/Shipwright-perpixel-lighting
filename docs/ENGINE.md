@@ -134,6 +134,18 @@ from the room's door entries (palette 1 and 3 are blue, the others need missiles
 power-ups from the special items table. A red door that was opened and a power-up that was taken are found in
 the item history the way `CheckForItem` looks (`CreateItemID`'s ID).
 
+## Shots past the screen edge
+
+The original removes Samus's shots as soon as they leave its 256x240 screen (`KillIfOffScreen`), which the
+wider 3D view shows. With Graphics > View > **Shots fly past the screen edge** (on by default;
+`Options::gShotsPastEdge`) a shot outside the screen lives on, up to 160 pixels past it along the scrolling,
+as long as the name table it is on holds the map screen that is really there (`PastEdgePosition`, from the room
+tags): then it moves through that room's tiles, so it hits its walls and blocks, and the game's enemies there.
+Where the game hasn't loaded the next room yet (it loads it while scrolling towards it), the shot is removed as
+before. Such shots are drawn into `Present::gExtraBuffer` (in screen pixels, outside 0-255) instead of sprite
+RAM, and the renderer draws those with the sprites. The lockstep tool's `--solo --shots-past-edge` counts the
+frames with shots out there.
+
 ## No sprite flicker
 
 Graphics > View > **No sprite flicker** (on by default; `game/Options.h`) draws every frame what the

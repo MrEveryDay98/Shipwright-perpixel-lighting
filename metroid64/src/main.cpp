@@ -381,6 +381,9 @@ int main(int argc, char** argv) {
     int ticks = 0;
     // Stops the game at this tick (for comparing screenshots).
     int freezeAt = getenv("METROID64_FREEZE_AT") ? atoi(getenv("METROID64_FREEZE_AT")) : -1;
+    // Loads the saved game at this tick (for tests that start from a state, e.g. one the lockstep tool's
+    // --write-save made).
+    int loadAt = getenv("METROID64_LOAD_AT") ? atoi(getenv("METROID64_LOAD_AT")) : -1;
 
     // The NES runs at a fixed 60 Hz; frames in between are interpolated.
     using Clock = std::chrono::steady_clock;
@@ -414,6 +417,9 @@ int main(int argc, char** argv) {
                 if (ticks == freezeAt) {
                     sFrozen = true;
                     return;
+                }
+                if (ticks == loadAt) {
+                    sGame->LoadGame();
                 }
                 sGame->Tick(input.Take() | scripted);
                 ticks++;

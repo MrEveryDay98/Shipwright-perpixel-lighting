@@ -6,6 +6,7 @@
 // and after it runs.
 
 #include <cstdint>
+#include <vector>
 
 namespace Game::Present {
 
@@ -26,6 +27,15 @@ void TagSprites(uint8_t from, Owner owner, uint8_t slot = 0);
 void UntagRest();
 // The sprite DMA copied sprite RAM to the screen.
 void OnSpriteDma();
+
+// Sprites drawn outside the original screen (Options::gShotsPastEdge), in screen pixels (x right, y down
+// from its top-left; outside 0-255 / 0-239), built like sprite RAM and shown at the sprite DMA.
+struct ExtraSprite {
+    int x = 0, y = 0;
+    uint8_t tile = 0, attr = 0;
+};
+extern std::vector<ExtraSprite> gExtraBuffer;
+extern std::vector<ExtraSprite> gExtraSprites;
 
 // Which room of the world map is drawn in each half of the name tables: room RAM A ($6000, name table
 // page 0) and B ($6400, page 1). Custom geometry for a room replaces its tiles while it is on screen.
