@@ -142,8 +142,9 @@ within 4 of its floor; pressing Up there saves. The renderer draws them in their
 The app (`Port`) saves while the game is paused in play (MainRoutine 5), not during the escape, writing
 `metroid64.sav` through a temporary file. When the game reaches game over (MainRoutine 4, after the death
 animation) and a save exists, it loads the save instead (Game > "After dying, go back to the save"). The sound
-chip is reset on a load (the game is paused, so it is silent anyway), and the presentation starts over
-(`GameView::Generation`). With Everything active on, the section's roster is built again after a load, so its
+chip is set up again on a load from the sound registers the game last wrote (`Hw::gApuRegs`, kept in the save:
+channels on first, then each channel's registers), so the music goes on; the presentation starts over
+(`GameView::Generation`) with the room shown at once. With Everything active on, the section's roster is built again after a load, so its
 enemies are back where their rooms place them.
 
 ## The map

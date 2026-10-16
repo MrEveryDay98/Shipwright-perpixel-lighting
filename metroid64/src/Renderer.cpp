@@ -487,6 +487,7 @@ void Renderer::UpdateSection(const GameView& emu) {
         mSection = SectionView{};
         mOutgoing = SectionView{};
         mInDoor = false;
+        mSnapSection = true; // the room shows at once, not fading in as through a door
         mSamusAnim = 0xFF;
         mSamusModel = nullptr;
     }
@@ -556,7 +557,8 @@ void Renderer::UpdateSection(const GameView& emu) {
         }
     }
     if (mSection.valid) {
-        mSection.fade = std::min(1.0f, mSection.fade + step);
+        mSection.fade = mSnapSection ? 1.0f : std::min(1.0f, mSection.fade + step);
+        mSnapSection = false;
     }
     AnchorSection(emu, mSection, inDoor ? mDoorDir : 0);
     AnchorSection(emu, mOutgoing);

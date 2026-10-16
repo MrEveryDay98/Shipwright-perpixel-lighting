@@ -57,6 +57,8 @@ void SetMmcControl(uint8_t value);
 
 // APU registers $4000-$4013, $4015, $4017.
 void ApuWrite(uint16_t reg, uint8_t v);
+// The last value written to each of $4000-$4017 (for saved games: the sound chip is set up again from them).
+extern uint8_t gApuRegs[0x18];
 uint8_t ApuStatus();
 // Receives APU writes (the audio output); may be null.
 using ApuSink = void (*)(uint16_t reg, uint8_t v);

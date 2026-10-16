@@ -15,7 +15,8 @@ bool CanSave();
 // The game's memory, picture memory and mapper state, the presentation's bookkeeping (Present.h) and the
 // map's visited screens (Explored.h).
 std::string Capture();
-// Puts a Capture back. False (and nothing changed) if the data isn't one. "Everything active" builds
+// Puts a Capture back. False (and nothing changed) if the data isn't one. The sound registers last written
+// come back in Hw::gApuRegs; the app sets its sound chip up from them. "Everything active" builds
 // the section's roster again, so the section's enemies are back where their rooms place them.
 bool Restore(const std::string& data);
 

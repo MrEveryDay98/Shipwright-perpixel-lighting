@@ -139,7 +139,12 @@ void SetMmcControl(uint8_t value) {
     gVideo.mirroring = value & 3;
 }
 
+uint8_t gApuRegs[0x18] = {};
+
 void ApuWrite(uint16_t reg, uint8_t v) {
+    if (reg >= 0x4000 && reg < 0x4018) {
+        gApuRegs[reg - 0x4000] = v;
+    }
     if (sApuSink != nullptr) {
         sApuSink(reg, v);
     }

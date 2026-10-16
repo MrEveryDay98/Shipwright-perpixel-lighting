@@ -14,8 +14,9 @@ namespace Game::SaveState {
 namespace {
 
 constexpr char kMagic[4] = { 'M', '6', '4', 'S' };
-// 1: the game; 2: and the map's visited screens and their scrolling (Explored.h).
-constexpr uint8_t kVersion = 2;
+// 1: the game; 2: and the map's visited screens and their scrolling (Explored.h); 3: and the sound
+// registers last written.
+constexpr uint8_t kVersion = 3;
 
 void Put(std::string& out, const void* p, size_t n) {
     out.append((const char*)p, n);
@@ -88,6 +89,7 @@ std::string Capture() {
     uint8_t visited[Explored::kBytes];
     Explored::Get(visited);
     Put(out, visited, sizeof(visited));
+    Put(out, Hw::gApuRegs, sizeof(Hw::gApuRegs));
     return out;
 }
 
@@ -135,6 +137,13 @@ bool Restore(const std::string& data) {
     if (version >= 2) {
         r.Get(visited, sizeof(visited));
     }
+    // Saves from before version 3 have no sound registers: all channels on is the nearest (the game turns
+    // them on when music starts).
+    uint8_t apu[sizeof(Hw::gApuRegs)] = {};
+    apu[0x15] = 0x0F;
+    if (version >= 3) {
+        r.Get(apu, sizeof(apu));
+    }
     if (!r.ok || r.p != data.size()) {
         return false;
     }
@@ -147,6 +156,7 @@ bool Restore(const std::string& data) {
     memcpy(Present::gBufferTags, bufferTags, sizeof(bufferTags));
     memcpy(Present::gOamTags, oamTags, sizeof(oamTags));
     Explored::Set(visited);
+    memcpy(Hw::gApuRegs, apu, sizeof(apu));
     AllActive::Reset();
     return true;
 }

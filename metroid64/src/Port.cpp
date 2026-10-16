@@ -194,7 +194,14 @@ bool Port::LoadGame() {
         SPDLOG_ERROR("{} is not a saved game", mSavePath);
         return false;
     }
+    // The sound chip as the game had set it: channels on ($4015) first, then each channel's registers (the
+    // length registers start their notes again), then the frame counter.
     mApu.Reset();
+    mApu.Write(0x4015, Game::Hw::gApuRegs[0x15]);
+    for (uint16_t reg = 0x4000; reg <= 0x4013; reg++) {
+        mApu.Write(reg, Game::Hw::gApuRegs[reg - 0x4000]);
+    }
+    mApu.Write(0x4017, Game::Hw::gApuRegs[0x17]);
     ResetView();
     mLagTicks = 0;
     mSavedAt = -1;

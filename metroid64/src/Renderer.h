@@ -114,6 +114,7 @@ class Renderer {
     int mDoorDir = 0;
     uint64_t mSectionFrame = 0;
     uint32_t mGeneration = 0; // of the game's state the sections follow (GameView::Generation)
+    bool mSnapSection = false; // the next section shows at once (the game's state was replaced)
 
     // The original picture, for 2D screens: 4x4 textures of 64x64 (one texture load each).
     std::array<std::unique_ptr<uint8_t[]>, 16> mFrameTex;
