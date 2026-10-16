@@ -31,6 +31,7 @@ class Hud : public Ship::GuiWindow {
     struct PauseMenu {
         std::function<bool()> paused, canSave;
         std::function<bool()> playing; // in play (not paused): the minimap shows
+        std::function<bool()> onSavePoint;
         std::function<void()> save;
         std::function<int64_t()> ticksSinceSave;
     };

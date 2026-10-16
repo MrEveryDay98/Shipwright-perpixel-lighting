@@ -3,6 +3,7 @@
 #include "GameData.h"
 #include "Menu.h"
 #include "Picture.h"
+#include "SavePoints.h"
 
 #include "game/Game.h"
 #include "game/Hw.h"
@@ -15,6 +16,7 @@
 #include "game/SaveState.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <libultraship/bridge/consolevariablebridge.h>
 #include <filesystem>
 #include <fstream>
@@ -46,7 +48,11 @@ Port::Port() : mApu([](uint16_t addr) { return Game::Read(addr); }) {
 }
 
 bool Port::LoadGameData(std::string& error) {
-    return Metroid::LoadGameData(error);
+    if (!Metroid::LoadGameData(error)) {
+        return false;
+    }
+    LoadSavePoints();
+    return true;
 }
 
 void Port::PowerOn() {
@@ -87,12 +93,26 @@ void Port::Tick(uint8_t buttons) {
     Game::AllActive::gEnabled = CVarGetInteger(kCVarOutsideView, 0) == 2;
     Game::Options::gNoFlicker = CVarGetInteger(kCVarNoFlicker, 1) != 0;
     Game::Options::gShotsPastEdge = CVarGetInteger(kCVarShotsPastEdge, 1) != 0;
+    Game::Options::gNoPasswords = true; // the app saves the game instead
     Game::AllActive::BeforeFrame();
     int nmis = std::max(Game::RunFrame(), 1);
     mFrame++;
     mLagTicks = nmis - 1;
     mApu.Clock(kCpuCyclesPerFrame);
     Game::Explored::Update();
+    // CONTINUE on the START/CONTINUE screen: the saved game, if there is one.
+    if (Game::Options::gContinueRequested) {
+        Game::Options::gContinueRequested = false;
+        if (HasSave()) {
+            LoadGame();
+            return;
+        }
+    }
+    // Up on a save point saves.
+    constexpr uint8_t kUp = 0x10;
+    if ((buttons & kUp) && !(mPrevButtons & kUp) && SavePointHere() != nullptr) {
+        WriteSave();
+    }
     for (int i = 0; i < 64; i++) {
         mOamTags[i] = { (SpriteOwner)Game::Present::gOamTags[i].owner, Game::Present::gOamTags[i].slot };
     }
@@ -110,13 +130,33 @@ bool Port::Playing() const {
 }
 
 bool Port::CanSave() const {
-    return !mSavePath.empty() && Game::SaveState::CanSave();
+    return !mSavePath.empty() && CVarGetInteger(kCVarPauseSave, 1) != 0 && Game::SaveState::CanSave();
+}
+
+const SavePoint* Port::SavePointHere() const {
+    using namespace Game::Vars;
+    if (mSavePath.empty() || !Playing() || (uint8_t)(EndTimerHi + 1) != 0) {
+        return nullptr; // (not during the escape, like saving from the pause screen)
+    }
+    int mx = 0, my = 0;
+    if (!Game::Explored::SamusScreen(mx, my)) {
+        return nullptr;
+    }
+    int feet = ObjectY + ObjRadY;
+    for (const SavePoint& p : SavePoints()) {
+        if (p.bank == Game::Hw::gPrgBank && p.mapX == mx && p.mapY == my &&
+            std::abs((int)ObjectX - p.x) <= kSavePointHalfWidth && std::abs(feet - p.y) <= kSavePointFloorSlack) {
+            return &p;
+        }
+    }
+    return nullptr;
 }
 
 bool Port::SaveGame() {
-    if (!CanSave()) {
-        return false;
-    }
+    return CanSave() && WriteSave();
+}
+
+bool Port::WriteSave() {
     std::string data = Game::SaveState::Capture();
     std::string tmp = mSavePath + ".tmp";
     {
@@ -156,6 +196,16 @@ bool Port::LoadGame() {
     ResetView();
     mLagTicks = 0;
     mSavedAt = -1;
+    // Buttons held now (e.g. the Start that chose CONTINUE) count as held already, not as new presses. The
+    // game keeps them as the NES reads them: A in bit 7 ... Right in bit 0.
+    uint8_t held = 0;
+    for (int i = 0; i < 8; i++) {
+        if (mButtons & (1 << i)) {
+            held |= (uint8_t)(0x80 >> i);
+        }
+    }
+    Game::Vars::Joy1Status = held;
+    Game::Vars::Joy1Change = 0;
     SPDLOG_INFO("Loaded the game from {}", mSavePath);
     return true;
 }

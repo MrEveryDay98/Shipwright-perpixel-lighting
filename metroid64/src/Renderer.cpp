@@ -1,6 +1,7 @@
 #include "Renderer.h"
 
 #include "Picture.h"
+#include "SavePoints.h"
 
 #include "Menu.h"
 #include "game/AllActive.h"
@@ -847,6 +848,66 @@ void Renderer::DrawOffscreenEnemies(Gfx*& g, const GameView& emu) {
     }
 }
 
+void Renderer::DrawSavePoints(Gfx*& g, const GameView& emu) {
+    // Save points (SavePoints.h) of the section on screen: a pad on the floor and a beam of light over it.
+    int sx = 0, sy = 0;
+    if (SavePoints().empty() || !mSection.valid || !SectionScreenOrigin(emu, mSection, sx, sy)) {
+        return;
+    }
+    const Game::Data::Section& s = mSection.section;
+    // Coloured quads: corners clockwise from the bottom left.
+    auto quad = [&](const float (&p)[4][3], uint8_t r, uint8_t gr, uint8_t b, uint8_t a) {
+        if (mFrameVtx.size() + 4 > mFrameVtx.capacity() || g + 8 >= mFrameEnd) {
+            return;
+        }
+        Vtx* base = mFrameVtx.data() + mFrameVtx.size();
+        for (const auto& c : p) {
+            Vtx v;
+            SetVtx(v, c[0], c[1], c[2], 0, 0, 0);
+            v.v.cn[0] = r;
+            v.v.cn[1] = gr;
+            v.v.cn[2] = b;
+            v.v.cn[3] = a;
+            mFrameVtx.push_back(v);
+        }
+        gSPVertex(g++, base, 4, 0);
+        gSP2Triangles(g++, 0, 1, 2, 0, 0, 2, 3, 0);
+    };
+    float pulse = 0.5f + 0.5f * std::sin((float)emu.FrameCount() * 0.1f);
+    gDPPipeSync(g++);
+    gSPTexture(g++, 0, 0, 0, G_TX_RENDERTILE, G_OFF);
+    gDPSetCombineMode(g++, G_CC_SHADE, G_CC_SHADE);
+    for (const SavePoint& p : SavePoints()) {
+        if (p.bank != mSection.section.bank) {
+            continue;
+        }
+        int screen = -1;
+        for (int i = 0; i < s.length; i++) {
+            if (s.ScreenX(i) == p.mapX && s.ScreenY(i) == p.mapY) {
+                screen = i;
+            }
+        }
+        if (screen < 0) {
+            continue;
+        }
+        float cx = (float)((s.horizontal ? screen * 256 : 0) + p.x - sx);
+        float fy = -(float)((s.horizontal ? 0 : screen * 240) + p.y - sy); // the floor (y up)
+        const float w = 16, h = 3, d = 10;
+        gDPSetRenderMode(g++, G_RM_ZB_OPA_SURF, G_RM_ZB_OPA_SURF2);
+        float top[4][3] = { { cx - w, fy + h, d }, { cx + w, fy + h, d }, { cx + w, fy + h, -d }, { cx - w, fy + h, -d } };
+        quad(top, 120, 230, 255, 255);
+        float front[4][3] = { { cx - w, fy, d }, { cx + w, fy, d }, { cx + w, fy + h, d }, { cx - w, fy + h, d } };
+        quad(front, 40, 110, 170, 255);
+        gDPPipeSync(g++);
+        gDPSetRenderMode(g++, G_RM_ZB_XLU_SURF, G_RM_ZB_XLU_SURF2);
+        uint8_t a = (uint8_t)(50 + 60 * pulse);
+        float beam[4][3] = { { cx - 11, fy + h, 0 }, { cx + 11, fy + h, 0 }, { cx + 11, fy + 44, 0 }, { cx - 11, fy + 44, 0 } };
+        quad(beam, 120, 220, 255, a);
+        gDPPipeSync(g++);
+    }
+    SetTexturedState(g, true);
+}
+
 void Renderer::DrawOutsideFog(Gfx*& g) {
     // Darkness over everything outside the original screen (0..256 x 0..240), in front of the blocks,
     // fading in over a few pixels from its edge.
@@ -1156,6 +1217,7 @@ Gfx* Renderer::BuildFrame(const GameView& emu, float alpha) {
         }
 
         DrawOffscreenEnemies(g, emu);
+        DrawSavePoints(g, emu);
         if (CVarGetInteger(kCVarOutsideView, 0) == 0) {
             DrawOutsideFog(g);
         }

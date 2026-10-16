@@ -68,6 +68,14 @@ void Hud::Draw() {
     }
     if (paused) {
         DrawPauseMenu(scale);
+    } else if (mPause.playing && mPause.playing()) {
+        int64_t since = mPause.ticksSinceSave ? mPause.ticksSinceSave() : -1;
+        float y = vp->Pos.y + vp->Size.y * 0.82f;
+        if (since >= 0 && since < 120) {
+            CenteredText(dl, big, y, IM_COL32(120, 255, 140, 255), "GAME SAVED");
+        } else if (mPause.onSavePoint && mPause.onSavePoint()) {
+            CenteredText(dl, big, y, IM_COL32(120, 220, 255, 255), "SAVE POINT  -  UP: SAVE");
+        }
     }
 }
 

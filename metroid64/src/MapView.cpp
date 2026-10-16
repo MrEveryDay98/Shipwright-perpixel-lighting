@@ -1,6 +1,7 @@
 #include "MapView.h"
 
 #include "Menu.h"
+#include "SavePoints.h"
 
 #include "game/Explored.h"
 #include "game/Hw.h"
@@ -25,6 +26,7 @@ const ImU32 kWall = IM_COL32(255, 255, 255, 255);
 const ImU32 kBlueDoor = IM_COL32(80, 150, 255, 255);
 const ImU32 kRedDoor = IM_COL32(255, 70, 60, 255);
 const ImU32 kItemDot = IM_COL32(255, 255, 255, 255);
+const ImU32 kSaveFill = IM_COL32(40, 150, 230, 255);
 const ImU32 kGrid = IM_COL32(40, 60, 120, 120);
 const ImU32 kBackground = IM_COL32(8, 10, 40, 230);
 
@@ -148,6 +150,17 @@ void MapView::DrawCell(ImDrawList* dl, int x, int y, ImVec2 p, float size, bool 
         }
     }
     float cx = p.x + size * 0.5f, cy = p.y + size * 0.5f;
+    for (const SavePoint& sp : SavePoints()) {
+        if (sp.bank == c.bank && sp.mapX == x && sp.mapY == y) {
+            // A save point: Super Metroid's "S" square.
+            float s = size * 0.3f;
+            dl->AddRectFilled(ImVec2(cx - s, cy - s), ImVec2(cx + s, cy + s), kSaveFill, size * 0.06f);
+            float fs = size * 0.5f;
+            ImVec2 ext = ImGui::GetFont()->CalcTextSizeA(fs, FLT_MAX, 0.0f, "S");
+            dl->AddText(ImGui::GetFont(), fs, ImVec2(cx - ext.x * 0.5f, cy - ext.y * 0.5f), kWall, "S");
+            return;
+        }
+    }
     if (c.elevator) {
         float s = size * 0.22f;
         dl->AddTriangleFilled(ImVec2(cx, cy - s * 1.6f), ImVec2(cx - s, cy - s * 0.3f), ImVec2(cx + s, cy - s * 0.3f),

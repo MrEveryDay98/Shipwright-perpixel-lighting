@@ -105,6 +105,8 @@ void Menu::DrawGameMenu() {
     if (ImGui::MenuItem("Load saved game", nullptr, false, loaded && mActions.hasSave())) {
         mActions.load();
     }
+    CVarCheckbox("Save anywhere from the pause screen", kCVarPauseSave, true);
+    ImGui::SetItemTooltip("Off: only save points save (stand on one and press Up).");
     CVarCheckbox("After dying, go back to the save", kCVarDeathToSave, true);
     ImGui::SeparatorText("Map");
     CVarCheckbox("Minimap", kCVarMinimap, true);

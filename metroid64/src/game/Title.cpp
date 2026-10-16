@@ -9,6 +9,7 @@
 #include "game/Constants.h"
 #include "game/Engine.h"
 #include "game/Explored.h"
+#include "game/Options.h"
 #include "game/Hw.h"
 #include "game/Original.h"
 #include "game/Ram.h"
@@ -775,6 +776,10 @@ static void ChooseStartCont() {
             InitializeStats();
             return;
         }
+        if (Options::gNoPasswords) {
+            Options::gContinueRequested = true; // not part of the original: the app loads the saved game
+            return;
+        }
         TitleRoutine = 0x17; // LoadPswdScreen
     }
     if (a == BTN_SELECT) {
@@ -1007,6 +1012,10 @@ static void WaitForSTART() {
 
 // $939E GameOver (bank 7 has a GameOver of its own).
 static void TitleGameOver() {
+    if (Options::gNoPasswords) {
+        StartContScrn(); // not part of the original: back to START/CONTINUE instead of the password
+        return;
+    }
     ClearAll();
     PrepPPUProcess_(kGameOverStr & 0xFF, kGameOverStr >> 8);
     InitGFX7();

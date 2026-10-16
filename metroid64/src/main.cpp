@@ -335,6 +335,7 @@ int main(int argc, char** argv) {
     sHud->SetPauseMenu({ []() { return sPlaying && sGame->Paused(); },
                          []() { return sPlaying && sGame->CanSave(); },
                          []() { return sPlaying && sGame->Playing(); },
+                         []() { return sPlaying && sGame->SavePointHere() != nullptr; },
                          []() {
                              if (sPlaying) {
                                  sGame->SaveGame();

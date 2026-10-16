@@ -127,6 +127,17 @@ sprite tags; restoring puts all of it back (about 21 KB). The game keeps nothing
 play after a load is exactly what it was after the save: the lockstep tool's `--solo --save-test <n>` saves
 after n frames, plays on, loads, replays the same input and checks the state comes out the same.
 
+There are no passwords in the app (`Options::gNoPasswords`; the lockstep tool runs with the original's):
+CONTINUE on the START/CONTINUE screen sets `Options::gContinueRequested`, for the app to load the save, instead of
+going to the password screen; game over (`TitleGameOver`) and quitting from the pause screen (`GoPassword`) go
+to the START/CONTINUE screen (`StartContScrn`) instead of showing a password. After a load, the buttons held
+then count as held (`Joy1Status`), so the Start that chose CONTINUE doesn't pause the game.
+
+Save points (`SavePoints.cpp`) come from `metroid64/savepoints.json` in the loaded archives: an area, a map
+screen, and the middle and floor of the save point in that screen's pixels. Samus is on one when she is on that
+screen (`Explored::SamusScreen`), her middle within 12 pixels of its middle and her feet (`ObjectY + ObjRadY`)
+within 4 of its floor; pressing Up there saves. The renderer draws them in their section, the map marks them.
+
 The app (`Port`) saves while the game is paused in play (MainRoutine 5), not during the escape, writing
 `metroid64.sav` through a temporary file. When the game reaches game over (MainRoutine 4, after the death
 animation) and a save exists, it loads the save instead (Game > "After dying, go back to the save"). The sound

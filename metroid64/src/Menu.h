@@ -26,6 +26,8 @@ constexpr const char* kCVarPauseMap = M64_CVAR("PauseMap");
 constexpr const char* kCVarMapShowAll = M64_CVAR("MapShowAll");
 // Shots fly on past the original screen's edge (game/Options.h). On by default.
 constexpr const char* kCVarShotsPastEdge = M64_CVAR("ShotsPastEdge");
+// Saving from the pause screen (anywhere). On by default; save points work either way.
+constexpr const char* kCVarPauseSave = M64_CVAR("PauseSave");
 constexpr const char* kCVarVolume = M64_CVAR("Volume");
 constexpr const char* kCVarMute = M64_CVAR("Mute");
 

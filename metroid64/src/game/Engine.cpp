@@ -1076,7 +1076,8 @@ void PauseMode() {
 }
 
 void GoPassword() {
-    TitleRoutine = 0x19;
+    // Not part of the original with Options::gNoPasswords: the START/CONTINUE screen instead of the password.
+    TitleRoutine = Options::gNoPasswords ? 0x15 : 0x19;
     SwitchPending = 0x01;
     NoiseSFXFlag |= 0x01;
     ScreenOff();

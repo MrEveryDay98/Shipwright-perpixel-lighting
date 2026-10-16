@@ -1,6 +1,7 @@
 #pragma once
 
 #include "GameView.h"
+#include "SavePoints.h"
 #include "nes/Apu.h"
 
 #include <string>
@@ -47,6 +48,8 @@ class Port : public GameView {
     bool Playing() const;
     bool CanSave() const;
     bool SaveGame();
+    // The save point Samus is on (pressing Up saves), or null.
+    const SavePoint* SavePointHere() const;
     bool HasSave() const;
     bool LoadGame();
     // Ticks since the last save, or -1 if none was made since starting (for the "saved" message).
@@ -55,6 +58,8 @@ class Port : public GameView {
     }
 
   private:
+    bool WriteSave();
+
     Nes::Apu mApu;
     uint8_t mButtons = 0, mPrevButtons = 0;
     std::string mSavePath;

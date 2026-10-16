@@ -71,11 +71,19 @@ Bindings saved by an earlier version stay as they were until you press Set Defau
 
 ## Saving
 
-Pause with Start: the pause menu's **Save game** button (or Select) saves where you are, with your energy,
-missiles and items, to `metroid64.sav` next to the game's settings. When Samus dies, the game goes back to
-that save, paused, instead of the game over screen (like Super Metroid; Game → "After dying, go back to the
-save" turns that off). **Game → Load saved game** loads it any time, also after restarting the app. Saving
-isn't possible during the escape. Passwords still work as in the original.
+Metroid64 saves the game instead of using passwords. `metroid64.sav` (next to the game's settings) holds where
+you are, with your energy, missiles and items, and the map.
+
+- **Pause menu:** pause with Start; **Save game** (or Select) saves where you are. Game → "Save anywhere from
+  the pause screen" turns this off, leaving only save points.
+- **Save points:** stand on one and press Up. A mod adds them with `metroid64/savepoints.json` (see
+  [docs/example-mod/savepoint](docs/example-mod/savepoint)); the original game has none, so there are none
+  until a mod or the editor adds them. They're drawn as a glowing pad and shown on the map with an "S".
+- **Continue:** CONTINUE on the START/CONTINUE screen loads the save (Game → Load saved game does too).
+- **Dying:** you go back to the save, paused, like Super Metroid (Game → "After dying, go back to the save");
+  with no save, back to the START/CONTINUE screen.
+- There are no passwords: game over and quitting from the pause screen (A + Up on controller 2) go back to the
+  START/CONTINUE screen. Saving isn't possible during the escape.
 
 ## Map
 

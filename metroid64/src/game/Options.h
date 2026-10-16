@@ -17,6 +17,13 @@ extern bool gNoFlicker;
 // there is the one the game has loaded on that name table (so they hit its walls), and are drawn there
 // (Present::gExtraSprites).
 extern bool gShotsPastEdge;
+
+// No passwords (the app saves the game instead): CONTINUE on the START/CONTINUE screen asks the app to load
+// the saved game (gContinueRequested) instead of showing the password screen, and game over and quitting from
+// the pause screen (A + Up on controller 2) go back to the START/CONTINUE screen instead of showing a
+// password.
+extern bool gNoPasswords;
+extern bool gContinueRequested;
 constexpr int kPastEdge = 160;
 
 } // namespace Game::Options
