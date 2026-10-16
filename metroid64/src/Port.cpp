@@ -7,6 +7,7 @@
 #include "game/Game.h"
 #include "game/Hw.h"
 #include "game/Memory.h"
+#include "game/Options.h"
 #include "game/AllActive.h"
 #include "game/Present.h"
 
@@ -65,6 +66,7 @@ void Port::Tick(uint8_t buttons) {
         return;
     }
     Game::AllActive::gEnabled = CVarGetInteger(kCVarOutsideView, 0) == 2;
+    Game::Options::gNoFlicker = CVarGetInteger(kCVarNoFlicker, 1) != 0;
     Game::AllActive::BeforeFrame();
     int nmis = std::max(Game::RunFrame(), 1);
     mFrame++;
@@ -113,7 +115,7 @@ uint8_t Port::Peek(uint16_t addr) const {
 }
 
 void Port::RenderFrame(uint32_t* out) const {
-    RenderPicture(Game::Hw::gVideo, out);
+    RenderPicture(Game::Hw::gVideo, out, Game::Options::gNoFlicker ? 64 : 8);
 }
 
 } // namespace Metroid

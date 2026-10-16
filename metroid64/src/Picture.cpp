@@ -22,7 +22,7 @@ uint32_t NesColor(uint8_t index) {
 
 // The picture, the way the NES draws it from picture memory: the background scrolled as the game set it
 // (Metroid never changes the scroll mid-picture), then up to 8 sprites a line in front of or behind it.
-void RenderPicture(const Game::Hw::Video& v, uint32_t* out) {
+void RenderPicture(const Game::Hw::Video& v, uint32_t* out, int spritesPerLine) {
     const uint8_t* chr = v.chr;
     int startX = (v.ctrl & 0x01) * 256 + v.scrollX;
     int startY = ((v.ctrl >> 1) & 0x01) * 240 + v.scrollY;
@@ -55,7 +55,7 @@ void RenderPicture(const Game::Hw::Video& v, uint32_t* out) {
         if (v.mask & 0x10) {
             int h = (v.ctrl & 0x20) ? 16 : 8;
             int found = 0;
-            for (int s = 0; s < 64 && found < 8; s++) {
+            for (int s = 0; s < 64 && found < spritesPerLine; s++) {
                 const uint8_t* o = &v.oam[s * 4];
                 int row = line - (o[0] + 1);
                 if (row < 0 || row >= h) {

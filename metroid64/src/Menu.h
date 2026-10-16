@@ -14,6 +14,8 @@ constexpr const char* kCVarDisplay3D = M64_CVAR("Display3D");
 // What the 3D view shows outside the original screen: 0 fog over it, 1 everything without fog, 2 everything
 // without fog and the section's enemies all running (game/AllActive.h).
 constexpr const char* kCVarOutsideView = M64_CVAR("OutsideView");
+// No sprite flicker (game/Options.h). On by default.
+constexpr const char* kCVarNoFlicker = M64_CVAR("NoFlicker");
 constexpr const char* kCVarVolume = M64_CVAR("Volume");
 constexpr const char* kCVarMute = M64_CVAR("Mute");
 

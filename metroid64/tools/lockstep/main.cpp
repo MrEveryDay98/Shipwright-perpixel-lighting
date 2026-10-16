@@ -22,14 +22,19 @@
 //                                it (by default the data goes through the extractor and its XML first)
 //     --all-active               plays the port alone with "everything active" on (game/AllActive.h),
 //                                which changes the game: nothing is compared; it reports how it went
+//     --solo                     plays the port alone (nothing is compared) and reports how often Samus
+//                                wasn't drawn while playing and not hurt; with --no-flicker that is never
+//     --no-flicker               (with --solo) no sprite flicker (game/Options.h)
 //     --check-lag                also compares at the frames where the original lagged and prints the
 //                                differences without failing (a few are expected: the original ran extra
 //                                NMIs, so joypad, sound and sprite bytes differ)
 
 #include "Picture.h"
+#include "game/Constants.h"
 #include "game/Game.h"
 #include "game/Hw.h"
 #include "game/Memory.h"
+#include "game/Options.h"
 #include "game/data/Data.h"
 #include "game/data/Layout.h"
 #include "game/AllActive.h"
@@ -445,10 +450,21 @@ int main(int argc, char** argv) {
     bool picture = false;
     bool rawRom = false;
     bool allActive = false;
+    bool solo = false;
     for (int i = 2; i < argc; i += 2) {
         std::string opt = argv[i];
         if (opt == "--all-active") {
             allActive = true;
+            i--;
+            continue;
+        }
+        if (opt == "--solo") {
+            solo = true;
+            i--;
+            continue;
+        }
+        if (opt == "--no-flicker") {
+            Game::Options::gNoFlicker = true;
             i--;
             continue;
         }
@@ -607,6 +623,37 @@ int main(int argc, char** argv) {
             Game::Mem(a) = v;
         }
     };
+    if (solo) {
+        int playing = 0, samusHidden = 0;
+        for (int n = 0; n < frames; n++) {
+            for (const auto& [a, v] : pokes) {
+                Game::Mem(a) = v;
+            }
+            portFrameButtons = frame;
+            frame += std::max(Game::RunFrame(), 1);
+            // Playing (MainRoutine 3) or Samus appearing (8, once the fade lets her show: Timer3 below $1F),
+            // Samus alive and not blinking after a hit ($77 bit 7).
+            bool appearing = Game::Vars::MainRoutine == 0x08 && Game::Vars::Timer3 < 0x1F;
+            if (Game::Vars::GameMode != 0 || (Game::Vars::MainRoutine != 0x03 && !appearing) ||
+                (Game::Mem(0x77) & 0x80) ||
+                Game::Vars::ObjAction == Game::Const::sa_Dead || Game::Vars::ObjAction == Game::Const::sa_Dead2) {
+                continue;
+            }
+            playing++;
+            bool drawn = false;
+            for (int i = 0; i < 64; i++) {
+                // SamusIntro's sprites aren't tagged (it is not in UpdateWorld), and they are all there is.
+                drawn |= (appearing || Game::Present::gOamTags[i].owner == Game::Present::Owner::Samus) &&
+                         Game::Hw::gVideo.oam[i * 4] < 0xEF;
+            }
+            samusHidden += drawn ? 0 : 1;
+        }
+        printf("SOLO: %d frames, %d playing, Samus not drawn in %d; ended GameMode %02X MainRoutine %02X area "
+               "bank %d\n",
+               frames, playing, samusHidden, (uint8_t)Game::Vars::GameMode, (uint8_t)Game::Vars::MainRoutine,
+               Game::Hw::gPrgBank);
+        return 0;
+    }
     if (allActive) {
         Game::AllActive::gEnabled = true;
         Game::SetNmiHook([&](int nmiIndex) { Game::Hw::gPads[0] = buttonsAt(portFrameButtons + nmiIndex); });

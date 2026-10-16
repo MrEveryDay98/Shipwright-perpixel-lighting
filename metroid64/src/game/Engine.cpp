@@ -11,6 +11,7 @@
 #include "game/Hud.h"
 #include "game/Hw.h"
 #include "game/Items.h"
+#include "game/Options.h"
 #include "game/Original.h"
 #include "game/Present.h"
 #include "game/Ram.h"
@@ -1104,7 +1105,15 @@ void SamusIntro() {
         PalDataPending = y;
     }
     if (!(FrameCount & 1)) {
-        return; // Samus blinks in on odd frames
+        if (!Options::gNoFlicker) {
+            return; // Samus blinks in on odd frames
+        }
+        // No flicker: the same frame again, so the animation keeps its pace.
+        SetSamusAnim(an_SamusFront);
+        SpritePagePos = 0;
+        PageIndex = 0;
+        DrawFrame();
+        return;
     }
     SetSamusAnim(an_SamusFront);
     SpritePagePos = 0;

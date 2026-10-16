@@ -7,6 +7,7 @@
 #include "game/Constants.h"
 #include "game/Engine.h"
 #include "game/Objects.h"
+#include "game/Options.h"
 #include "game/Original.h"
 #include "game/Projectiles.h"
 #include "game/Ram.h"
@@ -56,7 +57,7 @@ void UpdateStatue(uint8_t x) {
     static const uint16_t kStatueFrames = 0xDA3B;
     Mem(0x0363) = Read((uint16_t)(kStatueFrames + (x & 0x01)));
     uint8_t status = Mem((uint16_t)(0x681B + x));
-    if (status != 0 && !(status & 0x80) && !(FrameCount & 0x01)) {
+    if (status != 0 && !(status & 0x80) && !(FrameCount & 0x01) && !Options::gNoFlicker) {
         return; // blinking: only shown on odd frames
     }
     DrawFrame();

@@ -6,6 +6,7 @@
 #include "game/Engine.h"
 #include "game/Enemies.h"
 #include "game/Objects.h"
+#include "game/Options.h"
 #include "game/Original.h"
 #include "game/Ram.h"
 #include "game/Samus.h"
@@ -429,7 +430,7 @@ void ElevatorIdle() {
 }
 
 void ShowElevator() {
-    if (FrameCount & 0x01) {
+    if ((FrameCount & 0x01) || Options::gNoFlicker) {
         DrawFrame();
     }
 }

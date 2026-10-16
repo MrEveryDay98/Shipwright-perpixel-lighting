@@ -173,6 +173,11 @@ void Menu::DrawGraphicsMenu() {
         "and items on that screen, so fog hides them appearing at its edges. Everything active changes "
         "the game: every enemy of the room keeps running wherever it is, and stays dead until you leave "
         "the room.");
+    CVarCheckbox("No sprite flicker", kCVarNoFlicker, true);
+    ImGui::SetItemTooltip(
+        "The original draws the elevator, a blinking statue and Samus appearing only every other frame, "
+        "and the NES shows at most 8 sprites a line. This draws them every frame. Samus still blinks "
+        "after being hurt.");
     CVarSliderFloat("Field of view", M64_CVAR("Camera.Fov"), 30.0f, 90.0f, 52.0f, "%.0f deg");
     CVarSliderFloat("Distance", M64_CVAR("Camera.Distance"), 150.0f, 600.0f, 270.0f, "%.0f");
     CVarSliderFloat("Height", M64_CVAR("Camera.Height"), -60.0f, 160.0f, 30.0f, "%.0f");

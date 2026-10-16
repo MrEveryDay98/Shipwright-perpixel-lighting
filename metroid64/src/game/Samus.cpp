@@ -7,6 +7,7 @@
 #include "game/Enemies.h"
 #include "game/Hw.h"
 #include "game/Objects.h"
+#include "game/Options.h"
 #include "game/Projectiles.h"
 #include "game/Original.h"
 #include "game/Ram.h"
@@ -1006,7 +1007,12 @@ bool SamusElevator() {
         }
     }
     if (!(FrameCount & 0x01)) {
-        return false;
+        if (!Options::gNoFlicker) {
+            return false;
+        }
+        // No flicker: the same frame again, so the animation keeps its pace.
+        SetmirrorCntrlBit();
+        return DrawFrame();
     }
     SetmirrorCntrlBit();
     return AnimDrawObject(0x01);

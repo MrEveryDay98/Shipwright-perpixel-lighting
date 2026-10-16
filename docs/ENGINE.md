@@ -65,6 +65,11 @@ frames earlier. What happens in the game is the same; only the pacing differs.
   horizontal) and fades in while the old one fades out. Elevators and new areas switch the same way.
 - **Outside the original screen**: the game only runs enemies and items on its 256x240 screen, so by
   default the view darkens everything outside it (Graphics > View > Outside the original screen).
+- **Camera**: the scroll at the top of the picture, unwrapped across nametable boundaries and
+  interpolated between game frames.
+- **Without the game's data** (no level loaded) the play field is drawn from the name tables instead.
+- **Sprites**: OAM entries are drawn as flat cards. The game's status display (energy, missiles) is drawn
+  as a 2D overlay.
 
 ## Everything active (an optional way to play)
 
@@ -94,11 +99,18 @@ section Samus is in keeps running, not only those on the two screens the origina
 - Not covered yet: Tourian; enemies from Zeb holes (pipes), which the pipe removes off screen as in the
   original; Memus; enemy shots fired off screen (dropped).
 - With it off nothing of this runs; the lockstep tool's `--all-active` plays the port alone with it on.
-- **Camera**: the scroll at the top of the picture, unwrapped across nametable boundaries and
-  interpolated between game frames.
-- **Without the game's data** (no level loaded) the play field is drawn from the name tables instead.
-- **Sprites**: OAM entries are drawn as flat cards. The game's status display (energy, missiles) is drawn
-  as a 2D overlay.
+
+## No sprite flicker
+
+Graphics > View > **No sprite flicker** (on by default; `game/Options.h`) draws every frame what the
+original only draws every other frame: the elevator and Samus riding it, a statue
+blinking before it rises (`$DA1A`) and Samus appearing at the start (`SamusIntro`). On the skipped frames
+the same sprite frame is drawn again (`DrawFrame` without `UpdateObjAnim`), so animations keep their pace.
+The 2D picture also shows every sprite on a line instead of the NES's 8 (the 3D view never had that limit).
+Samus still blinks while she can't be hurt, since that tells the player something.
+
+With it off the game is the original; the lockstep tool's `--solo` plays the port alone and counts the
+frames Samus wasn't drawn (with `--no-flicker`, only in doors).
 
 ## Who drew a sprite
 
