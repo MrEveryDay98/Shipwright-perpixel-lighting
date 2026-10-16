@@ -93,6 +93,12 @@ need missiles until opened), elevators (arrows) and a dot for each power-up not 
 square. Game → Map has switches for both, and for showing the screens not visited yet (in blue, like after a
 map station). The map is kept in saved games.
 
+## Editor
+
+`metroid64/editor/index.html` is a mod editor that runs in the browser: open your `metroid.o2r`, move enemies and
+power-ups, add save points, import Fast64 models as props or room models, and export a mod. See
+[metroid64/editor/README.md](metroid64/editor/README.md).
+
 ## Menu (F1)
 
 - **Game**: Open ROM, Reset (power cycle), Freeze game, Save game, Load saved game, "After dying, go back to the save", the map's switches, Quit.
